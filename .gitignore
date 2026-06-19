@@ -1,0 +1,97 @@
+# Environment and credentials
+.env
+.env.*
+!.env.example
+auth.json
+oauth*.json
+credentials*.json
+*credentials*
+*secret*
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+id_rsa
+id_dsa
+id_ecdsa
+id_ed25519
+
+# Laravel runtime files
+/bootstrap/cache/*
+!/bootstrap/cache/.gitignore
+/storage/*.key
+/storage/app/*
+!/storage/app/.gitignore
+!/storage/app/public/
+/storage/app/public/*
+!/storage/app/public/.gitignore
+!/storage/app/private/
+/storage/app/private/*
+!/storage/app/private/.gitignore
+/storage/debugbar/
+/storage/framework/*
+!/storage/framework/.gitignore
+!/storage/framework/cache/
+/storage/framework/cache/*
+!/storage/framework/cache/.gitignore
+!/storage/framework/cache/data/
+/storage/framework/cache/data/*
+!/storage/framework/cache/data/.gitignore
+!/storage/framework/sessions/
+/storage/framework/sessions/*
+!/storage/framework/sessions/.gitignore
+!/storage/framework/testing/
+/storage/framework/testing/*
+!/storage/framework/testing/.gitignore
+!/storage/framework/views/
+/storage/framework/views/*
+!/storage/framework/views/.gitignore
+/storage/logs/*
+!/storage/logs/.gitignore
+
+# Dependencies
+/vendor/
+/node_modules/
+
+# Frontend build output
+/public/build/
+/public/hot
+
+# Test and coverage output
+/coverage/
+/.phpunit.cache/
+/.pest/
+/tests/Browser/screenshots/
+/tests/Browser/console/
+
+# Local databases and generated data
+*.sqlite
+*.sqlite3
+*.db
+database/*.sqlite
+database/*.sqlite3
+
+# IDE, editor, and OS files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.swo
+*.sublime-project
+*.sublime-workspace
+
+# Local tool/cache folders
+.commandcode/
+.hallmark/
+.vite/
+.cache/
+tokens.css
+
+# Logs and temporary files
+*.log
+*.tmp
+*.temp
+*.bak
+*.backup
