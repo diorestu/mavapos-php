@@ -10,15 +10,32 @@ use Illuminate\View\View;
 
 class ProductCategoryController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', 'string', Rule::in(['aktif', 'nonaktif'])],
+        ]);
+        $search = trim((string) ($filters['search'] ?? ''));
+
         return view('pages.product-categories.index', [
             'title' => 'Kategori Produk',
             'categories' => ProductCategory::query()
+                ->when($search !== '', function ($query) use ($search): void {
+                    $query->where(function ($nested) use ($search): void {
+                        $nested->where('name', 'like', "%{$search}%")
+                            ->orWhere('code', 'like', "%{$search}%");
+                    });
+                })
+                ->when($filters['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
                 ->orderBy('name')
                 ->get()
                 ->map(fn (ProductCategory $category): array => $this->categoryPayload($category))
                 ->values(),
+            'filters' => [
+                'search' => $search,
+                'status' => $filters['status'] ?? '',
+            ],
         ]);
     }
 

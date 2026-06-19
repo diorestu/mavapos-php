@@ -2,18 +2,24 @@
 
 namespace App\View\Components\header;
 
+use App\Services\ActivityNotificationService;
 use Closure;
 use Illuminate\Contracts\View\View;
 use Illuminate\View\Component;
 
 class NotificationDropdown extends Component
 {
-    /**
-     * Create a new component instance.
-     */
-    public function __construct()
+    public array $activities;
+
+    public int $attentionCount;
+
+    public function __construct(ActivityNotificationService $notifications)
     {
-        //
+        $user = auth()->user();
+        $activities = $user ? $notifications->allForUser($user, 12) : collect();
+
+        $this->activities = $activities->all();
+        $this->attentionCount = $user ? $notifications->unreadCountForUser($user) : 0;
     }
 
     /**

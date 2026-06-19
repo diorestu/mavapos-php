@@ -233,7 +233,7 @@
                             </div>
                             <label class="flex items-center justify-between gap-3 text-xs">
                                 <span class="text-gray-500 dark:text-gray-400">Diskon</span>
-                                <input type="number" min="0" x-model.number="discount" placeholder="0"
+                                <input type="text" inputmode="numeric" autocomplete="off" :value="formatInputNumber(discount)" @input="onMoneyInput('discount', $event)" placeholder="0"
                                     class="h-8 w-28 rounded-lg border border-gray-300 bg-transparent px-2.5 text-right text-xs tabular-nums text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                             </label>
                             <div class="flex items-center justify-between border-t border-gray-100 pt-2 dark:border-gray-800">
@@ -263,7 +263,7 @@
                         <div x-show="paymentMethod === 'cash'" class="mt-2.5 space-y-1.5">
                             <label class="block">
                                 <span class="mb-1 block text-[11px] font-medium text-gray-600 dark:text-gray-400">Uang diterima</span>
-                                <input type="number" min="0" x-model="paidAmount" placeholder="0"
+                                <input type="text" inputmode="numeric" autocomplete="off" :value="formatInputNumber(paidAmount)" @input="onMoneyInput('paidAmount', $event)" placeholder="0"
                                     class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-2.5 text-right text-sm tabular-nums text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                             </label>
                             <div class="flex items-center justify-between">
@@ -349,6 +349,77 @@
                     </button>
                     <button type="button" @click="closeModal = false" class="inline-flex h-10 items-center justify-center rounded-lg border border-gray-200 px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.04]">
                         Batal
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div x-cloak x-show="receiptModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/50 p-4">
+            <div @click.outside="closeReceiptModal()" class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
+                <div class="flex items-start gap-3">
+                    <div class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-400">
+                        <svg class="h-5 w-5" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M6.25 10.4167L8.75 12.9167L13.75 7.08333" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" />
+                            <path d="M18 10A8 8 0 1 1 2 10A8 8 0 0 1 18 10Z" stroke="currentColor" stroke-width="1.6" />
+                        </svg>
+                    </div>
+                    <div class="min-w-0">
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-white">Pembayaran selesai</h2>
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                            Transaksi <span class="font-semibold text-gray-800 dark:text-white/90" x-text="lastReceipt?.invoice_number"></span> berhasil dibuat. Cetak nota sekarang?
+                        </p>
+                    </div>
+                </div>
+
+                <div class="mt-4 rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-white/[0.04]">
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <div>
+                            <p class="text-[10px] font-medium uppercase text-gray-400">Kasir</p>
+                            <p class="mt-1 truncate font-semibold text-gray-800 dark:text-white/90" x-text="lastReceipt?.cashier || '-'"></p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-medium uppercase text-gray-400">Pembayaran</p>
+                            <p class="mt-1 font-semibold text-gray-800 dark:text-white/90" x-text="paymentLabel(lastReceipt?.payment_method)"></p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-medium uppercase text-gray-400">Total</p>
+                            <p class="mt-1 font-semibold tabular-nums text-gray-900 dark:text-white" x-text="formatRupiah(lastReceipt?.total || 0)"></p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] font-medium uppercase text-gray-400">Kembalian</p>
+                            <p class="mt-1 font-semibold tabular-nums text-success-700 dark:text-success-400" x-text="formatRupiah(lastReceipt?.change_amount || 0)"></p>
+                        </div>
+                    </div>
+
+                    <div class="mt-3 max-h-40 space-y-1.5 overflow-y-auto custom-scrollbar">
+                        <template x-for="item in lastReceipt?.items || []" :key="`${lastReceipt?.invoice_number}-${item.sku}-${item.name}`">
+                            <div class="flex items-start justify-between gap-3 rounded-lg bg-white px-2.5 py-2 text-xs dark:bg-gray-950/50">
+                                <div class="min-w-0">
+                                    <p class="truncate font-semibold text-gray-800 dark:text-white/90" x-text="item.name"></p>
+                                    <p class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">
+                                        <span x-text="item.quantity"></span>
+                                        <span>x</span>
+                                        <span x-text="formatRupiah(item.unit_price)"></span>
+                                    </p>
+                                </div>
+                                <p class="shrink-0 font-semibold tabular-nums text-gray-900 dark:text-white" x-text="formatRupiah(item.line_total)"></p>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+
+                <div class="mt-5 grid gap-2 sm:grid-cols-2">
+                    <button type="button" @click="printReceipt()"
+                        class="inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30">
+                        <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M5 7V3.75C5 3.33579 5.33579 3 5.75 3H14.25C14.6642 3 15 3.33579 15 3.75V7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                            <path d="M5.83337 14.1667H4.16671C3.24623 14.1667 2.50004 13.4205 2.50004 12.5V8.33333C2.50004 7.41286 3.24623 6.66667 4.16671 6.66667H15.8334C16.7538 6.66667 17.5 7.41286 17.5 8.33333V12.5C17.5 13.4205 16.7538 14.1667 15.8334 14.1667H14.1667" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                            <path d="M6.66663 11.6667H13.3333V17H6.66663V11.6667Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+                        </svg>
+                        Print Nota
+                    </button>
+                    <button type="button" @click="closeReceiptModal()" class="inline-flex h-10 items-center justify-center rounded-lg border border-gray-200 px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.04]">
+                        Lewati
                     </button>
                 </div>
             </div>

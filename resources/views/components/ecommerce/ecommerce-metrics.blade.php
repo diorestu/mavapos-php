@@ -1,12 +1,3 @@
-@php
-    $stats = [
-        ['label' => 'Total Produk', 'value' => '5', 'note' => 'Aktif di katalog', 'tone' => 'text-brand-500 bg-brand-50 dark:bg-brand-500/15'],
-        ['label' => 'Penjualan Hari Ini', 'value' => '42', 'note' => 'Transaksi selesai', 'tone' => 'text-success-600 bg-success-50 dark:bg-success-500/15'],
-        ['label' => 'Pendapatan Bulan Ini', 'value' => 'Rp18,4 jt', 'note' => 'Omzet berjalan', 'tone' => 'text-warning-700 bg-warning-50 dark:bg-warning-500/15'],
-        ['label' => 'Stok Menipis', 'value' => '3', 'note' => 'Perlu restok', 'tone' => 'text-error-600 bg-error-50 dark:bg-error-500/15'],
-    ];
-@endphp
-
 <section>
     <div class="mb-3">
         <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Ringkasan Toko</h2>

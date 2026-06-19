@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Billing;
-use App\Models\Customer;
+use App\Models\StoreSetting;
 use App\Services\PakasirClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -17,31 +17,82 @@ use Throwable;
 
 class BillingController extends Controller
 {
+    private const PLANS = [
+        'basic' => [
+            'name' => 'Basic Plan',
+            'monthly_amount' => 149000,
+            'rank' => 1,
+            'description' => 'Fitur basic untuk operasional toko harian.',
+        ],
+        'plus' => [
+            'name' => 'Plus Plan',
+            'monthly_amount' => 249000,
+            'rank' => 2,
+            'description' => 'Full-feature untuk bisnis yang butuh seluruh modul.',
+        ],
+    ];
+
+    private const BILLING_CYCLES = [
+        'monthly' => [
+            'label' => 'Bulanan',
+            'months' => 1,
+        ],
+        'yearly' => [
+            'label' => 'Tahunan',
+            'months' => 12,
+        ],
+    ];
+
     public function __construct(private readonly PakasirClient $pakasir)
     {
     }
 
     public function index(): View
     {
+        $setting = StoreSetting::current();
+        $currentSubscription = $this->currentSubscription();
+        $currentPlanRank = $currentSubscription['plan_slug']
+            ? (self::PLANS[$currentSubscription['plan_slug']]['rank'] ?? null)
+            : null;
+
         return view('pages.billing.index', [
             'title' => 'Billing',
             'pakasirConfigured' => $this->pakasir->isConfigured(),
+            'plans' => collect(self::PLANS)
+                ->map(function (array $plan, string $slug) use ($currentSubscription, $currentPlanRank): array {
+                    $yearlyBaseAmount = $plan['monthly_amount'] * self::BILLING_CYCLES['yearly']['months'];
+                    $yearlyAmount = $this->planAmount($slug, 'yearly');
+
+                    return [
+                        ...$plan,
+                        'slug' => $slug,
+                        'monthly_amount_formatted' => $this->formatRupiah($plan['monthly_amount']),
+                        'yearly_base_amount' => $yearlyBaseAmount,
+                        'yearly_base_amount_formatted' => $this->formatRupiah($yearlyBaseAmount),
+                        'yearly_amount' => $yearlyAmount,
+                        'yearly_amount_formatted' => $this->formatRupiah($yearlyAmount),
+                        'change_label' => $this->planChangeLabel($plan['rank'], $currentPlanRank, $currentSubscription['active']),
+                    ];
+                })
+                ->values(),
+            'cycles' => collect(self::BILLING_CYCLES)
+                ->map(fn (array $cycle, string $slug): array => [
+                    ...$cycle,
+                    'slug' => $slug,
+                ])
+                ->values(),
+            'account' => [
+                'name' => $setting->store_name ?: auth()->user()?->name,
+                'owner' => $setting->owner_name ?: auth()->user()?->name,
+                'phone' => $setting->whatsapp ?: $setting->phone,
+                'email' => $setting->email ?: auth()->user()?->email,
+            ],
+            'currentSubscription' => $currentSubscription,
             'billings' => Billing::query()
                 ->with('customer')
                 ->latest()
                 ->get()
                 ->map(fn (Billing $billing): array => $this->payload($billing))
-                ->values(),
-            'customers' => Customer::query()
-                ->where('status', 'aktif')
-                ->orderBy('name')
-                ->get(['id', 'code', 'name', 'phone'])
-                ->map(fn (Customer $customer): array => [
-                    'id' => $customer->id,
-                    'name' => $customer->name,
-                    'code' => $customer->code,
-                    'phone' => $customer->phone ?? '',
-                ])
                 ->values(),
         ]);
     }
@@ -49,12 +100,8 @@ class BillingController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'customer_id' => ['nullable', 'integer', Rule::exists('customers', 'id')],
-            'customer_name' => ['required_without:customer_id', 'nullable', 'string', 'max:150'],
-            'customer_phone' => ['nullable', 'string', 'max:30'],
-            'title' => ['required', 'string', 'max:150'],
-            'description' => ['nullable', 'string', 'max:500'],
-            'amount' => ['required', 'integer', 'min:1000'],
+            'plan_slug' => ['required', Rule::in(array_keys(self::PLANS))],
+            'billing_cycle' => ['required', Rule::in(array_keys(self::BILLING_CYCLES))],
         ]);
 
         if (! $this->pakasir->isConfigured()) {
@@ -63,21 +110,40 @@ class BillingController extends Controller
                 ->withErrors(['pakasir' => 'Konfigurasi Pakasir belum lengkap. Isi PAKASIR_PROJECT dan PAKASIR_API_KEY di .env.']);
         }
 
-        $customer = isset($validated['customer_id'])
-            ? Customer::query()->find($validated['customer_id'])
-            : null;
+        $setting = StoreSetting::current();
+        $plan = self::PLANS[$validated['plan_slug']];
+        $cycle = self::BILLING_CYCLES[$validated['billing_cycle']];
+        $amount = $this->planAmount($validated['plan_slug'], $validated['billing_cycle']);
+        $accountName = $setting->store_name ?: $request->user()->name;
+        $accountPhone = $setting->whatsapp ?: $setting->phone;
 
         try {
-            DB::transaction(function () use ($validated, $customer): void {
+            DB::transaction(function () use ($validated, $plan, $cycle, $amount, $accountName, $accountPhone): void {
+                $periodStartsAt = now();
+                $periodEndsAt = $periodStartsAt->copy()->addMonthsNoOverflow($cycle['months']);
+
                 $billing = Billing::query()->create([
                     'invoice_number' => $this->nextInvoiceNumber(),
-                    'customer_id' => $customer?->id,
-                    'customer_name' => $customer?->name ?? $validated['customer_name'],
-                    'customer_phone' => $customer?->phone ?? ($validated['customer_phone'] ?? null),
-                    'title' => $validated['title'],
-                    'description' => $validated['description'] ?? null,
-                    'amount' => (int) $validated['amount'],
+                    'customer_id' => null,
+                    'customer_name' => $accountName,
+                    'customer_phone' => $accountPhone,
+                    'title' => $plan['name'].' - '.$cycle['label'],
+                    'description' => $plan['description'].' Ditagihkan '.$this->cycleSentence($validated['billing_cycle']).'.',
+                    'amount' => $amount,
                     'payment_status' => 'pending',
+                    'provider_payload' => [
+                        'subscription' => [
+                            'plan_slug' => $validated['plan_slug'],
+                            'plan_name' => $plan['name'],
+                            'billing_cycle' => $validated['billing_cycle'],
+                            'billing_cycle_label' => $cycle['label'],
+                            'months' => $cycle['months'],
+                            'monthly_amount' => $plan['monthly_amount'],
+                            'yearly_discount_percent' => $validated['billing_cycle'] === 'yearly' ? 10 : 0,
+                            'period_starts_at' => $periodStartsAt->toDateString(),
+                            'period_ends_at' => $periodEndsAt->toDateString(),
+                        ],
+                    ],
                 ]);
 
                 $response = $this->pakasir->createQrisPayment($billing->invoice_number, $billing->amount);
@@ -89,7 +155,10 @@ class BillingController extends Controller
                     'payment_number' => Arr::get($payment, 'payment_number'),
                     'expires_at' => $this->parseDate(Arr::get($payment, 'expired_at')),
                     'payment_url' => $this->paymentUrl($billing),
-                    'provider_payload' => ['create' => $response],
+                    'provider_payload' => [
+                        ...($billing->provider_payload ?? []),
+                        'create' => $response,
+                    ],
                 ]);
             });
         } catch (Throwable $exception) {
@@ -100,7 +169,7 @@ class BillingController extends Controller
                 ->withErrors(['pakasir' => 'Gagal membuat pembayaran QRIS Pakasir: '.$exception->getMessage()]);
         }
 
-        return redirect()->route('billings')->with('success', 'Tagihan QRIS berhasil dibuat.');
+        return redirect()->route('billings')->with('success', 'Tagihan langganan QRIS berhasil dibuat.');
     }
 
     public function refresh(Billing $billing): RedirectResponse
@@ -108,14 +177,17 @@ class BillingController extends Controller
         try {
             $response = $this->pakasir->detailPayment($billing->invoice_number, $billing->amount);
             $transaction = $response['transaction'] ?? $response['data'] ?? $response;
+            $status = $this->normalizePaymentStatus((string) Arr::get($transaction, 'status', $billing->payment_status));
 
             $billing->update([
-                'payment_status' => Arr::get($transaction, 'status', $billing->payment_status),
+                'payment_status' => $status,
                 'fee' => Arr::get($transaction, 'fee', $billing->fee),
                 'total_payment' => Arr::get($transaction, 'total_payment', $billing->total_payment),
                 'payment_number' => Arr::get($transaction, 'payment_number', $billing->payment_number),
                 'expires_at' => $this->parseDate(Arr::get($transaction, 'expired_at')) ?? $billing->expires_at,
-                'paid_at' => Arr::get($transaction, 'completed_at') ? $this->parseDate(Arr::get($transaction, 'completed_at')) : $billing->paid_at,
+                'paid_at' => $this->isSuccessfulPayment($status, [], $transaction)
+                    ? ($this->parseDate($this->successfulPaymentDate([], $transaction)) ?? now())
+                    : $billing->paid_at,
                 'provider_payload' => [
                     ...($billing->provider_payload ?? []),
                     'detail' => $response,
@@ -150,7 +222,7 @@ class BillingController extends Controller
         try {
             $detail = $this->pakasir->detailPayment($billing->invoice_number, $billing->amount);
             $transaction = $detail['transaction'] ?? $detail['data'] ?? $detail;
-            $status = (string) ($transaction['status'] ?? $payload['status'] ?? 'pending');
+            $status = $this->normalizePaymentStatus((string) ($transaction['status'] ?? $payload['status'] ?? 'pending'));
 
             $billing->update([
                 'payment_status' => $status,
@@ -164,8 +236,8 @@ class BillingController extends Controller
                 ],
             ]);
 
-            if ($status === 'completed') {
-                $billing->markPaid($payload['completed_at'] ?? Arr::get($transaction, 'completed_at'), $payload);
+            if ($this->isSuccessfulPayment($status, $payload, $transaction)) {
+                $billing->markPaid($this->successfulPaymentDate($payload, $transaction), $payload);
             }
         } catch (Throwable $exception) {
             report($exception);
@@ -173,7 +245,14 @@ class BillingController extends Controller
             return response()->json(['message' => 'Webhook verification failed.'], 422);
         }
 
-        return response()->json(['status' => 'ok']);
+        $billing->refresh();
+
+        return response()->json([
+            'status' => 'ok',
+            'invoice_number' => $billing->invoice_number,
+            'payment_status' => $billing->payment_status,
+            'paid_at' => $billing->paid_at?->toISOString(),
+        ]);
     }
 
     private function payload(Billing $billing): array
@@ -185,6 +264,11 @@ class BillingController extends Controller
             'customerPhone' => $billing->customer_phone ?? '',
             'title' => $billing->title,
             'description' => $billing->description ?? '',
+            'planName' => Arr::get($billing->provider_payload, 'subscription.plan_name'),
+            'billingCycleLabel' => Arr::get($billing->provider_payload, 'subscription.billing_cycle_label'),
+            'periodStartsAt' => Arr::get($billing->provider_payload, 'subscription.period_starts_at'),
+            'periodEndsAt' => Arr::get($billing->provider_payload, 'subscription.period_ends_at'),
+            'yearlyDiscountPercent' => Arr::get($billing->provider_payload, 'subscription.yearly_discount_percent', 0),
             'amount' => $billing->amount,
             'amountFormatted' => $this->formatRupiah($billing->amount),
             'totalPaymentFormatted' => $this->formatRupiah($billing->total_payment ?? $billing->amount),
@@ -207,6 +291,113 @@ class BillingController extends Controller
     private function paymentUrl(Billing $billing): string
     {
         return 'https://app.pakasir.com/pay/'.config('services.pakasir.project').'/'.$billing->amount.'?order_id='.$billing->invoice_number.'&qris_only=1';
+    }
+
+    private function currentSubscription(): array
+    {
+        $billing = Billing::query()
+            ->whereIn('payment_status', ['completed', 'paid'])
+            ->whereNotNull('paid_at')
+            ->latest('paid_at')
+            ->get()
+            ->first(fn (Billing $billing): bool => Arr::has($billing->provider_payload ?? [], 'subscription.plan_slug'));
+
+        if (! $billing) {
+            return [
+                'active' => false,
+                'status_label' => 'Belum aktif',
+                'plan_slug' => null,
+                'billing_cycle' => null,
+                'plan_name' => '-',
+                'billing_cycle_label' => '-',
+                'period_starts_at' => null,
+                'period_ends_at' => null,
+                'paid_at' => null,
+                'invoice_number' => null,
+            ];
+        }
+
+        $periodEndsAt = Arr::get($billing->provider_payload, 'subscription.period_ends_at');
+        $active = $periodEndsAt ? Carbon::parse($periodEndsAt)->endOfDay()->isFuture() : true;
+
+        return [
+            'active' => $active,
+            'status_label' => $active ? 'Aktif' : 'Berakhir',
+            'plan_slug' => Arr::get($billing->provider_payload, 'subscription.plan_slug'),
+            'billing_cycle' => Arr::get($billing->provider_payload, 'subscription.billing_cycle'),
+            'plan_name' => Arr::get($billing->provider_payload, 'subscription.plan_name', $billing->title),
+            'billing_cycle_label' => Arr::get($billing->provider_payload, 'subscription.billing_cycle_label', '-'),
+            'period_starts_at' => Arr::get($billing->provider_payload, 'subscription.period_starts_at'),
+            'period_ends_at' => $periodEndsAt,
+            'paid_at' => $billing->paid_at?->format('d M Y H:i'),
+            'invoice_number' => $billing->invoice_number,
+        ];
+    }
+
+    private function planAmount(string $planSlug, string $billingCycle): int
+    {
+        $plan = self::PLANS[$planSlug];
+        $cycle = self::BILLING_CYCLES[$billingCycle];
+        $baseAmount = $plan['monthly_amount'] * $cycle['months'];
+
+        if ($billingCycle === 'yearly') {
+            return (int) round($baseAmount * 0.9);
+        }
+
+        return $baseAmount;
+    }
+
+    private function planChangeLabel(int $planRank, ?int $currentPlanRank, bool $subscriptionActive): string
+    {
+        if (! $subscriptionActive || $currentPlanRank === null) {
+            return 'Pilih Paket';
+        }
+
+        return match (true) {
+            $planRank > $currentPlanRank => 'Upgrade',
+            $planRank < $currentPlanRank => 'Downgrade',
+            default => 'Plan Saat Ini',
+        };
+    }
+
+    private function cycleSentence(string $cycle): string
+    {
+        return [
+            'monthly' => 'bulanan',
+            'yearly' => 'tahunan',
+        ][$cycle] ?? $cycle;
+    }
+
+    private function normalizePaymentStatus(string $status): string
+    {
+        return match (strtolower($status)) {
+            'paid', 'success', 'succeeded', 'settlement' => 'completed',
+            default => strtolower($status),
+        };
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $transaction
+     */
+    private function isSuccessfulPayment(string $status, array $payload, array $transaction): bool
+    {
+        return $status === 'completed'
+            || filled($payload['completed_at'] ?? null)
+            || filled(Arr::get($transaction, 'completed_at'));
+    }
+
+    /**
+     * @param  array<string, mixed>  $payload
+     * @param  array<string, mixed>  $transaction
+     */
+    private function successfulPaymentDate(array $payload, array $transaction): ?string
+    {
+        return $payload['completed_at']
+            ?? Arr::get($transaction, 'completed_at')
+            ?? Arr::get($transaction, 'paid_at')
+            ?? $payload['paid_at']
+            ?? null;
     }
 
     private function parseDate(?string $value): ?Carbon

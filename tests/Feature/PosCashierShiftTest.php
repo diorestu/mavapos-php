@@ -53,6 +53,8 @@ test('kasir wajib mulai shift sebelum checkout dan report menampilkan pendapatan
         ->assertOk()
         ->assertJsonPath('sale.total', 18000)
         ->assertJsonPath('sale.change_amount', 2000)
+        ->assertJsonPath('sale.items.0.name', 'Kopi Susu Aren 250ml')
+        ->assertJsonPath('sale.items.0.quantity', 1)
         ->assertJsonPath('shift.salesCount', 1)
         ->assertJsonPath('shift.netSales', 18000);
 

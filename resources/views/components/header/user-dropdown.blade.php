@@ -17,15 +17,15 @@
         @click.prevent="toggleDropdown()"
         type="button"
     >
-        <span class="mr-3 overflow-hidden rounded-full h-11 w-11">
+        <span class="mr-2.5 h-[38px] w-[38px] overflow-hidden rounded-full">
             <img src="/images/user/owner.png" alt="Pengguna" />
         </span>
 
-       <span class="block mr-1 font-medium text-theme-sm">{{ $currentUser?->name ?? 'Pengguna' }}</span>
+       <span class="block mr-1 text-[13px] font-medium">{{ $currentUser?->name ?? 'Pengguna' }}</span>
 
         <!-- Chevron Icon -->
         <svg
-            class="w-5 h-5 transition-transform duration-200"
+            class="h-[17px] w-[17px] transition-transform duration-200"
             :class="{ 'rotate-180': dropdownOpen }"
             fill="none"
             stroke="currentColor"

@@ -6,80 +6,20 @@ class MenuHelper
 {
     public static function getMainNavItems()
     {
+        return collect(self::getStandaloneNavItems())
+            ->merge(collect(self::getMenuGroups())
+                ->flatMap(fn (array $group): array => $group['items'])
+                ->values())
+            ->all();
+    }
+
+    public static function getStandaloneNavItems(): array
+    {
         return [
             [
                 'icon' => 'dashboard',
                 'name' => 'Dashboard',
                 'path' => '/',
-            ],
-            [
-                'icon' => 'pos',
-                'name' => 'Kasir',
-                'path' => '/pos',
-            ],
-            [
-                'icon' => 'cashier-shifts',
-                'name' => 'Shift Kasir',
-                'path' => '/cashier-shifts',
-            ],
-            [
-                'icon' => 'ecommerce',
-                'name' => 'Produk',
-                'subItems' => [
-                    [
-                        'name' => 'Daftar Produk',
-                        'path' => '/products',
-                    ],
-                    [
-                        'name' => 'Resep',
-                        'path' => '/product-recipes',
-                    ],
-                ],
-            ],
-            [
-                'icon' => 'tables',
-                'name' => 'Kategori Produk',
-                'path' => '/product-categories',
-            ],
-            [
-                'icon' => 'sales',
-                'name' => 'Penjualan',
-                'path' => '/sales',
-            ],
-            [
-                'icon' => 'inventory',
-                'name' => 'Inventory',
-                'path' => '/raw-materials',
-            ],
-            [
-                'icon' => 'inventory',
-                'name' => 'Stok',
-                'path' => '/inventory',
-            ],
-            [
-                'icon' => 'expenses',
-                'name' => 'Pengeluaran',
-                'path' => '/expenses',
-            ],
-            [
-                'icon' => 'customers',
-                'name' => 'Pelanggan',
-                'path' => '/customers',
-            ],
-            [
-                'icon' => 'suppliers',
-                'name' => 'Supplier',
-                'path' => '/suppliers',
-            ],
-            [
-                'icon' => 'reports',
-                'name' => 'Laporan',
-                'path' => '/reports',
-            ],
-            [
-                'icon' => 'settings',
-                'name' => 'Pengaturan',
-                'path' => '/settings',
             ],
         ];
     }
@@ -88,8 +28,107 @@ class MenuHelper
     {
         return [
             [
-                'title' => 'Menu',
-                'items' => self::getMainNavItems()
+                'title' => 'Operasional',
+                'items' => [
+                    [
+                        'icon' => 'pos',
+                        'name' => 'Kasir',
+                        'path' => '/pos',
+                    ],
+                    [
+                        'icon' => 'cashier-shifts',
+                        'name' => 'Shift Kasir',
+                        'path' => '/cashier-shifts',
+                    ],
+                    [
+                        'icon' => 'sales',
+                        'name' => 'Penjualan',
+                        'path' => '/sales',
+                    ],
+                ],
+            ],
+            [
+                'title' => 'Katalog',
+                'items' => [
+                    [
+                        'icon' => 'ecommerce',
+                        'name' => 'Produk',
+                        'subItems' => [
+                            [
+                                'name' => 'Daftar Produk',
+                                'path' => '/products',
+                            ],
+                            [
+                                'name' => 'Resep',
+                                'path' => '/product-recipes',
+                            ],
+                            [
+                                'name' => 'Kategori Produk',
+                                'path' => '/product-categories',
+                            ],
+                        ],
+                    ],
+                    [
+                        'icon' => 'inventory',
+                        'name' => 'Bahan Baku',
+                        'path' => '/raw-materials',
+                    ],
+                    [
+                        'icon' => 'inventory',
+                        'name' => 'Stok',
+                        'path' => '/inventory',
+                    ],
+                ],
+            ],
+            [
+                'title' => 'Relasi',
+                'items' => [
+                    [
+                        'icon' => 'customers',
+                        'name' => 'Pelanggan',
+                        'path' => '/customers',
+                    ],
+                    [
+                        'icon' => 'suppliers',
+                        'name' => 'Supplier',
+                        'path' => '/suppliers',
+                    ],
+                ],
+            ],
+            [
+                'title' => 'Keuangan',
+                'items' => [
+                    [
+                        'icon' => 'expenses',
+                        'name' => 'Pengeluaran',
+                        'path' => '/expenses',
+                    ],
+                ],
+            ],
+            [
+                'title' => 'Laporan',
+                'items' => [
+                    [
+                        'icon' => 'reports',
+                        'name' => 'Laporan',
+                        'path' => '/reports',
+                    ],
+                ],
+            ],
+            [
+                'title' => 'Sistem',
+                'items' => [
+                    [
+                        'icon' => 'settings',
+                        'name' => 'Pengaturan',
+                        'path' => '/settings',
+                    ],
+                    [
+                        'icon' => 'reports',
+                        'name' => 'Test Printing',
+                        'path' => '/print-test',
+                    ],
+                ],
             ],
         ];
     }

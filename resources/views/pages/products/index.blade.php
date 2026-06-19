@@ -2,7 +2,7 @@
 
 @section('content')
     {{-- Hallmark · component: product table/filter · genre: utilitarian · theme: existing TailAdmin tokens · density: compact --}}
-    <div x-data="productManager(@js($products), @js($categories))" class="space-y-4">
+    <div x-data="productManager(@js($products), @js($categories), @js($filters))" class="space-y-4">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <nav aria-label="Breadcrumb">
@@ -40,7 +40,7 @@
         </div>
 
         <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-            <div class="flex flex-col gap-3 border-b border-gray-100 px-3 py-3 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+            <form method="GET" action="{{ route('products') }}" class="flex flex-col gap-3 border-b border-gray-100 px-3 py-3 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between sm:px-4">
                 <div class="relative w-full sm:max-w-[30%]">
                     <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                         <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -50,8 +50,8 @@
                                 stroke-linecap="round" />
                         </svg>
                     </span>
-                    <input id="product_search" type="text" placeholder="Cari produk atau SKU"
-                        x-model.debounce.300ms="filters.search" @input="currentPage = 1"
+                    <input id="product_search" name="search" type="search" placeholder="Cari produk atau SKU"
+                        value="{{ $filters['search'] }}" x-model.debounce.300ms="filters.search" @input="currentPage = 1"
                         class="h-9 w-full rounded-lg border border-gray-300 bg-transparent py-2 pl-9 pr-3 text-xs text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800" />
                 </div>
 
@@ -61,10 +61,10 @@
                     </div>
 
                     <div x-data="{ isOptionSelected: false }" class="relative w-40">
-                        <select id="product_category" x-model="filters.category"
+                        <select id="product_category" name="category" x-model="filters.category"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-3 py-2 pr-9 text-xs text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
                             :class="isOptionSelected && 'text-gray-800 dark:text-white/90'"
-                            @change="isOptionSelected = true; currentPage = 1">
+                            @change="isOptionSelected = true; currentPage = 1; $el.form.submit()">
                             <option value="" class="text-gray-700 dark:bg-gray-900 dark:text-gray-400">Semua Kategori</option>
                             <template x-for="category in categoryOptions" :key="category.code">
                                 <option :value="category.code" class="text-gray-700 dark:bg-gray-900 dark:text-gray-400" x-text="category.name"></option>
@@ -79,10 +79,10 @@
                     </div>
 
                     <div x-data="{ isOptionSelected: false }" class="relative w-36">
-                        <select id="product_status" x-model="filters.status"
+                        <select id="product_status" name="status" x-model="filters.status"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-3 py-2 pr-9 text-xs text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
                             :class="isOptionSelected && 'text-gray-800 dark:text-white/90'"
-                            @change="isOptionSelected = true; currentPage = 1">
+                            @change="isOptionSelected = true; currentPage = 1; $el.form.submit()">
                             <option value="" class="text-gray-700 dark:bg-gray-900 dark:text-gray-400">Semua Status</option>
                             <option value="aktif" class="text-gray-700 dark:bg-gray-900 dark:text-gray-400">Aktif</option>
                             <option value="stok-menipis" class="text-gray-700 dark:bg-gray-900 dark:text-gray-400">Stok Menipis</option>
@@ -96,7 +96,7 @@
                         </span>
                     </div>
                 </div>
-            </div>
+            </form>
 
             <div class="max-w-full overflow-x-auto custom-scrollbar">
                 <table class="w-full min-w-[860px]">

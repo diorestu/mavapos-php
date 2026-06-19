@@ -3,14 +3,17 @@ export const initChartThree = () => {
     const chartElement = document.querySelector('#chartThree');
 
     if (chartElement) {
+        const labels = JSON.parse(chartElement.dataset.chartLabels || '[]');
+        const revenue = JSON.parse(chartElement.dataset.chartRevenue || '[]');
+        const profit = JSON.parse(chartElement.dataset.chartProfit || '[]');
         const chartThreeOptions = {
             series: [{
                 name: "Omzet",
-                data: [12, 14, 13, 16, 15, 18, 19, 21, 23, 24, 26, 28],
+                data: revenue,
             },
             {
                 name: "Laba Kotor",
-                data: [4, 5, 4, 6, 5, 7, 8, 8, 9, 10, 11, 12],
+                data: profit,
             },
             ],
             legend: {
@@ -66,26 +69,17 @@ export const initChartThree = () => {
                 },
                 y: {
                     formatter: function (val) {
-                        return `Rp${val} jt`;
+                        return new Intl.NumberFormat('id-ID', {
+                            style: 'currency',
+                            currency: 'IDR',
+                            maximumFractionDigits: 0,
+                        }).format(Number(val || 0)).replace(/\s/g, '');
                     },
                 },
             },
             xaxis: {
                 type: "category",
-                categories: [
-                    "Jan",
-                    "Feb",
-                    "Mar",
-                    "Apr",
-                    "May",
-                    "Jun",
-                    "Jul",
-                    "Aug",
-                    "Sep",
-                    "Oct",
-                    "Nov",
-                    "Dec",
-                ],
+                categories: labels,
                 axisBorder: {
                     show: false,
                 },

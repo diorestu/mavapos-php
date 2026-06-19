@@ -1,6 +1,7 @@
 
 @php
     use App\Helpers\MenuHelper;
+    $standaloneItems = MenuHelper::getStandaloneNavItems();
     $menuGroups = MenuHelper::getMenuGroups();
 
     // Get current path
@@ -77,11 +78,40 @@
     <!-- Navigation Menu -->
     <div class="flex flex-col overflow-y-auto duration-300 ease-linear no-scrollbar">
         <nav class="mb-6">
-            <div class="flex flex-col gap-4">
+            <div class="flex flex-col gap-3">
+                @if (!empty($standaloneItems))
+                    <ul class="flex flex-col gap-1">
+                        @foreach ($standaloneItems as $item)
+                            <li>
+                                <a href="{{ $item['path'] }}" class="menu-item group"
+                                    :class="[
+                                        isActive('{{ $item['path'] }}') ? 'menu-item-active' :
+                                        'menu-item-inactive',
+                                        (!$store.sidebar.isExpanded && !$store.sidebar.isHovered && !$store.sidebar.isMobileOpen) ?
+                                        'xl:justify-center' :
+                                        'justify-start'
+                                    ]">
+                                    <span
+                                        :class="isActive('{{ $item['path'] }}') ? 'menu-item-icon-active' :
+                                            'menu-item-icon-inactive'">
+                                        {!! MenuHelper::getIconSvg($item['icon']) !!}
+                                    </span>
+
+                                    <span
+                                        x-show="$store.sidebar.isExpanded || $store.sidebar.isHovered || $store.sidebar.isMobileOpen"
+                                        class="menu-item-text flex items-center gap-2">
+                                        {{ $item['name'] }}
+                                    </span>
+                                </a>
+                            </li>
+                        @endforeach
+                    </ul>
+                @endif
+
                 @foreach ($menuGroups as $groupIndex => $menuGroup)
                     <div>
                         <!-- Menu Group Title -->
-                        <h2 class="mb-4 text-xs uppercase flex leading-[20px] text-gray-400"
+                        <h2 class="mb-1.5 flex text-[7px] font-semibold uppercase leading-3 tracking-[0.14em] text-gray-400"
                             :class="(!$store.sidebar.isExpanded && !$store.sidebar.isHovered && !$store.sidebar.isMobileOpen) ?
                             'lg:justify-center' : 'justify-start'">
                             <template

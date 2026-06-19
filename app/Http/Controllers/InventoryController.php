@@ -7,17 +7,34 @@ use App\Models\StockMovement;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class InventoryController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', 'string', Rule::in(['aktif', 'stok-menipis', 'habis'])],
+        ]);
+        $search = trim((string) ($filters['search'] ?? ''));
+
         return view('pages.inventory.index', [
             'title' => 'Stok',
             'items' => Product::query()
                 ->with('category')
+                ->when($search !== '', function ($query) use ($search): void {
+                    $query->where(function ($nested) use ($search): void {
+                        $nested->where('name', 'like', "%{$search}%")
+                            ->orWhere('sku', 'like', "%{$search}%")
+                            ->orWhereHas('category', fn ($categoryQuery) => $categoryQuery
+                                ->where('name', 'like', "%{$search}%")
+                                ->orWhere('code', 'like', "%{$search}%"));
+                    });
+                })
+                ->when($filters['status'] ?? null, fn ($query, string $status) => $this->applyStockStatusFilter($query, $status))
                 ->orderBy('name')
                 ->get()
                 ->map(fn (Product $product): array => $this->payload($product))
@@ -30,6 +47,10 @@ class InventoryController extends Controller
                 ->get()
                 ->map(fn (StockMovement $movement): array => $this->movementPayload($movement))
                 ->values(),
+            'filters' => [
+                'search' => $search,
+                'status' => $filters['status'] ?? '',
+            ],
         ]);
     }
 
@@ -86,6 +107,23 @@ class InventoryController extends Controller
         }
 
         return 'Aktif';
+    }
+
+    private function applyStockStatusFilter($query, string $status): void
+    {
+        match ($status) {
+            'habis' => $query->where('stock', '<=', 0),
+            'stok-menipis' => $query
+                ->where('stock', '>', 0)
+                ->where('min_stock', '>', 0)
+                ->whereColumn('stock', '<=', 'min_stock'),
+            default => $query
+                ->where('stock', '>', 0)
+                ->where(function ($nested): void {
+                    $nested->where('min_stock', '<=', 0)
+                        ->orWhereColumn('stock', '>', 'min_stock');
+                }),
+        };
     }
 
     private function storeMovement(Request $request, string $sku, string $type): JsonResponse

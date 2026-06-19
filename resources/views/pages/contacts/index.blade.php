@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-    <div x-data="contactManager(@js($items), @js($routePath), @js($entityLabel), @js($entityName), @js($entityPlural))" class="space-y-4">
+    <div x-data="contactManager(@js($items), @js($routePath), @js($entityLabel), @js($entityName), @js($entityPlural), @js($filters))" class="space-y-4">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <nav aria-label="Breadcrumb">
@@ -39,7 +39,7 @@
         </div>
 
         <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
-            <div class="flex flex-col gap-3 border-b border-gray-100 px-3 py-3 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+            <form method="GET" action="{{ url($routePath) }}" class="flex flex-col gap-3 border-b border-gray-100 px-3 py-3 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between sm:px-4">
                 <div class="relative w-full sm:max-w-[30%]">
                     <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
                         <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -49,8 +49,8 @@
                                 stroke-linecap="round" />
                         </svg>
                     </span>
-                    <input type="text" :placeholder="`Cari ${entityPlural} atau kode`"
-                        x-model.debounce.300ms="filters.search" @input="currentPage = 1"
+                    <input name="search" type="search" :placeholder="`Cari ${entityPlural} atau kode`"
+                        value="{{ $filters['search'] }}" x-model.debounce.300ms="filters.search" @input="currentPage = 1"
                         class="h-9 w-full rounded-lg border border-gray-300 bg-transparent py-2 pl-9 pr-3 text-xs text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800" />
                 </div>
 
@@ -60,10 +60,10 @@
                     </div>
 
                     <div x-data="{ isOptionSelected: false }" class="relative w-36">
-                        <select x-model="filters.status"
+                        <select name="status" x-model="filters.status"
                             class="dark:bg-dark-900 shadow-theme-xs focus:border-brand-300 focus:ring-brand-500/10 dark:focus:border-brand-800 h-9 w-full appearance-none rounded-lg border border-gray-300 bg-transparent bg-none px-3 py-2 pr-9 text-xs text-gray-800 placeholder:text-gray-400 focus:ring-3 focus:outline-hidden dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30"
                             :class="isOptionSelected && 'text-gray-800 dark:text-white/90'"
-                            @change="isOptionSelected = true; currentPage = 1">
+                            @change="isOptionSelected = true; currentPage = 1; $el.form.submit()">
                             <option value="" class="text-gray-700 dark:bg-gray-900 dark:text-gray-400">Semua Status</option>
                             <option value="aktif" class="text-gray-700 dark:bg-gray-900 dark:text-gray-400">Aktif</option>
                             <option value="nonaktif" class="text-gray-700 dark:bg-gray-900 dark:text-gray-400">Nonaktif</option>
@@ -76,7 +76,7 @@
                         </span>
                     </div>
                 </div>
-            </div>
+            </form>
 
             <div class="max-w-full overflow-x-auto custom-scrollbar">
                 <table class="w-full min-w-[860px]">

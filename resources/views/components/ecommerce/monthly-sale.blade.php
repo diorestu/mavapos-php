@@ -6,6 +6,8 @@
     </div>
 
     <div class="max-w-full overflow-x-auto custom-scrollbar">
-        <div id="chartOne" class="h-full min-w-[420px] xl:min-w-full"></div>
+        <div id="chartOne" class="h-full min-w-[420px] xl:min-w-full"
+            data-chart-labels='@json($chart['labels'] ?? [])'
+            data-chart-series='@json($chart['series'] ?? [])'></div>
     </div>
 </section>

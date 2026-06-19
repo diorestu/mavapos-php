@@ -6,13 +6,13 @@
             this.isApplicationMenuOpen = !this.isApplicationMenuOpen;
         }
     }">
-    <div class="flex flex-col items-center justify-between grow xl:flex-row xl:px-6">
+    <div class="flex flex-col items-center justify-between grow xl:flex-row xl:px-5">
         <div
-            class="flex items-center justify-between w-full gap-2 px-3 py-3 border-b border-gray-200 dark:border-gray-800 sm:gap-4 xl:justify-normal xl:border-b-0 xl:px-0 lg:py-4">
+            class="flex items-center justify-between w-full gap-2 px-2.5 py-2.5 border-b border-gray-200 dark:border-gray-800 sm:gap-3 xl:justify-normal xl:border-b-0 xl:px-0 lg:py-3">
 
             <!-- Desktop Sidebar Toggle Button (visible on xl and up) -->
             <button
-                class="hidden xl:flex items-center justify-center w-10 h-10 text-gray-500 border border-gray-200 rounded-lg dark:border-gray-800 dark:text-gray-400 lg:h-11 lg:w-11"
+                class="hidden xl:flex h-[34px] w-[34px] items-center justify-center text-gray-500 border border-gray-200 rounded-lg dark:border-gray-800 dark:text-gray-400 lg:h-[38px] lg:w-[38px]"
                 :class="{ 'bg-gray-100 dark:bg-white/[0.03]': !$store.sidebar.isExpanded }"
                 @click="$store.sidebar.toggleExpanded()" aria-label="Toggle Sidebar">
                 <svg x-show="!$store.sidebar.isMobileOpen" width="16" height="12" viewBox="0 0 16 12" fill="none"
@@ -31,7 +31,7 @@
 
             <!-- Mobile Menu Toggle Button (visible below xl) -->
             <button
-                class="flex xl:hidden items-center justify-center w-10 h-10 text-gray-500 rounded-lg dark:text-gray-400 lg:h-11 lg:w-11"
+                class="flex xl:hidden h-[34px] w-[34px] items-center justify-center text-gray-500 rounded-lg dark:text-gray-400 lg:h-[38px] lg:w-[38px]"
                 :class="{ 'bg-gray-100 dark:bg-white/[0.03]': $store.sidebar.isMobileOpen }"
                 @click="$store.sidebar.toggleMobileOpen()" aria-label="Toggle Mobile Menu">
                 <svg x-show="!$store.sidebar.isMobileOpen" width="16" height="12" viewBox="0 0 16 12" fill="none"
@@ -56,7 +56,7 @@
 
             <!-- Application Menu Toggle (mobile only) -->
             <button @click="toggleApplicationMenu()"
-                class="flex items-center justify-center w-10 h-10 text-gray-700 rounded-lg z-99999 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 xl:hidden">
+                class="flex h-[34px] w-[34px] items-center justify-center text-gray-700 rounded-lg z-99999 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-800 xl:hidden">
                 <!-- Dots Icon -->
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
                     <path fill-rule="evenodd" clip-rule="evenodd"
@@ -66,10 +66,10 @@
             </button>
 
             <!-- Search Bar (desktop only) -->
-            <div class="hidden xl:block">
-                <form>
-                    <div class="relative">
-                        <span class="absolute -translate-y-1/2 pointer-events-none left-4 top-1/2">
+            <div class="hidden xl:block" x-data="globalSearch(@js(route('global-search')))" @keydown.window.meta.k.prevent="focusSearch()" @keydown.window.ctrl.k.prevent="focusSearch()">
+                <form @submit.prevent="goToFirstResult()">
+                    <div class="relative" @click.outside="isOpen = false">
+                        <span class="absolute -translate-y-1/2 pointer-events-none left-3.5 top-1/2">
                             <!-- Search Icon -->
                             <svg class="fill-gray-500 dark:fill-gray-400" width="20" height="20"
                                 viewBox="0 0 20 20" fill="none">
@@ -78,13 +78,46 @@
                                     fill="" />
                             </svg>
                         </span>
-                        <input type="text" placeholder="Cari atau ketik perintah..."
-                            class="dark:bg-dark-900 h-11 w-full rounded-lg border border-gray-200 bg-transparent py-2.5 pl-12 pr-14 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-white/3 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[430px]" />
-                        <button
-                            class="absolute right-2.5 top-1/2 inline-flex -translate-y-1/2 items-center gap-0.5 rounded-lg border border-gray-200 bg-gray-50 px-[7px] py-[4.5px] text-xs -tracking-[0.2px] text-gray-500 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400">
+                        <input x-ref="searchInput" x-model="query" @input.debounce.250ms="search()" @focus="isOpen = hasQuery" @keydown.escape.prevent="isOpen = false"
+                            type="search" autocomplete="off" placeholder="Cari menu, produk, atau invoice..."
+                            class="dark:bg-dark-900 h-[38px] w-full rounded-lg border border-gray-200 bg-transparent py-2 pl-10 pr-12 text-[13px] text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-white/3 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800 xl:w-[366px]" />
+                        <button type="button" @click="focusSearch()"
+                            class="absolute right-2 top-1/2 inline-flex -translate-y-1/2 items-center gap-0.5 rounded-lg border border-gray-200 bg-gray-50 px-1.5 py-1 text-[11px] text-gray-500 dark:border-gray-800 dark:bg-white/[0.03] dark:text-gray-400">
                             <span> ⌘ </span>
                             <span> K </span>
                         </button>
+
+                        <div x-cloak x-show="isOpen"
+                            class="absolute left-0 top-full z-99999 mt-2 w-[430px] overflow-hidden rounded-xl border border-gray-200 bg-white shadow-theme-lg dark:border-gray-800 dark:bg-gray-900">
+                            <div x-show="isLoading" class="px-4 py-3 text-sm text-gray-500 dark:text-gray-400">
+                                Mencari...
+                            </div>
+
+                            <div x-show="error" class="px-4 py-3 text-sm text-error-600 dark:text-error-400" x-text="error"></div>
+
+                            <div x-show="showEmptyState" class="px-4 py-4">
+                                <p class="text-sm font-semibold text-gray-800 dark:text-white/90">Tidak ada hasil.</p>
+                                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Coba cari nama menu, SKU produk, atau nomor invoice.</p>
+                            </div>
+
+                            <div x-show="results.length > 0" class="max-h-[360px] overflow-y-auto p-1.5 custom-scrollbar">
+                                <template x-for="result in results" :key="`${result.type}-${result.title}-${result.url}`">
+                                    <button type="button" @click="openResult(result)"
+                                        class="flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/20 dark:hover:bg-white/[0.04]">
+                                        <span class="mt-0.5 inline-flex shrink-0 rounded-md bg-brand-50 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-brand-600 dark:bg-brand-500/15 dark:text-brand-300"
+                                            x-text="result.label"></span>
+                                        <span class="min-w-0 flex-1">
+                                            <span class="block truncate text-sm font-semibold text-gray-800 dark:text-white/90" x-text="result.title"></span>
+                                            <span class="mt-0.5 block truncate text-xs text-gray-500 dark:text-gray-400" x-text="result.subtitle"></span>
+                                        </span>
+                                    </button>
+                                </template>
+                            </div>
+
+                            <div class="border-t border-gray-100 px-4 py-2 text-[11px] text-gray-400 dark:border-gray-800">
+                                Enter untuk membuka hasil pertama.
+                            </div>
+                        </div>
                     </div>
                 </form>
             </div>
@@ -92,11 +125,11 @@
 
         <!-- Application Menu (mobile) and Right Side Actions (desktop) -->
         <div :class="isApplicationMenuOpen ? 'flex' : 'hidden'"
-            class="items-center justify-between w-full gap-4 px-5 py-4 xl:flex shadow-theme-md xl:justify-end xl:px-0 xl:shadow-none">
-            <div class="flex items-center gap-2 2xsm:gap-3">
+            class="items-center justify-between w-full gap-3 px-4 py-3 xl:flex shadow-theme-md xl:justify-end xl:px-0 xl:shadow-none">
+            <div class="flex items-center gap-1.5 2xsm:gap-2.5">
                 <!-- Theme Toggle Button -->
                 <button
-                    class="relative flex items-center justify-center text-gray-500 transition-colors bg-white border border-gray-200 rounded-full hover:text-dark-900 h-11 w-11 hover:bg-gray-100 hover:text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
+                    class="relative flex h-[38px] w-[38px] items-center justify-center text-gray-500 transition-colors bg-white border border-gray-200 rounded-full hover:text-dark-900 hover:bg-gray-100 hover:text-gray-700 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
                     @click="$store.theme.toggle()">
                     <svg class="hidden dark:block" width="20" height="20" viewBox="0 0 20 20" fill="none"
                         xmlns="http://www.w3.org/2000/svg">

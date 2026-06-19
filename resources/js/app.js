@@ -49,7 +49,295 @@ window.notify = (message, type = 'success') => {
 
 const notify = window.notify;
 
-Alpine.data('productManager', (initialProducts = [], initialCategories = []) => ({
+Alpine.data('globalSearch', (endpoint = '') => ({
+    endpoint,
+    query: '',
+    results: [],
+    isOpen: false,
+    isLoading: false,
+    error: '',
+    abortController: null,
+
+    get hasQuery() {
+        return this.query.trim().length > 0;
+    },
+
+    get showEmptyState() {
+        return this.hasQuery && !this.isLoading && !this.error && this.results.length === 0;
+    },
+
+    focusSearch() {
+        this.$refs.searchInput?.focus();
+        this.isOpen = this.hasQuery;
+    },
+
+    async search() {
+        const keyword = this.query.trim();
+
+        if (!keyword) {
+            this.results = [];
+            this.error = '';
+            this.isOpen = false;
+            return;
+        }
+
+        this.abortController?.abort();
+        this.abortController = new AbortController();
+        this.isLoading = true;
+        this.error = '';
+        this.isOpen = true;
+
+        try {
+            const url = new URL(this.endpoint, window.location.origin);
+            url.searchParams.set('q', keyword);
+
+            const response = await fetch(url.toString(), {
+                headers: {
+                    Accept: 'application/json',
+                },
+                signal: this.abortController.signal,
+            });
+            const payload = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                this.error = payload.message || 'Pencarian gagal dimuat.';
+                this.results = [];
+                return;
+            }
+
+            this.results = payload.results || [];
+        } catch (error) {
+            if (error.name !== 'AbortError') {
+                this.error = 'Pencarian gagal dimuat.';
+                this.results = [];
+            }
+        } finally {
+            this.isLoading = false;
+        }
+    },
+
+    openResult(result) {
+        if (!result?.url) {
+            return;
+        }
+
+        window.location.href = result.url;
+    },
+
+    goToFirstResult() {
+        if (this.results.length > 0) {
+            this.openResult(this.results[0]);
+            return;
+        }
+
+        if (this.hasQuery) {
+            window.location.href = `/sales?search=${encodeURIComponent(this.query.trim())}`;
+        }
+    },
+}));
+
+Alpine.data('salesDateRange', (initialFrom = '', initialTo = '') => ({
+    dateFrom: initialFrom || '',
+    dateTo: initialTo || '',
+    picker: null,
+
+    mount(input) {
+        if (!input) {
+            return;
+        }
+
+        this.$nextTick(() => {
+            this.picker = flatpickr(input, {
+                mode: 'range',
+                dateFormat: 'd M Y',
+                defaultDate: [this.dateFrom, this.dateTo].filter(Boolean),
+                locale: {
+                    rangeSeparator: ' sampai ',
+                    firstDayOfWeek: 1,
+                },
+                onChange: (selectedDates) => {
+                    this.dateFrom = selectedDates[0] ? this.toDateValue(selectedDates[0]) : '';
+                    this.dateTo = selectedDates[1] ? this.toDateValue(selectedDates[1]) : this.dateFrom;
+                },
+            });
+        });
+    },
+
+    destroy() {
+        this.picker?.destroy();
+        this.picker = null;
+    },
+
+    toDateValue(date) {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, '0');
+        const day = String(date.getDate()).padStart(2, '0');
+
+        return `${year}-${month}-${day}`;
+    },
+}));
+
+Alpine.data('bluetoothPrinterTest', () => ({
+    serviceUuid: '000018f0-0000-1000-8000-00805f9b34fb',
+    characteristicUuid: '00002af1-0000-1000-8000-00805f9b34fb',
+    namePrefix: '',
+    chunkSize: 120,
+    chunkDelay: 50,
+    device: null,
+    server: null,
+    characteristic: null,
+    isBusy: false,
+    logs: [],
+    receiptText: [
+        'MAVAPOS',
+        'Jl. Contoh No. 10',
+        '------------------------------',
+        'TEST PRINT WEB BLUETOOTH',
+        'Tanggal : ' + new Date().toLocaleString('id-ID'),
+        'Kasir   : Test User',
+        '------------------------------',
+        'Kopi Susu Aren      Rp18.000',
+        'Roti Bakar          Rp15.000',
+        '------------------------------',
+        'TOTAL               Rp33.000',
+        '',
+        'Terima kasih',
+    ].join('\n'),
+
+    get isSupported() {
+        return Boolean(navigator.bluetooth);
+    },
+
+    get connectionLabel() {
+        if (!this.device) {
+            return 'Belum terhubung';
+        }
+
+        return this.device.gatt?.connected ? 'Terhubung' : 'Terputus';
+    },
+
+    get deviceName() {
+        return this.device?.name || this.device?.id || '-';
+    },
+
+    log(message) {
+        const time = new Date().toLocaleTimeString('id-ID', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+        });
+        this.logs.unshift(`[${time}] ${message}`);
+        this.logs = this.logs.slice(0, 80);
+    },
+
+    async connect() {
+        if (!this.isSupported) {
+            this.log('Web Bluetooth tidak tersedia di browser ini.');
+            notify('Web Bluetooth tidak tersedia di browser ini.', 'error');
+            return;
+        }
+
+        this.isBusy = true;
+
+        try {
+            this.disconnect(false);
+            const filters = this.namePrefix.trim()
+                ? [{ namePrefix: this.namePrefix.trim() }]
+                : undefined;
+            const requestOptions = filters
+                ? { filters, optionalServices: [this.serviceUuid] }
+                : { acceptAllDevices: true, optionalServices: [this.serviceUuid] };
+
+            this.log('Membuka pemilih perangkat Bluetooth...');
+            this.device = await navigator.bluetooth.requestDevice(requestOptions);
+            this.device.addEventListener('gattserverdisconnected', () => {
+                this.characteristic = null;
+                this.server = null;
+                this.log('Printer terputus.');
+            });
+
+            this.log(`Menghubungkan ke ${this.deviceName}...`);
+            this.server = await this.device.gatt.connect();
+            const service = await this.server.getPrimaryService(this.serviceUuid);
+            this.characteristic = await service.getCharacteristic(this.characteristicUuid);
+            this.log('Printer siap menerima data.');
+            notify('Printer Bluetooth terhubung.');
+        } catch (error) {
+            this.characteristic = null;
+            this.server = null;
+            this.log(`Gagal konek: ${error.message || error}`);
+            notify(error.message || 'Gagal menghubungkan printer.', 'error');
+        } finally {
+            this.isBusy = false;
+        }
+    },
+
+    disconnect(showLog = true) {
+        if (this.device?.gatt?.connected) {
+            this.device.gatt.disconnect();
+        }
+
+        this.characteristic = null;
+        this.server = null;
+
+        if (showLog) {
+            this.log('Koneksi printer diputuskan.');
+        }
+    },
+
+    async printSample() {
+        if (!this.characteristic) {
+            this.log('Printer belum terhubung.');
+            notify('Hubungkan printer terlebih dahulu.', 'error');
+            return;
+        }
+
+        this.isBusy = true;
+
+        try {
+            const payload = this.buildEscPosPayload(this.receiptText);
+            await this.writeInChunks(payload);
+            this.log(`Print terkirim (${payload.length} bytes).`);
+            notify('Test print berhasil dikirim.');
+        } catch (error) {
+            this.log(`Print gagal: ${error.message || error}`);
+            notify(error.message || 'Test print gagal.', 'error');
+        } finally {
+            this.isBusy = false;
+        }
+    },
+
+    buildEscPosPayload(text) {
+        const encoder = new TextEncoder();
+        const init = [0x1b, 0x40];
+        const alignLeft = [0x1b, 0x61, 0x00];
+        const feed = [0x0a, 0x0a, 0x0a];
+        const cut = [0x1d, 0x56, 0x42, 0x00];
+        const body = Array.from(encoder.encode(`${text}\n`));
+
+        return new Uint8Array([...init, ...alignLeft, ...body, ...feed, ...cut]);
+    },
+
+    async writeInChunks(payload) {
+        const size = Math.max(20, Math.min(Number(this.chunkSize) || 120, 512));
+
+        for (let offset = 0; offset < payload.length; offset += size) {
+            const chunk = payload.slice(offset, offset + size);
+
+            if (typeof this.characteristic.writeValueWithoutResponse === 'function') {
+                await this.characteristic.writeValueWithoutResponse(chunk);
+            } else {
+                await this.characteristic.writeValue(chunk);
+            }
+
+            if (this.chunkDelay > 0) {
+                await new Promise((resolve) => setTimeout(resolve, this.chunkDelay));
+            }
+        }
+    },
+}));
+
+Alpine.data('productManager', (initialProducts = [], initialCategories = [], initialFilters = {}) => ({
     createProductModal: false,
     editProductModal: false,
     detailProductModal: false,
@@ -62,9 +350,9 @@ Alpine.data('productManager', (initialProducts = [], initialCategories = []) => 
     formError: '',
     editFormError: '',
     filters: {
-        search: '',
-        category: '',
-        status: '',
+        search: initialFilters.search || '',
+        category: initialFilters.category || '',
+        status: initialFilters.status || '',
         stockMin: '',
     },
     draft: {
@@ -97,7 +385,7 @@ Alpine.data('productManager', (initialProducts = [], initialCategories = []) => 
                 this.normalize(product.name).includes(keyword) ||
                 this.normalize(product.sku).includes(keyword);
             const matchesCategory = !this.filters.category ||
-                this.normalize(product.category) === this.filters.category;
+                this.normalize(product.categoryCode) === this.filters.category;
             const matchesStatus = !this.filters.status ||
                 this.normalize(product.status).replace(/\s+/g, '-') === this.filters.status;
             const minimumStock = Number(this.filters.stockMin);
@@ -354,7 +642,7 @@ Alpine.data('productManager', (initialProducts = [], initialCategories = []) => 
     },
 }));
 
-Alpine.data('productCategoryManager', (initialCategories = []) => ({
+Alpine.data('productCategoryManager', (initialCategories = [], initialFilters = {}) => ({
     createCategoryModal: false,
     editCategoryModal: false,
     detailCategoryModal: false,
@@ -366,8 +654,8 @@ Alpine.data('productCategoryManager', (initialCategories = []) => ({
     formError: '',
     editFormError: '',
     filters: {
-        search: '',
-        status: '',
+        search: initialFilters.search || '',
+        status: initialFilters.status || '',
     },
     draft: {
         name: '',
@@ -618,7 +906,7 @@ Alpine.data('productCategoryManager', (initialCategories = []) => ({
     },
 }));
 
-Alpine.data('contactManager', (initialItems = [], routePath = '', entityLabel = '', entityName = '', entityPlural = '') => ({
+Alpine.data('contactManager', (initialItems = [], routePath = '', entityLabel = '', entityName = '', entityPlural = '', initialFilters = {}) => ({
     createModal: false,
     editModal: false,
     detailModal: false,
@@ -634,8 +922,8 @@ Alpine.data('contactManager', (initialItems = [], routePath = '', entityLabel = 
     formError: '',
     editFormError: '',
     filters: {
-        search: '',
-        status: '',
+        search: initialFilters.search || '',
+        status: initialFilters.status || '',
     },
     draft: {
         name: '',
@@ -863,7 +1151,7 @@ Alpine.data('contactManager', (initialItems = [], routePath = '', entityLabel = 
     },
 }));
 
-Alpine.data('inventoryManager', (initialItems = [], initialMovements = []) => ({
+Alpine.data('inventoryManager', (initialItems = [], initialMovements = [], initialFilters = {}) => ({
     editModal: false,
     movementModal: false,
     editingSku: '',
@@ -875,8 +1163,8 @@ Alpine.data('inventoryManager', (initialItems = [], initialMovements = []) => ({
     editFormError: '',
     movementFormError: '',
     filters: {
-        search: '',
-        status: '',
+        search: initialFilters.search || '',
+        status: initialFilters.status || '',
     },
     editDraft: {
         name: '',
@@ -1102,12 +1390,14 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     checkoutError: '',
     shiftLoading: false,
     checkoutLoading: false,
+    receiptModal: false,
+    lastReceipt: null,
     query: '',
     activeCategory: '',
     cart: [],
     paymentMethod: 'cash',
     paidAmount: '',
-    discount: 0,
+    discount: '',
 
     get filteredItems() {
         const keyword = this.normalize(this.query);
@@ -1131,8 +1421,12 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         return this.cart.reduce((total, item) => total + (Number(item.price) * Number(item.quantity)), 0);
     },
 
+    get discountNumber() {
+        return this.numberFromInput(this.discount);
+    },
+
     get discountValue() {
-        return Math.min(Number(this.discount || 0), this.subtotal);
+        return Math.min(this.discountNumber, this.subtotal);
     },
 
     get total() {
@@ -1140,7 +1434,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     },
 
     get paid() {
-        return Number(String(this.paidAmount || '').replace(/[^\d]/g, ''));
+        return this.numberFromInput(this.paidAmount);
     },
 
     get change() {
@@ -1173,6 +1467,39 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             currency: 'IDR',
             maximumFractionDigits: 0,
         }).format(Number(value || 0)).replace(/\s/g, '');
+    },
+
+    numberFromInput(value) {
+        return Number(String(value || '').replace(/[^\d]/g, ''));
+    },
+
+    formatInputNumber(value) {
+        const number = this.numberFromInput(value);
+
+        return number > 0 ? new Intl.NumberFormat('id-ID').format(number) : '';
+    },
+
+    onMoneyInput(field, event) {
+        const digits = String(event.target.value || '').replace(/[^\d]/g, '');
+        this[field] = digits;
+        event.target.value = this.formatInputNumber(digits);
+    },
+
+    paymentLabel(method) {
+        return {
+            cash: 'Tunai',
+            qris: 'QRIS',
+            card: 'Kartu',
+        }[method] || method || '-';
+    },
+
+    escapeHtml(value) {
+        return String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#039;');
     },
 
     stockLabel(item) {
@@ -1241,8 +1568,96 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
     clearCart() {
         this.cart = [];
-        this.discount = 0;
+        this.discount = '';
         this.paidAmount = '';
+    },
+
+    closeReceiptModal() {
+        this.receiptModal = false;
+    },
+
+    printReceipt() {
+        if (!this.lastReceipt) {
+            return;
+        }
+
+        const receipt = this.lastReceipt;
+        const itemRows = (receipt.items || []).map((item) => `
+            <tr>
+                <td>
+                    <strong>${this.escapeHtml(item.name)}</strong>
+                    <span>${this.escapeHtml(item.sku || '-')}</span>
+                    <span>${Number(item.quantity || 0)} x ${this.formatRupiah(item.unit_price)}</span>
+                </td>
+                <td>${this.formatRupiah(item.line_total)}</td>
+            </tr>
+        `).join('');
+        const printWindow = window.open('', 'mava_receipt_print', 'width=420,height=640');
+
+        if (!printWindow) {
+            notify('Popup print diblokir browser. Izinkan popup untuk mencetak nota.', 'error');
+            return;
+        }
+
+        printWindow.document.write(`
+            <!doctype html>
+            <html>
+                <head>
+                    <meta charset="utf-8">
+                    <title>Nota ${this.escapeHtml(receipt.invoice_number)}</title>
+                    <style>
+                        * { box-sizing: border-box; }
+                        body {
+                            width: 80mm;
+                            margin: 0 auto;
+                            padding: 10mm 6mm;
+                            color: #111827;
+                            font-family: Arial, Helvetica, sans-serif;
+                            font-size: 12px;
+                            line-height: 1.35;
+                        }
+                        h1 { margin: 0; font-size: 16px; text-align: center; }
+                        .muted { color: #6b7280; }
+                        .center { text-align: center; }
+                        .meta, .totals { margin-top: 10px; border-top: 1px dashed #9ca3af; padding-top: 8px; }
+                        .row, .totals div { display: flex; justify-content: space-between; gap: 8px; }
+                        table { width: 100%; margin-top: 10px; border-collapse: collapse; border-top: 1px dashed #9ca3af; }
+                        td { padding: 7px 0; vertical-align: top; border-bottom: 1px dashed #d1d5db; }
+                        td:last-child { width: 34%; text-align: right; font-weight: 700; }
+                        strong, span { display: block; }
+                        .grand { margin-top: 6px; font-size: 14px; font-weight: 700; }
+                        .footer { margin-top: 12px; border-top: 1px dashed #9ca3af; padding-top: 8px; text-align: center; }
+                        @page { margin: 0; size: 80mm auto; }
+                    </style>
+                </head>
+                <body>
+                    <h1>MavaPOS</h1>
+                    <p class="center muted">Nota Penjualan</p>
+                    <div class="meta">
+                        <div class="row"><span>No Nota</span><strong>${this.escapeHtml(receipt.invoice_number)}</strong></div>
+                        <div class="row"><span>Tanggal</span><span>${this.escapeHtml(receipt.sold_at || '-')}</span></div>
+                        <div class="row"><span>Kasir</span><span>${this.escapeHtml(receipt.cashier || '-')}</span></div>
+                        <div class="row"><span>Pembayaran</span><span>${this.escapeHtml(this.paymentLabel(receipt.payment_method))}</span></div>
+                    </div>
+                    <table>${itemRows}</table>
+                    <div class="totals">
+                        <div><span>Subtotal</span><span>${this.formatRupiah(receipt.subtotal)}</span></div>
+                        <div><span>Diskon</span><span>${this.formatRupiah(receipt.discount)}</span></div>
+                        <div class="grand"><span>Total</span><span>${this.formatRupiah(receipt.total)}</span></div>
+                        <div><span>Dibayar</span><span>${this.formatRupiah(receipt.paid_amount)}</span></div>
+                        <div><span>Kembali</span><span>${this.formatRupiah(receipt.change_amount)}</span></div>
+                    </div>
+                    <p class="footer muted">Terima kasih atas kunjungan Anda.</p>
+                    <script>
+                        window.addEventListener('load', () => {
+                            window.focus();
+                            setTimeout(() => window.print(), 150);
+                        });
+                    <\/script>
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
     },
 
     payExact() {
@@ -1344,7 +1759,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                         quantity: item.quantity,
                     })),
                     payment_method: this.paymentMethod,
-                    discount: Number(this.discount || 0),
+                    discount: this.discountValue,
                     paid_amount: this.paymentMethod === 'cash' ? this.paid : this.total,
                 }),
             });
@@ -1359,7 +1774,9 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
             this.items = payload.items || this.items;
             this.shift = payload.shift || this.shift;
+            this.lastReceipt = payload.sale || null;
             this.clearCart();
+            this.receiptModal = Boolean(this.lastReceipt);
             notify(payload.message || 'Transaksi berhasil diselesaikan.');
         } finally {
             this.checkoutLoading = false;

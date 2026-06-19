@@ -3,11 +3,13 @@
 export const initChartOne = () => {
     const chartElement = document.querySelector('#chartOne');
     if (!chartElement) return;
+    const labels = JSON.parse(chartElement.dataset.chartLabels || '[]');
+    const series = JSON.parse(chartElement.dataset.chartSeries || '[]');
 
     const chartOneOptions = {
         series: [{
             name: "Transaksi",
-            data: [38, 52, 47, 61, 55, 66, 72, 64, 79, 88, 83, 96],
+            data: series,
         },],
         colors: ["#465fff"],
         chart: {
@@ -35,20 +37,7 @@ export const initChartOne = () => {
             colors: ["transparent"],
         },
         xaxis: {
-            categories: [
-                "Jan",
-                "Feb",
-                "Mar",
-                "Apr",
-                "May",
-                "Jun",
-                "Jul",
-                "Aug",
-                "Sep",
-                "Oct",
-                "Nov",
-                "Dec",
-            ],
+            categories: labels,
             axisBorder: {
                 show: false,
             },

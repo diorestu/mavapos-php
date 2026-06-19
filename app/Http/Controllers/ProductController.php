@@ -13,12 +13,30 @@ use Illuminate\View\View;
 
 class ProductController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
+        $categoryCodes = ProductCategory::query()->pluck('code')->all();
+        $filters = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'category' => ['nullable', 'string', Rule::in($categoryCodes)],
+            'status' => ['nullable', 'string', Rule::in(['aktif', 'stok-menipis', 'habis'])],
+        ]);
+        $search = trim((string) ($filters['search'] ?? ''));
+
         return view('pages.products.index', [
             'title' => 'Produk',
             'products' => Product::query()
                 ->with(['category', 'variants'])
+                ->when($search !== '', function ($query) use ($search): void {
+                    $query->where(function ($nested) use ($search): void {
+                        $nested->where('name', 'like', "%{$search}%")
+                            ->orWhere('sku', 'like', "%{$search}%")
+                            ->orWhere('barcode', 'like', "%{$search}%");
+                    });
+                })
+                ->when($filters['category'] ?? null, fn ($query, string $categoryCode) => $query
+                    ->whereHas('category', fn ($categoryQuery) => $categoryQuery->where('code', $categoryCode)))
+                ->when($filters['status'] ?? null, fn ($query, string $status) => $this->applyStockStatusFilter($query, $status))
                 ->latest()
                 ->get()
                 ->map(fn (Product $product): array => $this->productPayload($product))
@@ -28,6 +46,11 @@ class ProductController extends Controller
                 ->get()
                 ->map(fn (ProductCategory $category): array => $this->categoryPayload($category))
                 ->values(),
+            'filters' => [
+                'search' => $search,
+                'category' => $filters['category'] ?? '',
+                'status' => $filters['status'] ?? '',
+            ],
         ]);
     }
 
@@ -130,6 +153,7 @@ class ProductController extends Controller
         return [
             'name' => $product->name,
             'sku' => $product->sku,
+            'categoryCode' => $product->category?->code ?? '',
             'category' => $product->category?->name ?? 'Umum',
             'barcode' => $product->barcode ?? '',
             'buyPrice' => $product->buy_price > 0 ? $this->formatRupiah($product->buy_price) : '',
@@ -227,6 +251,23 @@ class ProductController extends Controller
         }
 
         return 'Aktif';
+    }
+
+    private function applyStockStatusFilter($query, string $status): void
+    {
+        match ($status) {
+            'habis' => $query->where('stock', '<=', 0),
+            'stok-menipis' => $query
+                ->where('stock', '>', 0)
+                ->where('min_stock', '>', 0)
+                ->whereColumn('stock', '<=', 'min_stock'),
+            default => $query
+                ->where('stock', '>', 0)
+                ->where(function ($nested): void {
+                    $nested->where('min_stock', '<=', 0)
+                        ->orWhereColumn('stock', '>', 'min_stock');
+                }),
+        };
     }
 
     private function statusLabel(string $status): string

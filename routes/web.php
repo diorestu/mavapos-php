@@ -5,8 +5,11 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BillingController;
 use App\Http\Controllers\CashierShiftController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\ExpenseController;
+use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\PosController;
 use App\Http\Controllers\ProductCategoryController;
 use App\Http\Controllers\ProductController;
@@ -16,6 +19,8 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SaleController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\SupplierController;
+use App\Models\StoreSetting;
+use Illuminate\Support\Facades\Storage;
 
 Route::middleware('guest')->group(function () {
     Route::get('/signin', [AuthController::class, 'showSignIn'])->name('signin');
@@ -28,13 +33,16 @@ Route::post('/pakasir/webhook', [BillingController::class, 'webhook'])->name('pa
 
 Route::get('/', function () {
     if (auth()->check()) {
-        return view('pages.dashboard.ecommerce', ['title' => 'Dashboard']);
+        return app(DashboardController::class)->index();
     }
     return view('pages.landing', ['title' => 'MavaPOS - Aplikasi Kasir Online']);
 })->name('dashboard');
 
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
+    Route::get('/global-search', GlobalSearchController::class)->name('global-search');
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications');
+    Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
 
     Route::get('/products', [ProductController::class, 'index'])->name('products');
     Route::post('/products', [ProductController::class, 'store'])->name('products.store');
@@ -71,13 +79,23 @@ Route::middleware('auth')->group(function () {
     Route::get('/sales', [SaleController::class, 'index'])->name('sales');
     Route::get('/reports', [ReportController::class, 'index'])->name('reports');
     Route::get('/reports/download', [ReportController::class, 'download'])->name('reports.download');
+    Route::get('/print-test', function () {
+        return view('pages.print-test', ['title' => 'Test Printing']);
+    })->name('print-test');
 
     Route::get('/calendar', function () {
         return view('pages.calender', ['title' => 'Kalender']);
     })->name('calendar');
 
     Route::get('/profile', function () {
-        return view('pages.profile', ['title' => 'Profil']);
+        $setting = StoreSetting::current();
+
+        return view('pages.profile', [
+            'title' => 'Profil',
+            'user' => auth()->user(),
+            'setting' => $setting,
+            'logoUrl' => $setting->logo_path ? Storage::url($setting->logo_path) : asset('/images/user/owner.jpg'),
+        ]);
     })->name('profile');
 
     Route::get('/form-elements', function () {
@@ -128,6 +146,3 @@ Route::middleware('auth')->group(function () {
         return view('pages.ui-elements.videos', ['title' => 'Video']);
     })->name('videos');
 });
-
-
-

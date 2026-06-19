@@ -38,34 +38,52 @@
             </div>
         </div>
 
-        <form method="GET" action="{{ route('sales') }}" class="grid gap-2 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-white/[0.03] md:grid-cols-2 xl:grid-cols-[140px_140px_170px_150px_minmax(180px,1fr)_auto_auto]">
-            <label class="block">
-                <span class="mb-1 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Dari</span>
-                <input type="date" name="date_from" value="{{ $filters['date_from'] }}"
-                    class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
-            </label>
-            <label class="block">
-                <span class="mb-1 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Sampai</span>
-                <input type="date" name="date_to" value="{{ $filters['date_to'] }}"
-                    class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+        <form method="GET" action="{{ route('sales') }}" class="grid gap-2 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-white/[0.03] md:grid-cols-2 xl:grid-cols-[260px_170px_150px_minmax(180px,1fr)_auto_auto]">
+            <label class="block" x-data="salesDateRange('{{ $filters['date_from'] }}', '{{ $filters['date_to'] }}')" x-init="mount($refs.dateRangeInput)" x-destroy="destroy()">
+                <span class="mb-1 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Periode</span>
+                <div class="relative">
+                    <input x-ref="dateRangeInput" type="text" placeholder="Pilih rentang tanggal" autocomplete="off"
+                        class="h-9 w-full rounded-lg border border-gray-300 bg-transparent pl-3 pr-9 text-xs text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                    <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                            <path d="M8 2.75V5.75M16 2.75V5.75M4.75 9.25H19.25M6.5 4.25H17.5C18.4665 4.25 19.25 5.0335 19.25 6V18.5C19.25 19.4665 18.4665 20.25 17.5 20.25H6.5C5.5335 20.25 4.75 19.4665 4.75 18.5V6C4.75 5.0335 5.5335 4.25 6.5 4.25Z" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </span>
+                </div>
+                <input type="hidden" name="date_from" :value="dateFrom" />
+                <input type="hidden" name="date_to" :value="dateTo" />
             </label>
             <label class="block">
                 <span class="mb-1 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Kasir</span>
-                <select name="cashier_id" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                    <option value="">Semua kasir</option>
-                    @foreach ($cashiers as $cashier)
-                        <option value="{{ $cashier->id }}" @selected((string) $filters['cashier_id'] === (string) $cashier->id)>{{ $cashier->name }}</option>
-                    @endforeach
-                </select>
+                <div class="relative">
+                    <select name="cashier_id" class="h-9 w-full appearance-none rounded-lg border border-gray-300 bg-transparent pl-3 pr-9 text-xs text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                        <option value="">Semua kasir</option>
+                        @foreach ($cashiers as $cashier)
+                            <option value="{{ $cashier->id }}" @selected((string) $filters['cashier_id'] === (string) $cashier->id)>{{ $cashier->name }}</option>
+                        @endforeach
+                    </select>
+                    <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500">
+                        <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                            <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </span>
+                </div>
             </label>
             <label class="block">
                 <span class="mb-1 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Pembayaran</span>
-                <select name="payment_method" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                    <option value="">Semua metode</option>
-                    @foreach ($methodLabel as $value => $label)
-                        <option value="{{ $value }}" @selected($filters['payment_method'] === $value)>{{ $label }}</option>
-                    @endforeach
-                </select>
+                <div class="relative">
+                    <select name="payment_method" class="h-9 w-full appearance-none rounded-lg border border-gray-300 bg-transparent pl-3 pr-9 text-xs text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                        <option value="">Semua metode</option>
+                        @foreach ($methodLabel as $value => $label)
+                            <option value="{{ $value }}" @selected($filters['payment_method'] === $value)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                    <span class="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 dark:text-gray-500">
+                        <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" aria-hidden="true">
+                            <path d="M5 7.5L10 12.5L15 7.5" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </span>
+                </div>
             </label>
             <label class="block">
                 <span class="mb-1 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Cari invoice / produk</span>

@@ -10,8 +10,10 @@ use Illuminate\View\View;
 
 class SupplierController extends Controller
 {
-    public function index(): View
+    public function index(Request $request): View
     {
+        $filters = $this->filterAttributes($request);
+
         return view('pages.contacts.index', [
             'title' => 'Supplier',
             'entityLabel' => 'Supplier',
@@ -19,10 +21,13 @@ class SupplierController extends Controller
             'entityPlural' => 'supplier',
             'routePath' => '/suppliers',
             'items' => Supplier::query()
+                ->when($filters['search'] !== '', fn ($query) => $this->applySearchFilter($query, $filters['search']))
+                ->when($filters['status'] !== '', fn ($query) => $query->where('status', $filters['status']))
                 ->latest()
                 ->get()
                 ->map(fn (Supplier $supplier): array => $this->payload($supplier))
                 ->values(),
+            'filters' => $filters,
         ]);
     }
 
@@ -76,6 +81,29 @@ class SupplierController extends Controller
             'status' => $this->statusLabel($supplier->status),
             'address' => $supplier->address ?? '',
         ];
+    }
+
+    private function filterAttributes(Request $request): array
+    {
+        $validated = $request->validate([
+            'search' => ['nullable', 'string', 'max:100'],
+            'status' => ['nullable', 'string', Rule::in(['aktif', 'nonaktif'])],
+        ]);
+
+        return [
+            'search' => trim((string) ($validated['search'] ?? '')),
+            'status' => $validated['status'] ?? '',
+        ];
+    }
+
+    private function applySearchFilter($query, string $search): void
+    {
+        $query->where(function ($nested) use ($search): void {
+            $nested->where('name', 'like', "%{$search}%")
+                ->orWhere('code', 'like', "%{$search}%")
+                ->orWhere('phone', 'like', "%{$search}%")
+                ->orWhere('email', 'like', "%{$search}%");
+        });
     }
 
     private function statusLabel(string $status): string

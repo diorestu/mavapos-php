@@ -19,8 +19,8 @@ test('guest melihat landing page saat membuka dashboard', function () {
     $response = $this->get('/');
 
     $response->assertOk()
-        ->assertSee('Kasir, stok, dan laporan dalam satu ruang kerja')
-        ->assertSee('Mulai uji coba 14 hari');
+        ->assertSee('Satu Aplikasi Kasir untuk')
+        ->assertSee('Mulai Coba Gratis 14 Hari');
 });
 
 test('halaman masuk dan daftar dapat dibuka guest', function () {
@@ -88,6 +88,65 @@ test('dashboard toko menampilkan ringkasan dan grafik berbahasa indonesia', func
         ->assertDontSee('Statistics')
         ->assertDontSee('Customers Demographic')
         ->assertDontSee('Recent Orders');
+});
+
+test('dashboard toko menyinkronkan grafik dan ringkasan dari database', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->postJson(route('pos.shift.start'))
+        ->assertOk();
+
+    $this->actingAs($user)
+        ->postJson(route('pos.checkout'), [
+            'items' => [
+                ['id' => 'product-SKU-001', 'quantity' => 1],
+            ],
+            'payment_method' => 'cash',
+            'discount' => 0,
+            'paid_amount' => 18000,
+        ])
+        ->assertOk();
+
+    $this->actingAs($user)
+        ->get('/')
+        ->assertOk()
+        ->assertSee('Rp18.000')
+        ->assertSee('Kopi Susu Aren 250ml')
+        ->assertSee('data-chart-series', false)
+        ->assertSee('data-chart-revenue', false)
+        ->assertSee('18000', false);
+});
+
+test('notification header menampilkan aktivitas sistem dari database', function () {
+    $user = User::factory()->create(['name' => 'Kasir Notifikasi']);
+
+    $this->actingAs($user)
+        ->postJson(route('pos.shift.start'))
+        ->assertOk();
+
+    $checkout = $this->actingAs($user)
+        ->postJson(route('pos.checkout'), [
+            'items' => [
+                ['id' => 'product-SKU-001', 'quantity' => 1],
+            ],
+            'payment_method' => 'cash',
+            'discount' => 0,
+            'paid_amount' => 18000,
+        ])
+        ->assertOk();
+
+    $invoice = $checkout->json('sale.invoice_number');
+
+    $this->actingAs($user)
+        ->get('/')
+        ->assertOk()
+        ->assertSee('Aktivitas Sistem')
+        ->assertSee('Transaksi '.$invoice.' selesai')
+        ->assertSee('Kasir Notifikasi menerima Rp18.000')
+        ->assertSee('Shift Kasir Notifikasi dimulai')
+        ->assertDontSee('Terry Franci')
+        ->assertDontSee('Project - Nganter App');
 });
 
 test('pengguna dapat update produk melalui controller', function () {
@@ -446,6 +505,16 @@ test('pengguna dapat membuka halaman laporan', function () {
         ->assertSee('Produk Stok Terbesar');
 });
 
+test('pengguna dapat membuka halaman test printing', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get('/print-test')
+        ->assertOk()
+        ->assertSee('Test Printing')
+        ->assertSee('Service UUID');
+});
+
 test('pengguna dapat membuka halaman pengeluaran', function () {
     $user = User::factory()->create();
 
@@ -743,7 +812,7 @@ test('pengguna dapat membuka halaman pelanggan', function () {
         ->assertSee('pelanggan');
 });
 
-test('pengguna dapat membuat tagihan qris pakasir', function () {
+test('pengguna dapat membuat tagihan langganan qris pakasir tanpa isi data diri', function () {
     config([
         'services.pakasir.project' => 'mava-test',
         'services.pakasir.api_key' => 'secret-test',
@@ -753,7 +822,7 @@ test('pengguna dapat membuat tagihan qris pakasir', function () {
         'https://app.pakasir.com/api/transactioncreate/qris' => Http::response([
             'payment' => [
                 'fee' => 350,
-                'total_payment' => 50350,
+                'total_payment' => 2689550,
                 'payment_number' => 'QRIS-CODE',
                 'expired_at' => '2026-06-17T14:30:00+08:00',
             ],
@@ -761,19 +830,11 @@ test('pengguna dapat membuat tagihan qris pakasir', function () {
     ]);
 
     $user = User::factory()->create();
-    $customer = Customer::query()->create([
-        'code' => 'CUST-900',
-        'name' => 'Pelanggan QRIS',
-        'phone' => '081234567890',
-        'status' => 'aktif',
-    ]);
 
     $this->actingAs($user)
         ->post('/billings', [
-            'customer_id' => $customer->id,
-            'title' => 'Pembayaran Order',
-            'amount' => 50000,
-            'description' => 'Order test',
+            'plan_slug' => 'plus',
+            'billing_cycle' => 'yearly',
         ])
         ->assertRedirect('/billings');
 
@@ -781,16 +842,20 @@ test('pengguna dapat membuat tagihan qris pakasir', function () {
 
     expect($billing)
         ->not->toBeNull()
-        ->and($billing->customer_name)->toBe('Pelanggan QRIS')
-        ->and($billing->amount)->toBe(50000)
+        ->and($billing->customer_name)->toBe('Mava Mart')
+        ->and($billing->customer_phone)->toBe('081234567890')
+        ->and($billing->title)->toBe('Plus Plan - Tahunan')
+        ->and($billing->amount)->toBe(2689200)
         ->and($billing->fee)->toBe(350)
-        ->and($billing->total_payment)->toBe(50350)
-        ->and($billing->payment_status)->toBe('pending');
+        ->and($billing->total_payment)->toBe(2689550)
+        ->and($billing->payment_status)->toBe('pending')
+        ->and($billing->provider_payload['subscription']['billing_cycle'])->toBe('yearly')
+        ->and($billing->provider_payload['subscription']['yearly_discount_percent'])->toBe(10);
 
     Http::assertSent(fn ($request) => $request->url() === 'https://app.pakasir.com/api/transactioncreate/qris'
         && $request['project'] === 'mava-test'
         && $request['order_id'] === $billing->invoice_number
-        && $request['amount'] === 50000
+        && $request['amount'] === 2689200
         && $request['api_key'] === 'secret-test');
 });
 
@@ -828,12 +893,62 @@ test('webhook pakasir menandai tagihan lunas setelah verifikasi detail', functio
         'status' => 'completed',
         'payment_method' => 'qris',
         'completed_at' => '2026-06-17T15:00:00+08:00',
-    ])->assertOk()->assertJsonPath('status', 'ok');
+    ])
+        ->assertOk()
+        ->assertJsonPath('status', 'ok')
+        ->assertJsonPath('invoice_number', 'INV-TEST-001')
+        ->assertJsonPath('payment_status', 'completed');
 
     $billing->refresh();
 
     expect($billing->payment_status)->toBe('completed')
         ->and($billing->paid_at)->not->toBeNull();
+});
+
+test('webhook pakasir menerima status paid sebagai pembayaran berhasil', function () {
+    config([
+        'services.pakasir.project' => 'mava-test',
+        'services.pakasir.api_key' => 'secret-test',
+    ]);
+
+    $billing = Billing::query()->create([
+        'invoice_number' => 'INV-TEST-PAID',
+        'customer_name' => 'Mava Mart',
+        'title' => 'Plus Plan - Bulanan',
+        'amount' => 249000,
+        'payment_status' => 'pending',
+    ]);
+
+    Http::fake([
+        'https://app.pakasir.com/api/transactiondetail*' => Http::response([
+            'transaction' => [
+                'project' => 'mava-test',
+                'order_id' => $billing->invoice_number,
+                'amount' => 249000,
+                'status' => 'paid',
+                'payment_method' => 'qris',
+                'paid_at' => '2026-06-17T15:00:00+08:00',
+            ],
+        ]),
+    ]);
+
+    $this->postJson('/pakasir/webhook', [
+        'project' => 'mava-test',
+        'order_id' => $billing->invoice_number,
+        'amount' => 249000,
+        'status' => 'paid',
+        'payment_method' => 'qris',
+    ])
+        ->assertOk()
+        ->assertJsonPath('status', 'ok')
+        ->assertJsonPath('invoice_number', 'INV-TEST-PAID')
+        ->assertJsonPath('payment_status', 'completed');
+
+    $billing->refresh();
+
+    expect($billing->payment_status)->toBe('completed')
+        ->and($billing->paid_at)->not->toBeNull()
+        ->and($billing->provider_payload['verified_detail'])->not->toBeEmpty();
 });
 
 test('pengguna dapat membuat pelanggan dan tersimpan ke database', function () {
