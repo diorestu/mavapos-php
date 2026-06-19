@@ -24,10 +24,9 @@
                                 Masukkan email dan kata sandi untuk masuk.
                             </p>
                         </div>
-                        <div>
-                            <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-5">
+                            <div class="flex flex-col gap-3">
                                 <button type="button"
-                                    class="inline-flex items-center justify-center gap-3 rounded-lg bg-gray-100 px-7 py-3 text-sm font-normal text-gray-700 transition-colors hover:bg-gray-200 hover:text-gray-800 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10">
+                                    class="inline-flex items-center justify-center gap-3 rounded-lg bg-gray-100 px-7 py-3 text-sm font-normal text-gray-700 transition-colors hover:bg-gray-200 hover:text-gray-800 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10 w-full">
                                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none"
                                         xmlns="http://www.w3.org/2000/svg">
                                         <path
@@ -44,16 +43,6 @@
                                             fill="#EB4335" />
                                     </svg>
                                     Masuk dengan Google
-                                </button>
-                                <button type="button"
-                                    class="inline-flex items-center justify-center gap-3 rounded-lg bg-gray-100 px-7 py-3 text-sm font-normal text-gray-700 transition-colors hover:bg-gray-200 hover:text-gray-800 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10">
-                                    <svg width="21" class="fill-current" height="20" viewBox="0 0 21 20"
-                                        fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <path
-                                            d="M15.6705 1.875H18.4272L12.4047 8.75833L19.4897 18.125H13.9422L9.59717 12.4442L4.62554 18.125H1.86721L8.30887 10.7625L1.51221 1.875H7.20054L11.128 7.0675L15.6705 1.875ZM14.703 16.475H16.2305L6.37054 3.43833H4.73137L14.703 16.475Z" />
-                                    </svg>
-
-                                    Masuk dengan X
                                 </button>
                             </div>
                             <div class="relative py-3 sm:py-5">
@@ -158,8 +147,13 @@
                     <!-- ===== Common Grid Shape Start ===== -->
                     <x-common.common-grid-shape/>
                     <div class="flex max-w-xs flex-col items-center">
-                        <a href="/" class="mb-4 block">
-                            <img src="./images/logo/auth-logo.svg" alt="Logo" />
+                        <a href="/" class="mb-4 inline-flex items-center gap-3">
+                            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-500 text-sm font-bold text-white shadow-theme-xs">
+                                mP
+                            </span>
+                            <span class="text-xl font-bold tracking-tight text-white">
+                                mava<span class="text-brand-500">POS</span>
+                            </span>
                         </a>
                         <p class="text-center text-gray-400 dark:text-white/60">
                             Kelola operasional Mava dari satu dashboard yang aman dan mudah digunakan.

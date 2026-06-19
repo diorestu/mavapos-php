@@ -1,0 +1,9 @@
+[
+  {
+    "date": "2026-06-17",
+    "macrostructure": "Workbench",
+    "theme": "existing TailAdmin tokens",
+    "enrichment": "none",
+    "brief": "Minimal POS cashier workbench"
+  }
+]

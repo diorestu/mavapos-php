@@ -1,3 +1,13 @@
+@php
+    $isPosShell = request()->routeIs('pos');
+    $toastMessages = collect([
+        session('success') ? ['message' => session('success'), 'type' => 'success'] : null,
+        session('status') ? ['message' => session('status'), 'type' => 'success'] : null,
+        session('error') ? ['message' => session('error'), 'type' => 'error'] : null,
+        $errors->any() ? ['message' => $errors->first(), 'type' => 'error'] : null,
+    ])->filter()->values();
+@endphp
+
 <!DOCTYPE html>
 <html lang="{{ str_replace('_', '-', app()->getLocale()) }}" class="h-full">
 
@@ -92,15 +102,15 @@
 </head>
 
 <body
-    x-data="{ 'loaded': true}"
-    x-init="$store.sidebar.isExpanded = window.innerWidth >= 1280;
+    x-data="{ 'loaded': true, isPosShell: @js($isPosShell) }"
+    x-init="$store.sidebar.isExpanded = window.innerWidth >= 1280 && !isPosShell;
     const checkMobile = () => {
         if (window.innerWidth < 1280) {
             $store.sidebar.setMobileOpen(false);
             $store.sidebar.isExpanded = false;
         } else {
             $store.sidebar.isMobileOpen = false;
-            $store.sidebar.isExpanded = true;
+            $store.sidebar.isExpanded = !isPosShell;
         }
     };
     window.addEventListener('resize', checkMobile);">
@@ -119,15 +129,30 @@
                 'xl:ml-[77px] xl:w-[calc(100%-77px)]': !$store.sidebar.isExpanded,
                 'ml-0 w-full': $store.sidebar.isMobileOpen
             }">
-            <!-- app header start -->
-            @include('layouts.app-header')
-            <!-- app header end -->
+            @unless ($isPosShell)
+                <!-- app header start -->
+                @include('layouts.app-header')
+                <!-- app header end -->
+            @endunless
             <div class="mx-auto w-full max-w-(--breakpoint-2xl) overflow-x-clip p-4 md:p-6">
                 @yield('content')
             </div>
         </div>
 
     </div>
+
+    @if ($toastMessages->isNotEmpty())
+        <script>
+            document.addEventListener('DOMContentLoaded', () => {
+                const messages = @json($toastMessages);
+                messages.forEach(({ message, type }) => {
+                    if (window.notify) {
+                        window.notify(message, type);
+                    }
+                });
+            });
+        </script>
+    @endif
 
 </body>
 

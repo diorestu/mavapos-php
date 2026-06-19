@@ -89,6 +89,20 @@
                     </span>
                 </button>
 
+                <a href="{{ route('billings') }}"
+                    class="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-gray-600 transition hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/[0.04]">
+                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-current shadow-theme-xs dark:bg-gray-900">
+                        <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M4.16663 5.83333C4.16663 5.3731 4.53972 5 4.99996 5H15C15.4602 5 15.8333 5.3731 15.8333 5.83333V14.1667C15.8333 14.6269 15.4602 15 15 15H4.99996C4.53972 15 4.16663 14.6269 4.16663 14.1667V5.83333Z" stroke="currentColor" stroke-width="1.4" />
+                            <path d="M6.66663 8.33333H13.3333M6.66663 10.8333H10.8333" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" />
+                        </svg>
+                    </span>
+                    <span>
+                        Billing
+                        <span class="block text-[11px] font-normal opacity-75">Plan & pembayaran SaaS</span>
+                    </span>
+                </a>
+
                 <div class="mt-4 rounded-lg bg-gray-50 p-3 dark:bg-gray-900/60">
                     <p class="text-[11px] text-gray-500 dark:text-gray-400">Nama Bisnis</p>
                     <p class="mt-0.5 truncate text-sm font-semibold text-gray-800 dark:text-white/90">{{ $setting->store_name }}</p>

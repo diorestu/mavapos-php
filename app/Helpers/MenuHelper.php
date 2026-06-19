@@ -18,9 +18,23 @@ class MenuHelper
                 'path' => '/pos',
             ],
             [
+                'icon' => 'cashier-shifts',
+                'name' => 'Shift Kasir',
+                'path' => '/cashier-shifts',
+            ],
+            [
                 'icon' => 'ecommerce',
                 'name' => 'Produk',
-                'path' => '/products',
+                'subItems' => [
+                    [
+                        'name' => 'Daftar Produk',
+                        'path' => '/products',
+                    ],
+                    [
+                        'name' => 'Resep',
+                        'path' => '/product-recipes',
+                    ],
+                ],
             ],
             [
                 'icon' => 'tables',
@@ -34,8 +48,18 @@ class MenuHelper
             ],
             [
                 'icon' => 'inventory',
+                'name' => 'Inventory',
+                'path' => '/raw-materials',
+            ],
+            [
+                'icon' => 'inventory',
                 'name' => 'Stok',
                 'path' => '/inventory',
+            ],
+            [
+                'icon' => 'expenses',
+                'name' => 'Pengeluaran',
+                'path' => '/expenses',
             ],
             [
                 'icon' => 'customers',
@@ -72,6 +96,10 @@ class MenuHelper
 
     public static function isActive($path)
     {
+        if ($path === '/settings' && request()->is('billings*')) {
+            return true;
+        }
+
         return request()->is(ltrim($path, '/'));
     }
 
@@ -82,15 +110,21 @@ class MenuHelper
 
             'pos' => '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 6.5C5 5.11929 6.11929 4 7.5 4H16.5C17.8807 4 19 5.11929 19 6.5V17.5C19 18.8807 17.8807 20 16.5 20H7.5C6.11929 20 5 18.8807 5 17.5V6.5Z" stroke="currentColor" stroke-width="1.5"/><path d="M8 8H16M8 11H16" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M8 15.5H8.01M11 15.5H11.01M14 15.5H14.01M16 15.5H16.01" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></svg>',
 
+            'cashier-shifts' => '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M7.75 4H16.25C17.2165 4 18 4.7835 18 5.75V18.25C18 19.2165 17.2165 20 16.25 20H7.75C6.7835 20 6 19.2165 6 18.25V5.75C6 4.7835 6.7835 4 7.75 4Z" stroke="currentColor" stroke-width="1.5"/><path d="M9 8H15M9 11H15" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M12 14V17M10.5 15.5H13.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+
             'sales' => '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4 5.75C4 4.7835 4.7835 4 5.75 4H18.25C19.2165 4 20 4.7835 20 5.75V18.25C20 19.2165 19.2165 20 18.25 20H5.75C4.7835 20 4 19.2165 4 18.25V5.75Z" stroke="currentColor" stroke-width="1.5"/><path d="M8 15L10.5 12.5L12.5 14.5L16.5 10.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/><path d="M14 10.5H16.5V13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
 
             'inventory' => '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M4.5 8.5L12 4.5L19.5 8.5V16.5L12 20.5L4.5 16.5V8.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M4.75 8.75L12 12.75L19.25 8.75M12 20V12.75" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+
+            'expenses' => '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M6 5.75C6 4.7835 6.7835 4 7.75 4H16.25C17.2165 4 18 4.7835 18 5.75V18.25C18 19.2165 17.2165 20 16.25 20H7.75C6.7835 20 6 19.2165 6 18.25V5.75Z" stroke="currentColor" stroke-width="1.5"/><path d="M9 8H15M9 11H15M9 14H12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M14.5 15.5H15.5C16.0523 15.5 16.5 15.9477 16.5 16.5C16.5 17.0523 16.0523 17.5 15.5 17.5H14.5C13.9477 17.5 13.5 17.0523 13.5 16.5C13.5 15.9477 13.9477 15.5 14.5 15.5Z" stroke="currentColor" stroke-width="1.4"/></svg>',
 
             'customers' => '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M15 19C15 16.7909 13.2091 15 11 15H8C5.79086 15 4 16.7909 4 19" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M9.5 12C11.1569 12 12.5 10.6569 12.5 9C12.5 7.34315 11.1569 6 9.5 6C7.84315 6 6.5 7.34315 6.5 9C6.5 10.6569 7.84315 12 9.5 12Z" stroke="currentColor" stroke-width="1.5"/><path d="M17 11C18.3807 11 19.5 9.88071 19.5 8.5C19.5 7.11929 18.3807 6 17 6M20 18C20 16.067 18.433 14.5 16.5 14.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
 
             'suppliers' => '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M3.5 15.5V7.75C3.5 6.7835 4.2835 6 5.25 6H13.5V15.5H3.5Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M13.5 9H17L20.5 12.5V15.5H13.5V9Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M7 18C7.82843 18 8.5 17.3284 8.5 16.5C8.5 15.6716 7.82843 15 7 15C6.17157 15 5.5 15.6716 5.5 16.5C5.5 17.3284 6.17157 18 7 18Z" stroke="currentColor" stroke-width="1.5"/><path d="M17 18C17.8284 18 18.5 17.3284 18.5 16.5C18.5 15.6716 17.8284 15 17 15C16.1716 15 15.5 15.6716 15.5 16.5C15.5 17.3284 16.1716 18 17 18Z" stroke="currentColor" stroke-width="1.5"/></svg>',
 
             'reports' => '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 19V5C5 4.44772 5.44772 4 6 4H18C18.5523 4 19 4.44772 19 5V19L16.5 17.75L14 19L12 17.75L10 19L7.5 17.75L5 19Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M8.5 9H15.5M8.5 12H15.5M8.5 15H12.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>',
+
+            'billing' => '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M5 6.75C5 5.7835 5.7835 5 6.75 5H17.25C18.2165 5 19 5.7835 19 6.75V17.25C19 18.2165 18.2165 19 17.25 19H6.75C5.7835 19 5 18.2165 5 17.25V6.75Z" stroke="currentColor" stroke-width="1.5"/><path d="M8 9H16M8 12H13" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/><path d="M15 14.5H16.25C16.6642 14.5 17 14.8358 17 15.25C17 15.6642 16.6642 16 16.25 16H14.75C14.3358 16 14 15.6642 14 15.25V14.75C14 14.3358 14.3358 14 14.75 14H16.25C16.6642 14 17 13.6642 17 13.25C17 12.8358 16.6642 12.5 16.25 12.5H15" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>',
 
             'settings' => '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M12 15.25C13.7949 15.25 15.25 13.7949 15.25 12C15.25 10.2051 13.7949 8.75 12 8.75C10.2051 8.75 8.75 10.2051 8.75 12C8.75 13.7949 10.2051 15.25 12 15.25Z" stroke="currentColor" stroke-width="1.5"/><path d="M18.25 12.75C18.2818 12.5033 18.2818 12.4967 18.25 12.25L20.25 10.75L18.25 7.25L15.9 8.25C15.5 7.95 15.05 7.7 14.55 7.5L14.25 5H9.75L9.45 7.5C8.95 7.7 8.5 7.95 8.1 8.25L5.75 7.25L3.75 10.75L5.75 12.25C5.71818 12.4967 5.71818 12.5033 5.75 12.75L3.75 14.25L5.75 17.75L8.1 16.75C8.5 17.05 8.95 17.3 9.45 17.5L9.75 20H14.25L14.55 17.5C15.05 17.3 15.5 17.05 15.9 16.75L18.25 17.75L20.25 14.25L18.25 12.75Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/></svg>',
 

@@ -1,0 +1,21 @@
+/* Hallmark · tokens · macrostructure: Workbench · tone: utilitarian · anchor hue: cool-blue */
+:root {
+  --color-pos-paper: oklch(98% 0.006 250);
+  --color-pos-surface: oklch(100% 0.004 250);
+  --color-pos-ink: oklch(18% 0.012 250);
+  --color-pos-muted: oklch(48% 0.012 250);
+  --color-pos-rule: oklch(90% 0.012 250);
+  --color-pos-accent: oklch(55% 0.18 260);
+  --color-pos-focus: oklch(55% 0.18 260);
+  --font-pos-body: "Public Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-pos-display: "Public Sans", ui-sans-serif, system-ui, sans-serif;
+  --space-pos-xs: 0.5rem;
+  --space-pos-sm: 0.75rem;
+  --space-pos-md: 1rem;
+  --space-pos-lg: 1.5rem;
+  --space-pos-xl: 2.5rem;
+  --radius-pos: 0.5rem;
+  --ease-pos-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --dur-pos-micro: 120ms;
+  --dur-pos-short: 220ms;
+}

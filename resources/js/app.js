@@ -1,6 +1,8 @@
 import './bootstrap';
 import Alpine from 'alpinejs';
 import ApexCharts from 'apexcharts';
+import Toastify from 'toastify-js';
+import 'toastify-js/src/toastify.css';
 
 // flatpickr
 import flatpickr from 'flatpickr';
@@ -14,6 +16,38 @@ window.Alpine = Alpine;
 window.ApexCharts = ApexCharts;
 window.flatpickr = flatpickr;
 window.FullCalendar = Calendar;
+
+const toastThemes = {
+    success: 'linear-gradient(135deg, #039855, #12b76a)',
+    error: 'linear-gradient(135deg, #b42318, #f04438)',
+    info: 'linear-gradient(135deg, #344054, #475467)',
+};
+
+window.notify = (message, type = 'success') => {
+    if (!message) {
+        return;
+    }
+
+    Toastify({
+        text: message,
+        duration: 3200,
+        close: true,
+        gravity: 'top',
+        position: 'right',
+        stopOnFocus: true,
+        style: {
+            background: toastThemes[type] || toastThemes.info,
+            borderRadius: '10px',
+            boxShadow: '0 12px 30px rgba(15, 23, 42, 0.18)',
+            fontSize: '13px',
+            fontWeight: '600',
+            lineHeight: '1.4',
+            maxWidth: '360px',
+        },
+    }).showToast();
+};
+
+const notify = window.notify;
 
 Alpine.data('productManager', (initialProducts = [], initialCategories = []) => ({
     createProductModal: false,
@@ -252,6 +286,7 @@ Alpine.data('productManager', (initialProducts = [], initialCategories = []) => 
         if (!response.ok) {
             const payload = await response.json().catch(() => ({}));
             this.formError = payload.message || 'Produk gagal dibuat.';
+            notify(this.formError, 'error');
             return;
         }
 
@@ -259,6 +294,7 @@ Alpine.data('productManager', (initialProducts = [], initialCategories = []) => 
         this.products.unshift(payload.product);
         this.currentPage = 1;
         this.closeCreateModal();
+        notify(payload.message || 'Produk berhasil dibuat.');
     },
 
     async updateProduct() {
@@ -282,6 +318,7 @@ Alpine.data('productManager', (initialProducts = [], initialCategories = []) => 
         if (!response.ok) {
             const payload = await response.json().catch(() => ({}));
             this.editFormError = payload.message || 'Produk gagal diperbarui.';
+            notify(this.editFormError, 'error');
             return;
         }
 
@@ -293,6 +330,7 @@ Alpine.data('productManager', (initialProducts = [], initialCategories = []) => 
         }
 
         this.closeEditModal();
+        notify(payload.message || 'Produk berhasil diperbarui.');
     },
 
     goToPage(page) {
@@ -512,6 +550,7 @@ Alpine.data('productCategoryManager', (initialCategories = []) => ({
         if (!response.ok) {
             const payload = await response.json().catch(() => ({}));
             this.formError = payload.message || 'Kategori produk gagal dibuat.';
+            notify(this.formError, 'error');
             return;
         }
 
@@ -519,6 +558,7 @@ Alpine.data('productCategoryManager', (initialCategories = []) => ({
         this.categories.unshift(payload.category);
         this.currentPage = 1;
         this.closeCreateModal();
+        notify(payload.message || 'Kategori produk berhasil dibuat.');
     },
 
     async updateCategory() {
@@ -542,6 +582,7 @@ Alpine.data('productCategoryManager', (initialCategories = []) => ({
         if (!response.ok) {
             const payload = await response.json().catch(() => ({}));
             this.editFormError = payload.message || 'Kategori produk gagal diperbarui.';
+            notify(this.editFormError, 'error');
             return;
         }
 
@@ -553,6 +594,7 @@ Alpine.data('productCategoryManager', (initialCategories = []) => ({
         }
 
         this.closeEditModal();
+        notify(payload.message || 'Kategori produk berhasil diperbarui.');
     },
 
     goToPage(page) {
@@ -761,6 +803,7 @@ Alpine.data('contactManager', (initialItems = [], routePath = '', entityLabel = 
         if (!response.ok) {
             const payload = await response.json().catch(() => ({}));
             this.formError = payload.message || `${this.entityLabel} gagal dibuat.`;
+            notify(this.formError, 'error');
             return;
         }
 
@@ -768,6 +811,7 @@ Alpine.data('contactManager', (initialItems = [], routePath = '', entityLabel = 
         this.items.unshift(payload.item);
         this.currentPage = 1;
         this.closeCreateModal();
+        notify(payload.message || `${this.entityLabel} berhasil dibuat.`);
     },
 
     async updateItem() {
@@ -791,6 +835,7 @@ Alpine.data('contactManager', (initialItems = [], routePath = '', entityLabel = 
         if (!response.ok) {
             const payload = await response.json().catch(() => ({}));
             this.editFormError = payload.message || `${this.entityLabel} gagal diperbarui.`;
+            notify(this.editFormError, 'error');
             return;
         }
 
@@ -802,6 +847,7 @@ Alpine.data('contactManager', (initialItems = [], routePath = '', entityLabel = 
         }
 
         this.closeEditModal();
+        notify(payload.message || `${this.entityLabel} berhasil diperbarui.`);
     },
 
     goToPage(page) {
@@ -972,6 +1018,7 @@ Alpine.data('inventoryManager', (initialItems = [], initialMovements = []) => ({
         if (!response.ok) {
             const payload = await response.json().catch(() => ({}));
             this.editFormError = payload.message || 'Stok gagal diperbarui.';
+            notify(this.editFormError, 'error');
             return;
         }
 
@@ -983,6 +1030,7 @@ Alpine.data('inventoryManager', (initialItems = [], initialMovements = []) => ({
         }
 
         this.closeEditModal();
+        notify(payload.message || 'Stok berhasil diperbarui.');
     },
 
     async saveMovement() {
@@ -1010,6 +1058,7 @@ Alpine.data('inventoryManager', (initialItems = [], initialMovements = []) => ({
         if (!response.ok) {
             const payload = await response.json().catch(() => ({}));
             this.movementFormError = payload.message || `${this.movementTypeLabel} gagal dicatat.`;
+            notify(this.movementFormError, 'error');
             return;
         }
 
@@ -1023,6 +1072,7 @@ Alpine.data('inventoryManager', (initialItems = [], initialMovements = []) => ({
         this.movements.unshift(payload.movement);
         this.movements = this.movements.slice(0, 8);
         this.closeMovementModal();
+        notify(payload.message || `${this.movementTypeLabel} berhasil dicatat.`);
     },
 
     goToPage(page) {
@@ -1035,6 +1085,352 @@ Alpine.data('inventoryManager', (initialItems = [], initialMovements = []) => ({
 
     previousPage() {
         this.goToPage(this.currentPage - 1);
+    },
+}));
+
+Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShift = null, blockingShift = null, endpoints = {}) => ({
+    items: initialItems,
+    categories: initialCategories,
+    shift: initialShift,
+    blockingShift,
+    endpoints,
+    startModal: !initialShift && !blockingShift,
+    closeModal: false,
+    openingNote: '',
+    closingNote: '',
+    shiftError: '',
+    checkoutError: '',
+    shiftLoading: false,
+    checkoutLoading: false,
+    query: '',
+    activeCategory: '',
+    cart: [],
+    paymentMethod: 'cash',
+    paidAmount: '',
+    discount: 0,
+
+    get filteredItems() {
+        const keyword = this.normalize(this.query);
+
+        return this.items.filter((item) => {
+            const matchesKeyword = !keyword ||
+                this.normalize(item.name).includes(keyword) ||
+                this.normalize(item.sku).includes(keyword) ||
+                this.normalize(item.barcode).includes(keyword);
+            const matchesCategory = !this.activeCategory || item.category === this.activeCategory;
+
+            return matchesKeyword && matchesCategory && Number(item.stock) > 0;
+        });
+    },
+
+    get favoriteItems() {
+        return this.items.filter((item) => item.isFavorite && Number(item.stock) > 0).slice(0, 8);
+    },
+
+    get subtotal() {
+        return this.cart.reduce((total, item) => total + (Number(item.price) * Number(item.quantity)), 0);
+    },
+
+    get discountValue() {
+        return Math.min(Number(this.discount || 0), this.subtotal);
+    },
+
+    get total() {
+        return Math.max(0, this.subtotal - this.discountValue);
+    },
+
+    get paid() {
+        return Number(String(this.paidAmount || '').replace(/[^\d]/g, ''));
+    },
+
+    get change() {
+        if (this.paymentMethod !== 'cash') {
+            return 0;
+        }
+
+        return Math.max(0, this.paid - this.total);
+    },
+
+    get remaining() {
+        if (this.paymentMethod !== 'cash') {
+            return 0;
+        }
+
+        return Math.max(0, this.total - this.paid);
+    },
+
+    get canCheckout() {
+        return Boolean(this.shift) && !this.checkoutLoading && this.cart.length > 0 && (this.paymentMethod !== 'cash' || this.paid >= this.total);
+    },
+
+    normalize(value) {
+        return String(value || '').toLowerCase().trim();
+    },
+
+    formatRupiah(value) {
+        return new Intl.NumberFormat('id-ID', {
+            style: 'currency',
+            currency: 'IDR',
+            maximumFractionDigits: 0,
+        }).format(Number(value || 0)).replace(/\s/g, '');
+    },
+
+    stockLabel(item) {
+        const stock = Number(item.stock || 0);
+
+        if (stock <= 0) {
+            return 'Habis';
+        }
+
+        if (stock <= 5) {
+            return `${stock} tersisa`;
+        }
+
+        return `Stok ${stock}`;
+    },
+
+    addItem(item) {
+        if (Number(item.stock || 0) <= 0) {
+            return;
+        }
+
+        const current = this.cart.find((cartItem) => cartItem.id === item.id);
+
+        if (current) {
+            this.increase(current.id);
+            return;
+        }
+
+        this.cart.push({
+            id: item.id,
+            name: item.name,
+            sku: item.sku,
+            price: Number(item.price),
+            stock: Number(item.stock),
+            quantity: 1,
+        });
+    },
+
+    increase(id) {
+        const item = this.cart.find((cartItem) => cartItem.id === id);
+
+        if (!item || item.quantity >= item.stock) {
+            return;
+        }
+
+        item.quantity += 1;
+    },
+
+    decrease(id) {
+        const item = this.cart.find((cartItem) => cartItem.id === id);
+
+        if (!item) {
+            return;
+        }
+
+        item.quantity -= 1;
+
+        if (item.quantity <= 0) {
+            this.remove(id);
+        }
+    },
+
+    remove(id) {
+        this.cart = this.cart.filter((item) => item.id !== id);
+    },
+
+    clearCart() {
+        this.cart = [];
+        this.discount = 0;
+        this.paidAmount = '';
+    },
+
+    payExact() {
+        this.paymentMethod = 'cash';
+        this.paidAmount = String(this.total);
+    },
+
+    async startShift() {
+        this.shiftError = '';
+        this.shiftLoading = true;
+
+        try {
+            const response = await fetch(this.endpoints.startShift, {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                },
+                body: JSON.stringify({
+                    opening_note: this.openingNote,
+                }),
+            });
+
+            const payload = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                this.shiftError = payload.message || 'Shift kasir gagal dimulai.';
+                notify(this.shiftError, 'error');
+                return;
+            }
+
+            this.shift = payload.shift;
+            this.blockingShift = null;
+            this.startModal = false;
+            this.openingNote = '';
+            notify(payload.message || 'Shift kasir dimulai.');
+        } finally {
+            this.shiftLoading = false;
+        }
+    },
+
+    async closeShift() {
+        this.shiftError = '';
+        this.shiftLoading = true;
+
+        try {
+            const response = await fetch(this.endpoints.closeShift, {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                },
+                body: JSON.stringify({
+                    closing_note: this.closingNote,
+                }),
+            });
+
+            const payload = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                this.shiftError = payload.message || 'Shift kasir gagal ditutup.';
+                notify(this.shiftError, 'error');
+                return;
+            }
+
+            this.shift = null;
+            this.closeModal = false;
+            this.startModal = true;
+            this.closingNote = '';
+            this.clearCart();
+            notify(payload.message || 'Shift kasir ditutup.');
+        } finally {
+            this.shiftLoading = false;
+        }
+    },
+
+    async checkout() {
+        if (!this.canCheckout) {
+            notify('Lengkapi pembayaran sebelum checkout.', 'error');
+            return;
+        }
+
+        this.checkoutError = '';
+        this.checkoutLoading = true;
+
+        try {
+            const response = await fetch(this.endpoints.checkout, {
+                method: 'POST',
+                headers: {
+                    Accept: 'application/json',
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                },
+                body: JSON.stringify({
+                    items: this.cart.map((item) => ({
+                        id: item.id,
+                        quantity: item.quantity,
+                    })),
+                    payment_method: this.paymentMethod,
+                    discount: Number(this.discount || 0),
+                    paid_amount: this.paymentMethod === 'cash' ? this.paid : this.total,
+                }),
+            });
+
+            const payload = await response.json().catch(() => ({}));
+
+            if (!response.ok) {
+                this.checkoutError = payload.message || 'Transaksi gagal diselesaikan.';
+                notify(this.checkoutError, 'error');
+                return;
+            }
+
+            this.items = payload.items || this.items;
+            this.shift = payload.shift || this.shift;
+            this.clearCart();
+            notify(payload.message || 'Transaksi berhasil diselesaikan.');
+        } finally {
+            this.checkoutLoading = false;
+        }
+    },
+}));
+
+Alpine.data('productRecipeManager', (initialProducts = [], rawMaterials = []) => ({
+    products: initialProducts,
+    rawMaterials,
+    modalOpen: false,
+    selectedProductId: '',
+    items: [],
+
+    emptyItem() {
+        return {
+            raw_material_id: '',
+            quantity: '',
+            unit: '',
+        };
+    },
+
+    openModal(productId = null) {
+        this.modalOpen = true;
+        this.selectedProductId = productId ? String(productId) : '';
+        this.loadSelectedRecipe();
+    },
+
+    closeModal() {
+        this.modalOpen = false;
+        this.selectedProductId = '';
+        this.items = [this.emptyItem()];
+    },
+
+    selectedProduct() {
+        return this.products.find((product) => String(product.id) === String(this.selectedProductId));
+    },
+
+    loadSelectedRecipe() {
+        const product = this.selectedProduct();
+
+        if (!product || !Array.isArray(product.items) || product.items.length === 0) {
+            this.items = [this.emptyItem()];
+            return;
+        }
+
+        this.items = product.items.map((item) => ({
+            raw_material_id: item.raw_material_id ? String(item.raw_material_id) : '',
+            quantity: item.quantity || '',
+            unit: item.unit || this.rawMaterialUnit(item.raw_material_id),
+        }));
+    },
+
+    addItem() {
+        this.items.push(this.emptyItem());
+    },
+
+    removeItem(index) {
+        if (this.items.length === 1) {
+            return;
+        }
+
+        this.items.splice(index, 1);
+    },
+
+    rawMaterialUnit(rawMaterialId) {
+        return this.rawMaterials.find((material) => String(material.id) === String(rawMaterialId))?.unit || '';
+    },
+
+    syncItemUnit(item) {
+        item.unit = this.rawMaterialUnit(item.raw_material_id);
     },
 }));
 

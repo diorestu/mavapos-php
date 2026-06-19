@@ -2,10 +2,18 @@
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BillingController;
+use App\Http\Controllers\CashierShiftController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\PosController;
 use App\Http\Controllers\ProductCategoryController;
 use App\Http\Controllers\ProductController;
+use App\Http\Controllers\ProductRecipeController;
+use App\Http\Controllers\RawMaterialController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SaleController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\SupplierController;
 
@@ -16,43 +24,53 @@ Route::middleware('guest')->group(function () {
     Route::post('/signup', [AuthController::class, 'signUp'])->name('signup.store');
 });
 
+Route::post('/pakasir/webhook', [BillingController::class, 'webhook'])->name('pakasir.webhook');
+
+Route::get('/', function () {
+    if (auth()->check()) {
+        return view('pages.dashboard.ecommerce', ['title' => 'Dashboard']);
+    }
+    return view('pages.landing', ['title' => 'MavaPOS - Aplikasi Kasir Online']);
+})->name('dashboard');
+
 Route::middleware('auth')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
-
-    Route::get('/', function () {
-        return view('pages.dashboard.ecommerce', ['title' => 'Dashboard']);
-    })->name('dashboard');
 
     Route::get('/products', [ProductController::class, 'index'])->name('products');
     Route::post('/products', [ProductController::class, 'store'])->name('products.store');
     Route::patch('/products/{sku}', [ProductController::class, 'update'])->name('products.update');
+    Route::get('/product-recipes', [ProductRecipeController::class, 'index'])->name('product-recipes');
+    Route::post('/product-recipes', [ProductRecipeController::class, 'store'])->name('product-recipes.store');
     Route::get('/product-categories', [ProductCategoryController::class, 'index'])->name('product-categories');
     Route::post('/product-categories', [ProductCategoryController::class, 'store'])->name('product-categories.store');
     Route::patch('/product-categories/{code}', [ProductCategoryController::class, 'update'])->name('product-categories.update');
     Route::get('/customers', [CustomerController::class, 'index'])->name('customers');
     Route::post('/customers', [CustomerController::class, 'store'])->name('customers.store');
     Route::patch('/customers/{code}', [CustomerController::class, 'update'])->name('customers.update');
+    Route::get('/billings', [BillingController::class, 'index'])->name('billings');
+    Route::post('/billings', [BillingController::class, 'store'])->name('billings.store');
+    Route::post('/billings/{billing}/refresh', [BillingController::class, 'refresh'])->name('billings.refresh');
     Route::get('/suppliers', [SupplierController::class, 'index'])->name('suppliers');
     Route::post('/suppliers', [SupplierController::class, 'store'])->name('suppliers.store');
     Route::patch('/suppliers/{code}', [SupplierController::class, 'update'])->name('suppliers.update');
+    Route::get('/raw-materials', [RawMaterialController::class, 'index'])->name('raw-materials');
+    Route::post('/raw-materials', [RawMaterialController::class, 'store'])->name('raw-materials.store');
+    Route::get('/expenses', [ExpenseController::class, 'index'])->name('expenses');
+    Route::post('/expenses', [ExpenseController::class, 'store'])->name('expenses.store');
     Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory');
     Route::post('/inventory/{sku}/in', [InventoryController::class, 'storeIn'])->name('inventory.in');
     Route::post('/inventory/{sku}/out', [InventoryController::class, 'storeOut'])->name('inventory.out');
     Route::patch('/inventory/{sku}', [InventoryController::class, 'update'])->name('inventory.update');
     Route::get('/settings', [SettingController::class, 'index'])->name('settings');
     Route::patch('/settings', [SettingController::class, 'update'])->name('settings.update');
-
-    $posPlaceholderPages = [
-        'pos' => 'Kasir',
-        'sales' => 'Penjualan',
-        'reports' => 'Laporan',
-    ];
-
-    foreach ($posPlaceholderPages as $uri => $title) {
-        Route::get("/{$uri}", function () use ($title) {
-            return view('pages.blank', ['title' => $title]);
-        })->name($uri);
-    }
+    Route::get('/pos', [PosController::class, 'index'])->name('pos');
+    Route::post('/pos/shift/start', [PosController::class, 'startShift'])->name('pos.shift.start');
+    Route::post('/pos/shift/close', [PosController::class, 'closeShift'])->name('pos.shift.close');
+    Route::post('/pos/checkout', [PosController::class, 'checkout'])->name('pos.checkout');
+    Route::get('/cashier-shifts', [CashierShiftController::class, 'index'])->name('cashier-shifts');
+    Route::get('/sales', [SaleController::class, 'index'])->name('sales');
+    Route::get('/reports', [ReportController::class, 'index'])->name('reports');
+    Route::get('/reports/download', [ReportController::class, 'download'])->name('reports.download');
 
     Route::get('/calendar', function () {
         return view('pages.calender', ['title' => 'Kalender']);
@@ -110,14 +128,6 @@ Route::middleware('auth')->group(function () {
         return view('pages.ui-elements.videos', ['title' => 'Video']);
     })->name('videos');
 });
-
-
-
-
-
-
-
-
 
 
 

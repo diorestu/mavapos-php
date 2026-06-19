@@ -1,439 +1,267 @@
-# TailAdmin Laravel - Tailwind CSS Free Laravel Dashboard
+# Mava Backend
 
-**TailAdmin Laravel** is a modern, production-ready admin dashboard template powered by **Laravel 12**, **Tailwind CSS v4**, **Alpine.js**, and a clean, modular architecture. TailAdmin is one of the most popular Tailwind CSS dashboard now also available for Larvael. It’s designed for building fast, scalable admin panels, CRM dashboards, SaaS backends, and any data-driven application where clarity and performance matter.
-![TailAdmin - Next.js Dashboard Preview](./tailadmin-laravel.png)
+Mava Backend is a Laravel 12 admin application for managing store operations: products, product categories, inventory movement, suppliers, customers, store settings, and QRIS billing through Pakasir.
 
+The UI is built with Blade, Tailwind CSS, Alpine.js, and Vite.
 
-## Quick Links
+## Features
 
-* [✨ Get TailAdmin Laravel](https://tailadmin.com/laravel)
-* [📄 Documentation](https://tailadmin.com/docs)
-* [⬇️ Download](https://tailadmin.com/download)
-* [🌐 Live Demo](https://laravel-demo.tailadmin.com)
+- Authentication with sign in, sign up, and logout.
+- Dashboard summary for store metrics.
+- Minimal POS cashier page with product search, category filter, cart, cash/QRIS/card payment modes, and change calculation.
+- Product management with categories, variants, barcode, buy price, sell price, stock, and minimum stock.
+- Inventory management with stock-in and stock-out transaction history.
+- Customer and supplier management.
+- Store settings for business identity and product behavior.
+- SaaS billing module for Basic and Plus plan QRIS payment generation through Pakasir.
+- Pakasir webhook endpoint for automated payment status updates.
+- Pest feature tests for core workflows.
 
-Here’s a tighter, more search-friendly version that highlights value and avoids fluff while keeping your structure intact.
+## Requirements
 
-## ✨ Key Features
+- PHP 8.2 or newer
+- Composer
+- Node.js 18 or newer
+- npm
+- SQLite, MySQL, or PostgreSQL
 
-* 🚀 **Laravel 12 Core** - Built on the latest Laravel release with improved routing, security, and Blade templating
-* 🎨 **Tailwind CSS v4** - Utility-first styling for rapid, consistent UI development
-* ⚡ **Alpine.js Interactivity** - Lightweight reactivity without a heavy JavaScript framework
-* 📦 **Vite Build System** - Fast dev server, instant HMR, and optimized production builds
-* 📱 **Fully Responsive Layouts** - Smooth, mobile-first design that adapts across all screen sizes
-* 🌙 **Built-in Dark Mode** - Ready-to-use modern dark theme for better usability and aesthetics
-* 📊 **Advanced UI Components** - Charts, data tables, forms, calendars, modals, and reusable blocks for complex dashboards
-* 🎯 **Production-Ready Dashboard UI** - Clean, modern interface crafted for real apps, not placeholder demos
+## Installation
 
-### Other Versions
-
-- [Next.js Version](https://github.com/TailAdmin/free-nextjs-admin-dashboard)
-- [React.js Version](https://github.com/TailAdmin/free-react-tailwind-admin-dashboard)
-- [Vue.js Version](https://github.com/TailAdmin/vue-tailwind-admin-dashboard)
-- [Angular Version](https://github.com/TailAdmin/free-angular-tailwind-dashboard)
-- [Laravel Version](https://github.com/TailAdmin/tailadmin-laravel)
-
-## 📋 Requirements
-To set up TailAdmin Laravel, make sure your environment includes:
-
-* **PHP 8.2+**
-* **Composer** (PHP dependency manager)
-* **Node.js 18+** and **npm** (for compiling frontend assets)
-* **Database** - Works with SQLite (default), MySQL, or PostgreSQL
-
-### Tailwind CSS Laravel Dashboard
-
-TailAdmin delivers a refined Tailwind CSS Laravel Dashboard experience, combining Laravel’s robust backend with Tailwind’s flexible utility classes. The result is a clean, fast, and customizable dashboard that helps developers build modern admin interfaces without the usual front-end complexity. It’s ideal for teams looking for a Tailwind-powered Laravel starter that stays lightweight and easy to scale.
-
-### Laravel Admin Dashboard
-
-If you’re searching for a dependable Laravel Admin Dashboard template that’s easy to set up and ready for production, TailAdmin fits the job. It offers a polished UI, reusable components, optimized performance, and all the essentials needed to launch dashboards, CRM systems, and internal tools quickly. It gives developers a solid foundation, so projects move faster with fewer decisions to worry about.
-
-### Check Your Environment
-
-Verify your installations:
-
-```bash
-php -v
-composer -V
-node -v
-npm -v
-```
-
-## 🚀 Quick Start Installation
-
-### Step 1: Clone the Repository
-
-```bash
-git clone https://github.com/TailAdmin/tailadmin-laravel.git
-cd tailadmin-laravel
-```
-
-### Step 2: Install PHP Dependencies
+Install PHP dependencies:
 
 ```bash
 composer install
 ```
 
-This command will install all Laravel dependencies defined in `composer.json`.
-
-### Step 3: Install Node.js Dependencies
+Install frontend dependencies:
 
 ```bash
 npm install
 ```
 
-Or if you prefer yarn or pnpm:
-
-```bash
-# Using yarn
-yarn install
-
-# Using pnpm
-pnpm install
-```
-
-### Step 4: Environment Configuration
-
-Copy the example environment file:
-
-```bash
-cp .env.example .env
-```
-
-**For Windows users:**
-
-```bash
-copy .env.example .env
-```
-
-**Or create it programmatically:**
+Create an environment file if it does not exist:
 
 ```bash
 php -r "file_exists('.env') || copy('.env.example', '.env');"
 ```
 
-### Step 5: Generate Application Key
+Generate the Laravel application key:
 
 ```bash
 php artisan key:generate
 ```
 
-This creates a unique encryption key for your application.
+For local SQLite development, make sure the database file exists:
 
-### Step 6: Configure Database
+```bash
+touch database/database.sqlite
+```
 
-#### Option A: Using MySQL/PostgreSQL
-
-Update your `.env` file with your database credentials:
+Configure `.env`:
 
 ```env
-DB_CONNECTION=mysql
-DB_HOST=127.0.0.1
-DB_PORT=3306
-DB_DATABASE=tailadmin_db
-DB_USERNAME=your_username
-DB_PASSWORD=your_password
+APP_NAME="Mava Backend"
+APP_URL=http://localhost:8000
+
+DB_CONNECTION=sqlite
+DB_DATABASE=/absolute/path/to/database/database.sqlite
 ```
 
-Create the database:
+Run migrations and seed sample data:
 
 ```bash
-# MySQL
-mysql -u root -p -e "CREATE DATABASE tailadmin_db;"
-
-# PostgreSQL
-createdb tailadmin_db
+php artisan migrate --seed
 ```
 
-Run migrations:
+The seeder creates sample products, categories, suppliers, customers, store settings, and a test user:
 
-```bash
-php artisan migrate
+```text
+Email: test@example.com
+Password: password
 ```
 
-### Step 7: (Optional) Seed the Database
+## Running Locally
 
-If you want sample data:
-
-```bash
-php artisan db:seed
-```
-
-### Step 8: Storage Link
-
-Create a symbolic link for file storage:
-
-```bash
-php artisan storage:link
-```
-
-## 🏃 Running the Application
-
-### Development Mode (Recommended)
-
-The easiest way to start development is using the built-in script:
+Start the full development stack:
 
 ```bash
 composer run dev
 ```
 
-This single command starts:
-- ✅ Laravel development server (http://localhost:8000)
-- ✅ Vite dev server for hot module reloading
-- ✅ Queue worker for background jobs
-- ✅ Log monitoring
+This starts:
 
-**Access your application at:** [http://localhost:8000](http://localhost:8000)
+- Laravel development server
+- Queue listener
+- Laravel log tailing
+- Vite development server
 
-### Manual Development Setup
+Open the application at:
 
-If you prefer to run services individually in separate terminal windows:
-
-**Terminal 1 - Laravel Server:**
-```bash
-php artisan serve
+```text
+http://localhost:8000
 ```
 
-**Terminal 2 - Frontend Assets:**
+You can also run services separately:
+
 ```bash
+php artisan serve
 npm run dev
 ```
 
-### Building for Production
+## Frontend Build
 
-#### Build Frontend Assets
+Build production assets:
 
 ```bash
 npm run build
 ```
 
-#### Optimize Laravel
+## Billing and Pakasir QRIS
 
-```bash
-# Clear and cache configuration
-php artisan config:cache
+The billing module is available from Pengaturan > Billing, using this route:
 
-# Cache routes
-php artisan route:cache
-
-# Cache views
-php artisan view:cache
-
-# Optimize autoloader
-composer install --optimize-autoloader --no-dev
+```text
+/billings
 ```
 
-#### Production Environment
+It creates a local billing record, calls Pakasir to create a QRIS transaction, stores the payment URL/payment metadata, and updates payment status from webhook callbacks or manual status checks.
 
-Update your `.env` for production:
+Available SaaS plan presets:
+
+```text
+Basic Plan   Rp149.000
+Plus Plan    Rp249.000
+```
+
+Set these variables in `.env`:
 
 ```env
-APP_ENV=production
-APP_DEBUG=false
-APP_URL=https://yourdomain.com
+PAKASIR_PROJECT=your-pakasir-project
+PAKASIR_API_KEY=your-pakasir-api-key
+PAKASIR_BASE_URL=https://app.pakasir.com/api
+PAKASIR_TIMEOUT=30
 ```
 
+Register this webhook URL in Pakasir:
 
-## 🧪 Testing
-
-Run the test suite using Pest:
-
-```bash
-composer run test
+```text
+https://your-domain.com/pakasir/webhook
 ```
 
-Or manually:
+For local webhook testing, expose your local server with a tunnel such as ngrok or Cloudflare Tunnel, then use the public tunnel URL:
+
+```text
+https://your-tunnel-url/pakasir/webhook
+```
+
+Important billing routes:
+
+```text
+GET  /billings
+POST /billings
+POST /billings/{billing}/refresh
+POST /pakasir/webhook
+```
+
+## Main Routes
+
+Authenticated routes:
+
+```text
+/                       Dashboard
+/pos                    Cashier POS
+/products               Products
+/product-categories     Product categories
+/inventory              Stock management
+/customers              Customers
+/suppliers              Suppliers
+/settings               Store settings, including Billing access
+```
+
+Guest routes:
+
+```text
+/signin
+/signup
+```
+
+## Testing
+
+Run the test suite:
 
 ```bash
 php artisan test
 ```
 
-Run with coverage:
+Or use the Composer script:
 
 ```bash
-php artisan test --coverage
-```
-
-Run specific tests:
-
-```bash
-php artisan test --filter=ExampleTest
-```
-
-## 📜 Available Commands
-
-### Composer Scripts
-
-```bash
-# Start development environment
-composer run dev
-
-# Run tests
 composer run test
-
-# Code formatting (if configured)
-composer run format
-
-# Static analysis (if configured)
-composer run analyze
 ```
 
-### NPM Scripts
+The tests cover authentication, dashboard rendering, product and variant workflows, inventory movement, categories, suppliers, customers, settings, billing creation, and Pakasir webhook payment completion.
+
+## Useful Commands
+
+Clear cached configuration:
 
 ```bash
-# Start Vite dev server
-npm run dev
-
-# Build for production
-npm run build
-
-# Preview production build
-npm run preview
-
-# Lint JavaScript/TypeScript
-npm run lint
-
-# Format code
-npm run format
+php artisan config:clear
 ```
 
-### Artisan Commands
+List routes:
 
 ```bash
-# Start development server
-php artisan serve
-
-# Run migrations
-php artisan migrate
-
-# Rollback migrations
-php artisan migrate:rollback
-
-# Fresh migrations with seeding
-php artisan migrate:fresh --seed
-
-# Generate application key
-php artisan key:generate
-
-# Clear all caches
-php artisan optimize:clear
-
-# Cache everything for production
-php artisan optimize
-
-# Create symbolic link for storage
-php artisan storage:link
-
-# Start queue worker
-php artisan queue:work
-
-# List all routes
 php artisan route:list
-
-# Create a new controller
-php artisan make:controller YourController
-
-# Create a new model
-php artisan make:model YourModel -m
-
-# Create a new migration
-php artisan make:migration create_your_table
 ```
 
-## 📁 Project Structure
+Run migrations from scratch with seed data:
 
-```
-tailadmin-laravel/
-├── app/                    # Application logic
-│   ├── Http/              # Controllers, Middleware, Requests
-│   ├── Models/            # Eloquent models
-│   └── Providers/         # Service providers
-├── bootstrap/             # Framework bootstrap files
-├── config/                # Configuration files
-├── database/              # Migrations, seeders, factories
-│   ├── migrations/
-│   ├── seeders/
-│   └── factories/
-├── public/                # Public assets (entry point)
-│   ├── build/            # Compiled assets (generated)
-│   └── index.php         # Application entry point
-├── resources/             # Views and raw assets
-│   ├── css/              # Stylesheets (Tailwind)
-│   ├── js/               # JavaScript files (Alpine.js)
-│   └── views/            # Blade templates
-├── routes/                # Route definitions
-│   ├── web.php           # Web routes
-│   ├── api.php           # API routes
-│   └── console.php       # Console routes
-├── storage/               # Logs, cache, uploads
-│   ├── app/
-│   ├── framework/
-│   └── logs/
-├── tests/                 # Pest test files
-│   ├── Feature/
-│   └── Unit/
-├── .env.example           # Example environment file
-├── artisan                # Artisan CLI
-├── composer.json          # PHP dependencies
-├── package.json           # Node dependencies
-├── vite.config.js         # Vite configuration
-└── tailwind.config.js     # Tailwind configuration
-```
-
-## 🐛 Troubleshooting
-
-### Common Issues
-
-#### "Class not found" errors
 ```bash
-composer dump-autoload
+php artisan migrate:fresh --seed
 ```
 
-#### Permission errors on storage/bootstrap/cache
+Format PHP code with Pint:
+
 ```bash
-chmod -R 775 storage bootstrap/cache
+./vendor/bin/pint
 ```
 
-#### NPM build errors
+## Project Structure
+
+```text
+app/Http/Controllers     Web controllers
+app/Models               Eloquent models
+app/Services             External service clients, including Pakasir
+database/migrations      Database schema
+database/seeders         Sample/bootstrap data
+resources/views          Blade pages and components
+resources/css            Tailwind entrypoint
+resources/js             Alpine/Vite JavaScript
+routes/web.php           Web and webhook routes
+tests/Feature            Feature tests
+```
+
+## Production Notes
+
+Set production environment values:
+
+```env
+APP_ENV=production
+APP_DEBUG=false
+APP_URL=https://your-domain.com
+```
+
+Run deployment optimization after installing dependencies and building assets:
+
 ```bash
-rm -rf node_modules package-lock.json
-npm install
+composer install --no-dev --optimize-autoloader
+npm ci
+npm run build
+php artisan migrate --force
+php artisan config:cache
+php artisan route:cache
+php artisan view:cache
 ```
 
-#### Clear all caches
-```bash
-php artisan optimize:clear
-```
-
-#### Database connection errors
-- Check `.env` database credentials
-- Ensure database server is running
-- Verify database exists
-
-## 🔄 Update Log
-
-### [2026-05-23]
-
-- Added **AI Settings** page to configure models, keys, and token limits.
-- Added **Maps** page with MapLibre GL, Leaflet, and iframe styles.
-- Added **Vector Maps** page powered by AmCharts 5 geodata (World & USA).
-- Added **Radar Charts** page with 3 unique formats.
-- Added **Radial Progress Charts** page featuring 4 custom layout templates.
-- Introduced new **Bar Charts Five & Six** and **Pie Charts Four & Five**.
-
-### [April 28, 2026]
-- Added **AI Dashboard** with token usage and revenue tracking.
-- Added **Sales Dashboard** with retention and multi-channel analytics.
-- Added **Finance Dashboard** with cashflow and balance management.
-- Introduced **6 New Layout variations** for improved UI flexibility.
-- Integrated **Advanced Data Visualization** with 7+ new chart types.
-
-### [2026-03-15]
-- Fixed PHP 8.5 deprecation warning
-
-### [2025-12-29]
-- Added Date Picker in Statistics Chart
-
-## License
-
-Refer to our [LICENSE](https://tailadmin.com/license) page for more information.
+Make sure `/pakasir/webhook` is reachable publicly so Pakasir can automate payment status updates.

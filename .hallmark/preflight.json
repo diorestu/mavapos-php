@@ -1,0 +1,14 @@
+{
+  "date": "2026-06-17",
+  "font_stack": "Public Sans via resources/css/app.css",
+  "palette": "Tailwind v4 @theme tokens in resources/css/app.css",
+  "motion": "motion-cut, no dedicated motion library",
+  "spacing": "Tailwind utility scale",
+  "framework": "Laravel Blade with Alpine.js and Vite",
+  "preserve": [
+    "Public Sans",
+    "TailAdmin Tailwind tokens",
+    "existing sidebar app shell",
+    "minimal motion"
+  ]
+}

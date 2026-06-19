@@ -1,8 +1,13 @@
 <?php
 
+use App\Models\Billing;
+use App\Models\Customer;
+use App\Models\Product;
+use App\Models\RawMaterial;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Http;
 
 uses(RefreshDatabase::class);
 
@@ -10,10 +15,12 @@ beforeEach(function () {
     $this->seed(DatabaseSeeder::class);
 });
 
-test('guest diarahkan ke halaman masuk saat membuka dashboard', function () {
+test('guest melihat landing page saat membuka dashboard', function () {
     $response = $this->get('/');
 
-    $response->assertRedirect('/signin');
+    $response->assertOk()
+        ->assertSee('Kasir, stok, dan laporan dalam satu ruang kerja')
+        ->assertSee('Mulai uji coba 14 hari');
 });
 
 test('halaman masuk dan daftar dapat dibuka guest', function () {
@@ -301,6 +308,106 @@ test('pengguna dapat memperbarui varian produk dan varian lama diganti', functio
     ]);
 });
 
+test('pengguna dapat membuka halaman resep produk', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get('/product-recipes')
+        ->assertOk()
+        ->assertSee('Resep Produk')
+        ->assertSee('Atur Resep')
+        ->assertSee('Daftar Resep');
+});
+
+test('pengguna dapat membuka halaman inventory bahan baku', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get('/raw-materials')
+        ->assertOk()
+        ->assertSee('Inventory Bahan Baku')
+        ->assertSee('Tambah Bahan Baku')
+        ->assertSee('Daftar Bahan Baku');
+});
+
+test('pengguna dapat mencatat bahan baku inventory', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->post('/raw-materials', [
+            'code' => 'BB-KOPI',
+            'name' => 'Kopi bubuk',
+            'category' => 'Bahan minuman',
+            'unit' => 'gram',
+            'stock' => 500,
+            'min_stock' => 100,
+            'cost_per_unit' => 120,
+        ])
+        ->assertRedirect('/raw-materials');
+
+    $this->assertDatabaseHas('raw_materials', [
+        'code' => 'BB-KOPI',
+        'name' => 'Kopi bubuk',
+        'unit' => 'gram',
+        'cost_per_unit' => 120,
+    ]);
+});
+
+test('pengguna dapat menyimpan standar bahan resep produk', function () {
+    $user = User::factory()->create();
+    $product = Product::query()->where('sku', 'SKU-001')->firstOrFail();
+    $coffee = RawMaterial::query()->create([
+        'code' => 'BB-KOPI',
+        'name' => 'Kopi bubuk',
+        'category' => 'Bahan minuman',
+        'unit' => 'gram',
+        'stock' => 500,
+        'min_stock' => 100,
+        'cost_per_unit' => 120,
+    ]);
+    $palmSugar = RawMaterial::query()->create([
+        'code' => 'BB-GULA-AREN',
+        'name' => 'Gula aren',
+        'category' => 'Bahan minuman',
+        'unit' => 'ml',
+        'stock' => 1000,
+        'min_stock' => 200,
+        'cost_per_unit' => 80,
+    ]);
+
+    $this->actingAs($user)
+        ->post('/product-recipes', [
+            'product_id' => $product->id,
+            'items' => [
+                [
+                    'raw_material_id' => $coffee->id,
+                    'quantity' => 18,
+                ],
+                [
+                    'raw_material_id' => $palmSugar->id,
+                    'quantity' => 25,
+                ],
+            ],
+        ])
+        ->assertRedirect('/product-recipes');
+
+    $this->assertDatabaseHas('product_recipe_items', [
+        'product_id' => $product->id,
+        'raw_material_id' => $coffee->id,
+        'item_name' => 'Kopi bubuk',
+        'quantity' => 18,
+        'unit' => 'gram',
+    ]);
+
+    $this->assertDatabaseHas('product_recipe_items', [
+        'product_id' => $product->id,
+        'raw_material_id' => $palmSugar->id,
+        'item_name' => 'Gula aren',
+        'quantity' => 25,
+        'unit' => 'ml',
+    ]);
+});
+
 test('pengguna dapat membuka halaman stok', function () {
     $user = User::factory()->create();
 
@@ -311,6 +418,93 @@ test('pengguna dapat membuka halaman stok', function () {
         ->assertSee('Total:')
         ->assertSee('produk')
         ->assertSee('Stok Menipis');
+});
+
+test('pengguna dapat membuka halaman kasir', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get('/pos')
+        ->assertOk()
+        ->assertSee('Kasir')
+        ->assertSee('Keranjang')
+        ->assertSee('Selesaikan Pembayaran')
+        ->assertDontSee('Cari atau ketik perintah');
+});
+
+test('pengguna dapat membuka halaman laporan', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get('/reports')
+        ->assertOk()
+        ->assertSee('Laporan')
+        ->assertSee('Nilai Stok Jual')
+        ->assertSee('Estimasi Laba/Rugi')
+        ->assertSee('Total Pengeluaran')
+        ->assertSee('Unduh PDF')
+        ->assertSee('Produk Stok Terbesar');
+});
+
+test('pengguna dapat membuka halaman pengeluaran', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get('/expenses')
+        ->assertOk()
+        ->assertSee('Pengeluaran')
+        ->assertSee('Catat Pengeluaran')
+        ->assertSee('Riwayat Pengeluaran');
+});
+
+test('pengeluaran stok menambah stok produk dan mencatat mutasi', function () {
+    $user = User::factory()->create();
+    $product = Product::query()->where('sku', 'SKU-001')->firstOrFail();
+    $stockBefore = $product->stock;
+
+    $this->actingAs($user)
+        ->post('/expenses', [
+            'type' => 'stock',
+            'title' => 'Belanja Kopi Susu Aren',
+            'category' => 'Bahan utama',
+            'product_id' => $product->id,
+            'quantity' => 12,
+            'unit_cost' => 9000,
+            'amount' => 108000,
+            'reference' => 'NOTA-EXP-001',
+            'spent_at' => now()->format('Y-m-d H:i:s'),
+        ])
+        ->assertRedirect('/expenses');
+
+    expect($product->fresh()->stock)->toBe($stockBefore + 12);
+
+    $this->assertDatabaseHas('expenses', [
+        'type' => 'stock',
+        'title' => 'Belanja Kopi Susu Aren',
+        'amount' => 108000,
+        'quantity' => 12,
+        'product_id' => $product->id,
+    ]);
+
+    $this->assertDatabaseHas('stock_movements', [
+        'product_id' => $product->id,
+        'type' => 'in',
+        'quantity' => 12,
+        'stock_before' => $stockBefore,
+        'stock_after' => $stockBefore + 12,
+        'reference' => 'NOTA-EXP-001',
+    ]);
+});
+
+test('pengguna dapat mengunduh laporan sebagai pdf', function () {
+    $user = User::factory()->create();
+
+    $response = $this->actingAs($user)
+        ->get('/reports/download');
+
+    $response->assertOk();
+    expect($response->headers->get('content-type'))->toContain('application/pdf');
+    expect($response->getContent())->toStartWith('%PDF');
 });
 
 test('pengguna dapat update stok produk dan tersimpan ke database', function () {
@@ -547,6 +741,99 @@ test('pengguna dapat membuka halaman pelanggan', function () {
         ->assertSee('Pelanggan')
         ->assertSee('Total:')
         ->assertSee('pelanggan');
+});
+
+test('pengguna dapat membuat tagihan qris pakasir', function () {
+    config([
+        'services.pakasir.project' => 'mava-test',
+        'services.pakasir.api_key' => 'secret-test',
+    ]);
+
+    Http::fake([
+        'https://app.pakasir.com/api/transactioncreate/qris' => Http::response([
+            'payment' => [
+                'fee' => 350,
+                'total_payment' => 50350,
+                'payment_number' => 'QRIS-CODE',
+                'expired_at' => '2026-06-17T14:30:00+08:00',
+            ],
+        ]),
+    ]);
+
+    $user = User::factory()->create();
+    $customer = Customer::query()->create([
+        'code' => 'CUST-900',
+        'name' => 'Pelanggan QRIS',
+        'phone' => '081234567890',
+        'status' => 'aktif',
+    ]);
+
+    $this->actingAs($user)
+        ->post('/billings', [
+            'customer_id' => $customer->id,
+            'title' => 'Pembayaran Order',
+            'amount' => 50000,
+            'description' => 'Order test',
+        ])
+        ->assertRedirect('/billings');
+
+    $billing = Billing::query()->first();
+
+    expect($billing)
+        ->not->toBeNull()
+        ->and($billing->customer_name)->toBe('Pelanggan QRIS')
+        ->and($billing->amount)->toBe(50000)
+        ->and($billing->fee)->toBe(350)
+        ->and($billing->total_payment)->toBe(50350)
+        ->and($billing->payment_status)->toBe('pending');
+
+    Http::assertSent(fn ($request) => $request->url() === 'https://app.pakasir.com/api/transactioncreate/qris'
+        && $request['project'] === 'mava-test'
+        && $request['order_id'] === $billing->invoice_number
+        && $request['amount'] === 50000
+        && $request['api_key'] === 'secret-test');
+});
+
+test('webhook pakasir menandai tagihan lunas setelah verifikasi detail', function () {
+    config([
+        'services.pakasir.project' => 'mava-test',
+        'services.pakasir.api_key' => 'secret-test',
+    ]);
+
+    $billing = Billing::query()->create([
+        'invoice_number' => 'INV-TEST-001',
+        'customer_name' => 'Pelanggan QRIS',
+        'title' => 'Pembayaran Order',
+        'amount' => 75000,
+        'payment_status' => 'pending',
+    ]);
+
+    Http::fake([
+        'https://app.pakasir.com/api/transactiondetail*' => Http::response([
+            'transaction' => [
+                'project' => 'mava-test',
+                'order_id' => $billing->invoice_number,
+                'amount' => 75000,
+                'status' => 'completed',
+                'payment_method' => 'qris',
+                'completed_at' => '2026-06-17T15:00:00+08:00',
+            ],
+        ]),
+    ]);
+
+    $this->postJson('/pakasir/webhook', [
+        'project' => 'mava-test',
+        'order_id' => $billing->invoice_number,
+        'amount' => 75000,
+        'status' => 'completed',
+        'payment_method' => 'qris',
+        'completed_at' => '2026-06-17T15:00:00+08:00',
+    ])->assertOk()->assertJsonPath('status', 'ok');
+
+    $billing->refresh();
+
+    expect($billing->payment_status)->toBe('completed')
+        ->and($billing->paid_at)->not->toBeNull();
 });
 
 test('pengguna dapat membuat pelanggan dan tersimpan ke database', function () {

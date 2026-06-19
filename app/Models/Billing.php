@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Support\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -45,7 +46,7 @@ class Billing extends Model
     {
         $this->forceFill([
             'payment_status' => 'completed',
-            'paid_at' => $completedAt ? now()->parse($completedAt) : now(),
+            'paid_at' => $completedAt ? Carbon::parse($completedAt) : now(),
             'provider_payload' => array_filter([
                 ...($this->provider_payload ?? []),
                 'webhook' => $payload,
