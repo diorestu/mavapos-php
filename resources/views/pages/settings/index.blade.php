@@ -89,6 +89,21 @@
                     </span>
                 </button>
 
+                <button type="button" @click="activeTab = 'receipt'"
+                    class="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition"
+                    :class="activeTab === 'receipt' ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/[0.04]'">
+                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-current shadow-theme-xs dark:bg-gray-900">
+                        <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M5 3.75H15V16.25L12.5 15L10 16.25L7.5 15L5 16.25V3.75Z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" />
+                            <path d="M7.5 7H12.5M7.5 10H11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                        </svg>
+                    </span>
+                    <span>
+                        Struk & Printer
+                        <span class="block text-[11px] font-normal opacity-75">Template nota cetak</span>
+                    </span>
+                </button>
+
                 <a href="{{ route('billings') }}"
                     class="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-gray-600 transition hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/[0.04]">
                     <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-current shadow-theme-xs dark:bg-gray-900">
@@ -136,6 +151,16 @@
 
                         <label class="block">
                             <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Logo Bisnis</span>
+                            @if ($setting->logo_path)
+                                <div class="mb-2 flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-gray-800 dark:bg-gray-900/50">
+                                    <img src="{{ Storage::url($setting->logo_path) }}" alt="Logo {{ $setting->store_name }}"
+                                        class="h-12 w-12 rounded-md object-contain ring-1 ring-gray-200 dark:ring-gray-800" />
+                                    <div class="min-w-0">
+                                        <p class="text-xs font-semibold text-gray-800 dark:text-white/90">Logo aktif</p>
+                                        <p class="truncate text-[11px] text-gray-500 dark:text-gray-400">Akan tampil di struk nota cetak.</p>
+                                    </div>
+                                </div>
+                            @endif
                             <input type="file" name="logo" accept="image/*"
                                 class="h-11 w-full rounded-lg border border-gray-300 bg-transparent text-sm text-gray-800 file:mr-4 file:h-11 file:border-0 file:bg-gray-100 file:px-4 file:text-sm file:font-medium file:text-gray-700 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:file:bg-gray-800 dark:file:text-gray-300" />
                             @error('logo')
@@ -276,6 +301,76 @@
                                             class="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">{{ old($field, $setting->{$field}) }}</textarea>
                                     </label>
                                 @endforeach
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section x-show="activeTab === 'receipt'" x-cloak
+                    class="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                    <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+                        <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Struk & Printer</h2>
+                        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Atur tampilan struk dan preferensi cetak kasir.</p>
+                    </div>
+
+                    <div class="space-y-5 p-4">
+                        <div class="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                            <label class="block">
+                                <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Lebar Kertas</span>
+                                <select name="receipt_paper_width"
+                                    class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 pr-9 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                                    <option value="58" @selected(old('receipt_paper_width', $setting->receipt_paper_width) === '58')>58 mm</option>
+                                    <option value="80" @selected(old('receipt_paper_width', $setting->receipt_paper_width) === '80')>80 mm</option>
+                                </select>
+                            </label>
+
+                            <label class="block">
+                                <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Mode Printer</span>
+                                <select name="printer_connection_mode"
+                                    class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 pr-9 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                                    <option value="browser" @selected(old('printer_connection_mode', $setting->printer_connection_mode) === 'browser')>Browser Print</option>
+                                    <option value="bluetooth" @selected(old('printer_connection_mode', $setting->printer_connection_mode) === 'bluetooth')>Web Bluetooth</option>
+                                </select>
+                            </label>
+
+                            <label class="block lg:col-span-2">
+                                <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Catatan Footer Struk</span>
+                                <textarea name="receipt_footer_note" rows="3"
+                                    class="w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">{{ old('receipt_footer_note', $setting->receipt_footer_note) }}</textarea>
+                            </label>
+                        </div>
+
+                        <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                            @foreach ([
+                                'receipt_show_logo' => 'Tampilkan Logo',
+                                'receipt_show_store_address' => 'Tampilkan Alamat',
+                                'receipt_show_cashier' => 'Tampilkan Kasir',
+                                'printer_auto_print' => 'Auto-print Setelah Checkout',
+                                'printer_close_after_print' => 'Tutup Popup Setelah Print',
+                            ] as $field => $label)
+                                <label class="flex min-h-11 items-center justify-between gap-3 rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-800">
+                                    <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $label }}</span>
+                                    <input type="checkbox" name="{{ $field }}" value="1" @checked(old($field, $setting->{$field}))
+                                        class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500 dark:border-gray-700 dark:bg-gray-900">
+                                </label>
+                            @endforeach
+                        </div>
+
+                        <div class="rounded-xl border border-gray-200 dark:border-gray-800">
+                            <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+                                <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Web Bluetooth</h3>
+                            </div>
+                            <div class="grid grid-cols-1 gap-4 p-4 lg:grid-cols-2">
+                                <label class="block">
+                                    <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Service UUID</span>
+                                    <input name="printer_bluetooth_service_uuid" value="{{ old('printer_bluetooth_service_uuid', $setting->printer_bluetooth_service_uuid) }}"
+                                        class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                </label>
+                                <label class="block">
+                                    <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Characteristic UUID</span>
+                                    <input name="printer_bluetooth_characteristic_uuid" value="{{ old('printer_bluetooth_characteristic_uuid', $setting->printer_bluetooth_characteristic_uuid) }}"
+                                        class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                </label>
                             </div>
                         </div>
                     </div>

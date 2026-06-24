@@ -26,7 +26,7 @@ class MenuHelper
 
     public static function getMenuGroups()
     {
-        return [
+        $groups = [
             [
                 'title' => 'Operasional',
                 'items' => [
@@ -34,16 +34,19 @@ class MenuHelper
                         'icon' => 'pos',
                         'name' => 'Kasir',
                         'path' => '/pos',
+                        'roles' => ['owner', 'admin', 'kasir'],
                     ],
                     [
                         'icon' => 'cashier-shifts',
                         'name' => 'Shift Kasir',
                         'path' => '/cashier-shifts',
+                        'roles' => ['owner', 'admin', 'kasir'],
                     ],
                     [
                         'icon' => 'sales',
                         'name' => 'Penjualan',
                         'path' => '/sales',
+                        'roles' => ['owner', 'admin', 'kasir'],
                     ],
                 ],
             ],
@@ -53,18 +56,22 @@ class MenuHelper
                     [
                         'icon' => 'ecommerce',
                         'name' => 'Produk',
+                        'roles' => ['owner', 'admin', 'gudang'],
                         'subItems' => [
                             [
                                 'name' => 'Daftar Produk',
                                 'path' => '/products',
+                                'roles' => ['owner', 'admin', 'gudang'],
                             ],
                             [
                                 'name' => 'Resep',
                                 'path' => '/product-recipes',
+                                'roles' => ['owner', 'admin', 'gudang'],
                             ],
                             [
                                 'name' => 'Kategori Produk',
                                 'path' => '/product-categories',
+                                'roles' => ['owner', 'admin', 'gudang'],
                             ],
                         ],
                     ],
@@ -72,11 +79,13 @@ class MenuHelper
                         'icon' => 'inventory',
                         'name' => 'Bahan Baku',
                         'path' => '/raw-materials',
+                        'roles' => ['owner', 'admin', 'gudang'],
                     ],
                     [
                         'icon' => 'inventory',
                         'name' => 'Stok',
                         'path' => '/inventory',
+                        'roles' => ['owner', 'admin', 'gudang'],
                     ],
                 ],
             ],
@@ -87,11 +96,13 @@ class MenuHelper
                         'icon' => 'customers',
                         'name' => 'Pelanggan',
                         'path' => '/customers',
+                        'roles' => ['owner', 'admin'],
                     ],
                     [
                         'icon' => 'suppliers',
                         'name' => 'Supplier',
                         'path' => '/suppliers',
+                        'roles' => ['owner', 'admin'],
                     ],
                 ],
             ],
@@ -102,6 +113,7 @@ class MenuHelper
                         'icon' => 'expenses',
                         'name' => 'Pengeluaran',
                         'path' => '/expenses',
+                        'roles' => ['owner', 'admin'],
                     ],
                 ],
             ],
@@ -112,6 +124,7 @@ class MenuHelper
                         'icon' => 'reports',
                         'name' => 'Laporan',
                         'path' => '/reports',
+                        'roles' => ['owner', 'admin'],
                     ],
                 ],
             ],
@@ -122,20 +135,68 @@ class MenuHelper
                         'icon' => 'settings',
                         'name' => 'Pengaturan',
                         'path' => '/settings',
+                        'roles' => ['owner', 'admin'],
+                    ],
+                    [
+                        'icon' => 'user-profile',
+                        'name' => 'User & Role',
+                        'path' => '/users',
+                        'roles' => ['owner', 'admin'],
                     ],
                     [
                         'icon' => 'reports',
                         'name' => 'Test Printing',
                         'path' => '/print-test',
+                        'roles' => ['owner', 'admin'],
                     ],
                 ],
             ],
         ];
+
+        return self::filterGroupsByRole($groups);
+    }
+
+    private static function filterGroupsByRole(array $groups): array
+    {
+        $role = auth()->user()?->role;
+
+        return collect($groups)
+            ->map(function (array $group) use ($role): array {
+                $group['items'] = collect($group['items'])
+                    ->filter(fn (array $item): bool => self::canAccess($item, $role))
+                    ->map(function (array $item) use ($role): array {
+                        if (isset($item['subItems'])) {
+                            $item['subItems'] = collect($item['subItems'])
+                                ->filter(fn (array $subItem): bool => self::canAccess($subItem, $role))
+                                ->values()
+                                ->all();
+                        }
+
+                        return $item;
+                    })
+                    ->filter(fn (array $item): bool => ! isset($item['subItems']) || count($item['subItems']) > 0)
+                    ->values()
+                    ->all();
+
+                return $group;
+            })
+            ->filter(fn (array $group): bool => count($group['items']) > 0)
+            ->values()
+            ->all();
+    }
+
+    private static function canAccess(array $item, ?string $role): bool
+    {
+        return ! isset($item['roles']) || ($role && in_array($role, $item['roles'], true));
     }
 
     public static function isActive($path)
     {
         if ($path === '/settings' && request()->is('billings*')) {
+            return true;
+        }
+
+        if ($path === '/settings' && request()->is('users*')) {
             return true;
         }
 

@@ -314,11 +314,16 @@ class BillingController extends Controller
                 'period_ends_at' => null,
                 'paid_at' => null,
                 'invoice_number' => null,
+                'can_create_billing' => true,
+                'renewal_window_starts_at' => null,
             ];
         }
 
         $periodEndsAt = Arr::get($billing->provider_payload, 'subscription.period_ends_at');
-        $active = $periodEndsAt ? Carbon::parse($periodEndsAt)->endOfDay()->isFuture() : true;
+        $periodEndsAtDate = $periodEndsAt ? Carbon::parse($periodEndsAt)->endOfDay() : null;
+        $active = $periodEndsAtDate ? $periodEndsAtDate->isFuture() : true;
+        $renewalWindowStartsAt = $periodEndsAtDate?->copy()->subDays(7)->startOfDay();
+        $canCreateBilling = ! $active || ($renewalWindowStartsAt && now()->startOfDay()->greaterThanOrEqualTo($renewalWindowStartsAt));
 
         return [
             'active' => $active,
@@ -331,6 +336,8 @@ class BillingController extends Controller
             'period_ends_at' => $periodEndsAt,
             'paid_at' => $billing->paid_at?->format('d M Y H:i'),
             'invoice_number' => $billing->invoice_number,
+            'can_create_billing' => $canCreateBilling,
+            'renewal_window_starts_at' => $renewalWindowStartsAt?->toDateString(),
         ];
     }
 

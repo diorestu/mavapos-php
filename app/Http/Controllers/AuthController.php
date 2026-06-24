@@ -67,6 +67,8 @@ class AuthController extends Controller
             'name' => trim($validated['first_name'].' '.$validated['last_name']),
             'email' => $validated['email'],
             'password' => $validated['password'],
+            'role' => 'owner',
+            'trial_ends_at' => now()->addDays(14),
         ]);
 
         Auth::login($user);

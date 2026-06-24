@@ -2,9 +2,11 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Billing;
 use App\Models\PosSale;
 use App\Models\PosSaleItem;
 use App\Models\Product;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 
 class DashboardController extends Controller
@@ -86,8 +88,56 @@ class DashboardController extends Controller
 
         return view('pages.dashboard.ecommerce', [
             'title' => 'Dashboard',
+            'subscriptionStatus' => $this->subscriptionStatus(),
             ...$dashboardData,
         ]);
+    }
+
+    private function subscriptionStatus(): array
+    {
+        $user = auth()->user();
+
+        $billing = Billing::query()
+            ->whereIn('payment_status', ['completed', 'paid'])
+            ->whereNotNull('paid_at')
+            ->latest('paid_at')
+            ->get()
+            ->first(fn (Billing $billing): bool => Arr::has($billing->provider_payload ?? [], 'subscription.plan_slug'));
+
+        if ($billing) {
+            $periodEndsAt = Arr::get($billing->provider_payload, 'subscription.period_ends_at');
+            $periodEndsAtDate = $periodEndsAt ? Carbon::parse($periodEndsAt)->endOfDay() : null;
+            $daysLeft = $periodEndsAtDate ? max(0, now()->startOfDay()->diffInDays($periodEndsAtDate->startOfDay(), false)) : null;
+
+            if ($periodEndsAtDate?->isFuture() ?? true) {
+                return [
+                    'label' => $daysLeft !== null && $daysLeft <= 7 ? 'Langganan hampir berakhir' : 'Langganan aktif',
+                    'description' => $daysLeft !== null
+                        ? $daysLeft.' hari tersisa sampai '.$periodEndsAtDate->toDateString()
+                        : 'Akses operasional aktif.',
+                    'tone' => $daysLeft !== null && $daysLeft <= 7 ? 'warning' : 'success',
+                    'showAction' => $daysLeft !== null && $daysLeft <= 7,
+                ];
+            }
+        }
+
+        if ($user?->trial_ends_at && $user->trial_ends_at->isFuture()) {
+            $daysLeft = max(0, now()->startOfDay()->diffInDays($user->trial_ends_at->copy()->startOfDay(), false));
+
+            return [
+                'label' => 'Trial aktif',
+                'description' => $daysLeft.' hari tersisa',
+                'tone' => $daysLeft <= 3 ? 'warning' : 'success',
+                'showAction' => false,
+            ];
+        }
+
+        return [
+            'label' => 'Langganan berakhir',
+            'description' => 'Akses operasional terkunci sampai tagihan langganan dibayar.',
+            'tone' => 'error',
+            'showAction' => true,
+        ];
     }
 
     private function grossProfitByMonth(Carbon $from, Carbon $to): array

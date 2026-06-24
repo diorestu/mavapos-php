@@ -84,68 +84,82 @@
                     </div>
                 </div>
 
-                <form method="POST" action="{{ route('billings.store') }}" class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-                    @csrf
+                @if ($currentSubscription['can_create_billing'])
+                    <form method="POST" action="{{ route('billings.store') }}" class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+                        @csrf
 
-                    <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Buat Tagihan Langganan</h2>
-                    <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">Data akun diambil otomatis dari Pengaturan, jadi pengguna tidak perlu mengisi identitas lagi.</p>
+                        <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Buat Tagihan Langganan</h2>
+                        <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">Data akun diambil otomatis dari Pengaturan, jadi pengguna tidak perlu mengisi identitas lagi.</p>
 
-                    <div class="mt-4">
-                        <p class="mb-2 text-xs font-medium text-gray-700 dark:text-gray-300">Paket</p>
-                        <div class="grid gap-2">
-                            @foreach ($plans as $plan)
-                                <label class="block cursor-pointer">
-                                    <input type="radio" name="plan_slug" value="{{ $plan['slug'] }}" class="peer sr-only" @checked($selectedPlan === $plan['slug'])>
-                                    <span class="block rounded-lg border border-gray-200 p-3 transition peer-checked:border-brand-500 peer-checked:bg-brand-50 dark:border-gray-800 dark:peer-checked:border-brand-500/60 dark:peer-checked:bg-brand-500/10">
-                                        <span class="flex items-start justify-between gap-3">
-                                            <span>
-                                                <span class="flex flex-wrap items-center gap-2">
-                                                    <span class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ $plan['name'] }}</span>
-                                                    <span class="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600 dark:bg-white/[0.06] dark:text-gray-300">{{ $plan['change_label'] }}</span>
+                        <div class="mt-4">
+                            <p class="mb-2 text-xs font-medium text-gray-700 dark:text-gray-300">Paket</p>
+                            <div class="grid gap-2">
+                                @foreach ($plans as $plan)
+                                    <label class="block cursor-pointer">
+                                        <input type="radio" name="plan_slug" value="{{ $plan['slug'] }}" class="peer sr-only" @checked($selectedPlan === $plan['slug'])>
+                                        <span class="block rounded-lg border border-gray-200 p-3 transition peer-checked:border-brand-500 peer-checked:bg-brand-50 dark:border-gray-800 dark:peer-checked:border-brand-500/60 dark:peer-checked:bg-brand-500/10">
+                                            <span class="flex items-start justify-between gap-3">
+                                                <span>
+                                                    <span class="flex flex-wrap items-center gap-2">
+                                                        <span class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ $plan['name'] }}</span>
+                                                        <span class="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-600 dark:bg-white/[0.06] dark:text-gray-300">{{ $plan['change_label'] }}</span>
+                                                    </span>
+                                                    <span class="mt-0.5 block text-xs leading-5 text-gray-500 dark:text-gray-400">{{ $plan['description'] }}</span>
                                                 </span>
-                                                <span class="mt-0.5 block text-xs leading-5 text-gray-500 dark:text-gray-400">{{ $plan['description'] }}</span>
-                                            </span>
-                                            <span class="shrink-0 text-right">
-                                                <span class="block text-sm font-semibold text-brand-600 dark:text-brand-400">{{ $plan['monthly_amount_formatted'] }}</span>
-                                                <span class="text-[11px] text-gray-500 dark:text-gray-400">/bulan</span>
-                                                <span class="mt-1 block text-[11px] text-gray-500 dark:text-gray-400">
-                                                    <span class="line-through">{{ $plan['yearly_base_amount_formatted'] }}</span>
-                                                    <span class="font-semibold text-success-600 dark:text-success-400">{{ $plan['yearly_amount_formatted'] }}</span>/tahun
+                                                <span class="shrink-0 text-right">
+                                                    <span class="block text-sm font-semibold text-brand-600 dark:text-brand-400">{{ $plan['monthly_amount_formatted'] }}</span>
+                                                    <span class="text-[11px] text-gray-500 dark:text-gray-400">/bulan</span>
+                                                    <span class="mt-1 block text-[11px] text-gray-500 dark:text-gray-400">
+                                                        <span class="line-through">{{ $plan['yearly_base_amount_formatted'] }}</span>
+                                                        <span class="font-semibold text-success-600 dark:text-success-400">{{ $plan['yearly_amount_formatted'] }}</span>/tahun
+                                                    </span>
                                                 </span>
                                             </span>
                                         </span>
-                                    </span>
-                                </label>
-                            @endforeach
+                                    </label>
+                                @endforeach
+                            </div>
                         </div>
-                    </div>
 
-                    <div class="mt-4">
-                        <p class="mb-2 text-xs font-medium text-gray-700 dark:text-gray-300">Siklus Tagihan</p>
-                        <div class="grid grid-cols-2 gap-2">
-                            @foreach ($cycles as $cycle)
-                                <label class="cursor-pointer">
-                                    <input type="radio" name="billing_cycle" value="{{ $cycle['slug'] }}" class="peer sr-only" @checked($selectedCycle === $cycle['slug'])>
-                                    <span class="flex h-full flex-col rounded-lg border border-gray-200 p-3 transition peer-checked:border-brand-500 peer-checked:bg-brand-50 dark:border-gray-800 dark:peer-checked:border-brand-500/60 dark:peer-checked:bg-brand-500/10">
-                                        <span class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ $cycle['label'] }}</span>
-                                        <span class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">
-                                            {{ $cycle['months'] }} bulan
-                                            @if ($cycle['slug'] === 'yearly')
-                                                · diskon 10%
-                                            @endif
+                        <div class="mt-4">
+                            <p class="mb-2 text-xs font-medium text-gray-700 dark:text-gray-300">Siklus Tagihan</p>
+                            <div class="grid grid-cols-2 gap-2">
+                                @foreach ($cycles as $cycle)
+                                    <label class="cursor-pointer">
+                                        <input type="radio" name="billing_cycle" value="{{ $cycle['slug'] }}" class="peer sr-only" @checked($selectedCycle === $cycle['slug'])>
+                                        <span class="flex h-full flex-col rounded-lg border border-gray-200 p-3 transition peer-checked:border-brand-500 peer-checked:bg-brand-50 dark:border-gray-800 dark:peer-checked:border-brand-500/60 dark:peer-checked:bg-brand-500/10">
+                                            <span class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ $cycle['label'] }}</span>
+                                            <span class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                                                {{ $cycle['months'] }} bulan
+                                                @if ($cycle['slug'] === 'yearly')
+                                                    · diskon 10%
+                                                @endif
+                                            </span>
                                         </span>
-                                    </span>
-                                </label>
-                            @endforeach
+                                    </label>
+                                @endforeach
+                            </div>
                         </div>
-                    </div>
 
-                    <button type="submit"
-                        class="mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30 disabled:cursor-not-allowed disabled:opacity-50"
-                        @disabled(! $pakasirConfigured)>
-                        Generate QRIS Pakasir
-                    </button>
-                </form>
+                        <button type="submit"
+                            class="mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30 disabled:cursor-not-allowed disabled:opacity-50"
+                            @disabled(! $pakasirConfigured)>
+                            Generate QRIS Pakasir
+                        </button>
+                    </form>
+                @else
+                    <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+                        <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Tagihan Langganan Belum Tersedia</h2>
+                        <p class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">
+                            Langganan masih aktif. Pembuatan tagihan baru akan tersedia mulai H-7 sebelum masa aktif berakhir
+                            @if ($currentSubscription['renewal_window_starts_at'])
+                                ({{ $currentSubscription['renewal_window_starts_at'] }}).
+                            @else
+                                .
+                            @endif
+                        </p>
+                    </div>
+                @endif
 
                 <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
                     <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Akun Ditagihkan</h2>

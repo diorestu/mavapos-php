@@ -70,6 +70,10 @@
                 </template>
             </div>
             <div class="flex items-center gap-2">
+                <button type="button" @click="sopModal = true"
+                    class="inline-flex h-10 items-center justify-center rounded-lg border border-gray-200 px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.04]">
+                    SOP Kasir
+                </button>
                 <button type="button" x-show="!shift && !blockingShift" @click="startModal = true"
                     class="inline-flex h-10 items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600">
                     Mulai Pekerjaan
@@ -287,6 +291,55 @@
             </aside>
         </section>
 
+        <div x-cloak x-show="sopModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/50 p-4">
+            <div @click.outside="closeSopModal()" class="w-full max-w-2xl rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
+                <div class="flex items-start gap-3">
+                    <div class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-warning-300">
+                        <svg class="h-5 w-5" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M10 7.5V10.8333" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
+                            <path d="M10 13.75H10.0083" stroke="currentColor" stroke-width="2" stroke-linecap="round" />
+                            <path d="M8.57499 3.2167C9.19999 2.1167 10.8 2.1167 11.425 3.2167L18.1 14.975C18.725 16.075 17.925 17.45 16.675 17.45H3.32499C2.07499 17.45 1.27499 16.075 1.89999 14.975L8.57499 3.2167Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" />
+                        </svg>
+                    </div>
+                    <div class="min-w-0">
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-white">Pengingat SOP Kasir</h2>
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Baca poin berikut sebelum membuka atau menutup kasir.</p>
+                    </div>
+                </div>
+
+                <div class="mt-5 grid gap-4 md:grid-cols-2">
+                    <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-white/[0.04]">
+                        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Saat buka kasir</h3>
+                        <ul class="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                            <li>Pastikan nama kasir yang login sudah sesuai.</li>
+                            <li>Hitung modal awal dan cocokkan dengan catatan shift.</li>
+                            <li>Pastikan printer, laci kas, dan koneksi pembayaran siap digunakan.</li>
+                            <li>Periksa produk, harga, dan stok penting sebelum transaksi pertama.</li>
+                            <li>Catat kendala awal shift pada kolom catatan bila ada.</li>
+                        </ul>
+                    </div>
+
+                    <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-white/[0.04]">
+                        <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Saat tutup kasir</h3>
+                        <ul class="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-gray-600 dark:text-gray-300">
+                            <li>Pastikan semua transaksi sudah selesai dan tidak ada pembayaran tertunda.</li>
+                            <li>Cocokkan uang tunai, QRIS, dan kartu dengan ringkasan pendapatan shift.</li>
+                            <li>Simpan atau cetak laporan penjualan bila diperlukan.</li>
+                            <li>Rapikan bukti pembayaran, struk, dan catatan koreksi transaksi.</li>
+                            <li>Isi catatan tutup kasir sebelum menekan tombol tutup kasir.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                    <button type="button" @click="closeSopModal()"
+                        class="inline-flex h-10 items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600">
+                        Saya mengerti
+                    </button>
+                </div>
+            </div>
+        </div>
+
         <div x-cloak x-show="startModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/50 p-4">
             <div @click.outside="shift ? startModal = false : null" class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
                 <div class="flex items-start gap-3">
@@ -406,6 +459,19 @@
                             </div>
                         </template>
                     </div>
+                </div>
+
+                <div class="mt-4 grid gap-2 rounded-xl border border-gray-200 bg-white p-3 text-xs dark:border-gray-800 dark:bg-gray-950/40 sm:grid-cols-2">
+                    <label class="flex cursor-pointer items-center gap-2 text-gray-600 dark:text-gray-300">
+                        <input type="checkbox" x-model="printPreferences.autoPrint" @change="savePrintPreferences()"
+                            class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900" />
+                        <span>Auto-print setelah checkout</span>
+                    </label>
+                    <label class="flex cursor-pointer items-center gap-2 text-gray-600 dark:text-gray-300">
+                        <input type="checkbox" x-model="printPreferences.closeAfterPrint" @change="savePrintPreferences()"
+                            class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500/20 dark:border-gray-700 dark:bg-gray-900" />
+                        <span>Tutup popup setelah print</span>
+                    </label>
                 </div>
 
                 <div class="mt-5 grid gap-2 sm:grid-cols-2">

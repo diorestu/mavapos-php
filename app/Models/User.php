@@ -22,6 +22,8 @@ class User extends Authenticatable
         'name',
         'email',
         'password',
+        'role',
+        'trial_ends_at',
     ];
 
     /**
@@ -44,7 +46,20 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'trial_ends_at' => 'datetime',
         ];
+    }
+
+    public function hasRole(string|array $roles): bool
+    {
+        $roles = (array) $roles;
+
+        return in_array($this->role, $roles, true);
+    }
+
+    public function isTrialActive(): bool
+    {
+        return $this->trial_ends_at?->isFuture() ?? false;
     }
 
     public function cashierShifts(): HasMany

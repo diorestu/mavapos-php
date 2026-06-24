@@ -47,6 +47,11 @@ class SettingController extends Controller
             'spicy_levels' => ['nullable', 'string', 'max:500'],
             'toppings' => ['nullable', 'string', 'max:1000'],
             'size_options' => ['nullable', 'string', 'max:500'],
+            'receipt_footer_note' => ['nullable', 'string', 'max:500'],
+            'receipt_paper_width' => ['nullable', 'in:58,80'],
+            'printer_connection_mode' => ['nullable', 'in:browser,bluetooth'],
+            'printer_bluetooth_service_uuid' => ['nullable', 'string', 'max:120'],
+            'printer_bluetooth_characteristic_uuid' => ['nullable', 'string', 'max:120'],
         ]);
 
         unset($validated['logo']);
@@ -68,6 +73,8 @@ class SettingController extends Controller
         $validated['business_type'] = $validated['business_type'] ?? 'retail';
         $validated['currency'] = $validated['currency'] ?? 'IDR';
         $validated['sku_mode'] = $validated['sku_mode'] ?? 'manual';
+        $validated['receipt_paper_width'] = $validated['receipt_paper_width'] ?? '58';
+        $validated['printer_connection_mode'] = $validated['printer_connection_mode'] ?? 'browser';
 
         $setting->update($validated);
 
@@ -89,6 +96,11 @@ class SettingController extends Controller
             'kitchen_notes_enabled',
             'dine_in_takeaway_enabled',
             'serving_time_enabled',
+            'receipt_show_logo',
+            'receipt_show_store_address',
+            'receipt_show_cashier',
+            'printer_auto_print',
+            'printer_close_after_print',
         ];
     }
 }

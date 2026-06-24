@@ -1382,6 +1382,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     shift: initialShift,
     blockingShift,
     endpoints,
+    sopModal: true,
     startModal: !initialShift && !blockingShift,
     closeModal: false,
     openingNote: '',
@@ -1398,6 +1399,14 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     paymentMethod: 'cash',
     paidAmount: '',
     discount: '',
+    printPreferences: {
+        autoPrint: false,
+        closeAfterPrint: false,
+    },
+
+    init() {
+        this.loadPrintPreferences();
+    },
 
     get filteredItems() {
         const keyword = this.normalize(this.query);
@@ -1576,12 +1585,56 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         this.receiptModal = false;
     },
 
+    closeSopModal() {
+        this.sopModal = false;
+    },
+
+    loadPrintPreferences() {
+        try {
+            const saved = JSON.parse(localStorage.getItem('mava_pos_print_preferences') || '{}');
+            this.printPreferences = {
+                autoPrint: saved.autoPrint,
+                closeAfterPrint: saved.closeAfterPrint,
+            };
+        } catch (error) {
+            this.printPreferences = {
+                autoPrint: undefined,
+                closeAfterPrint: undefined,
+            };
+        }
+    },
+
+    savePrintPreferences() {
+        localStorage.setItem('mava_pos_print_preferences', JSON.stringify(this.printPreferences));
+    },
+
     printReceipt() {
         if (!this.lastReceipt) {
             return;
         }
 
         const receipt = this.lastReceipt;
+        const receiptOptions = receipt.receipt || {};
+        const printerOptions = receipt.printer || {};
+        const paperWidth = receiptOptions.paper_width === '80' ? '80mm' : '58mm';
+        const showLogo = receiptOptions.show_logo !== false;
+        const showStoreAddress = receiptOptions.show_store_address !== false;
+        const showCashier = receiptOptions.show_cashier !== false;
+        const store = receipt.store || {};
+        const storeName = store.name || 'MavaPOS';
+        const storeAddress = store.address || '';
+        const storePhone = store.phone || '';
+        const logoHtml = showLogo && store.logo_url
+            ? `<img class="logo" src="${this.escapeHtml(store.logo_url)}" alt="${this.escapeHtml(storeName)}">`
+            : '';
+        const storeMetaHtml = showStoreAddress ? [
+            storeAddress,
+            storePhone ? `Telp. ${storePhone}` : '',
+        ].filter(Boolean).map((line) => `<p class="center muted store-line">${this.escapeHtml(line)}</p>`).join('') : '';
+        const cashierHtml = showCashier
+            ? `<div class="row"><span>Kasir</span><span>${this.escapeHtml(receipt.cashier || '-')}</span></div>`
+            : '';
+        const footerNote = receiptOptions.footer_note || 'Terima kasih atas kunjungan Anda.';
         const itemRows = (receipt.items || []).map((item) => `
             <tr>
                 <td>
@@ -1608,7 +1661,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                     <style>
                         * { box-sizing: border-box; }
                         body {
-                            width: 80mm;
+                            width: ${paperWidth};
                             margin: 0 auto;
                             padding: 10mm 6mm;
                             color: #111827;
@@ -1617,8 +1670,16 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                             line-height: 1.35;
                         }
                         h1 { margin: 0; font-size: 16px; text-align: center; }
+                        .logo {
+                            display: block;
+                            max-width: 44mm;
+                            max-height: 18mm;
+                            object-fit: contain;
+                            margin: 0 auto 6px;
+                        }
                         .muted { color: #6b7280; }
                         .center { text-align: center; }
+                        .store-line { margin: 2px 0 0; font-size: 11px; }
                         .meta, .totals { margin-top: 10px; border-top: 1px dashed #9ca3af; padding-top: 8px; }
                         .row, .totals div { display: flex; justify-content: space-between; gap: 8px; }
                         table { width: 100%; margin-top: 10px; border-collapse: collapse; border-top: 1px dashed #9ca3af; }
@@ -1627,16 +1688,18 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                         strong, span { display: block; }
                         .grand { margin-top: 6px; font-size: 14px; font-weight: 700; }
                         .footer { margin-top: 12px; border-top: 1px dashed #9ca3af; padding-top: 8px; text-align: center; }
-                        @page { margin: 0; size: 80mm auto; }
+                        @page { margin: 0; size: ${paperWidth} auto; }
                     </style>
                 </head>
                 <body>
-                    <h1>MavaPOS</h1>
+                    ${logoHtml}
+                    <h1>${this.escapeHtml(storeName)}</h1>
+                    ${storeMetaHtml}
                     <p class="center muted">Nota Penjualan</p>
                     <div class="meta">
                         <div class="row"><span>No Nota</span><strong>${this.escapeHtml(receipt.invoice_number)}</strong></div>
                         <div class="row"><span>Tanggal</span><span>${this.escapeHtml(receipt.sold_at || '-')}</span></div>
-                        <div class="row"><span>Kasir</span><span>${this.escapeHtml(receipt.cashier || '-')}</span></div>
+                        ${cashierHtml}
                         <div class="row"><span>Pembayaran</span><span>${this.escapeHtml(this.paymentLabel(receipt.payment_method))}</span></div>
                     </div>
                     <table>${itemRows}</table>
@@ -1647,7 +1710,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                         <div><span>Dibayar</span><span>${this.formatRupiah(receipt.paid_amount)}</span></div>
                         <div><span>Kembali</span><span>${this.formatRupiah(receipt.change_amount)}</span></div>
                     </div>
-                    <p class="footer muted">Terima kasih atas kunjungan Anda.</p>
+                    <p class="footer muted">${this.escapeHtml(footerNote)}</p>
                     <script>
                         window.addEventListener('load', () => {
                             window.focus();
@@ -1658,6 +1721,28 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             </html>
         `);
         printWindow.document.close();
+
+        if (this.effectivePrintPreference('closeAfterPrint', printerOptions.close_after_print)) {
+            this.closeReceiptModal();
+        }
+    },
+
+    effectivePrintPreference(key, fallback = false) {
+        return typeof this.printPreferences[key] === 'boolean'
+            ? this.printPreferences[key]
+            : Boolean(fallback);
+    },
+
+    syncPrintPreferencesFromReceipt(receipt) {
+        const printer = receipt?.printer || {};
+
+        if (typeof this.printPreferences.autoPrint !== 'boolean') {
+            this.printPreferences.autoPrint = Boolean(printer.auto_print);
+        }
+
+        if (typeof this.printPreferences.closeAfterPrint !== 'boolean') {
+            this.printPreferences.closeAfterPrint = Boolean(printer.close_after_print);
+        }
     },
 
     payExact() {
@@ -1775,8 +1860,12 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             this.items = payload.items || this.items;
             this.shift = payload.shift || this.shift;
             this.lastReceipt = payload.sale || null;
+            this.syncPrintPreferencesFromReceipt(this.lastReceipt);
             this.clearCart();
             this.receiptModal = Boolean(this.lastReceipt);
+            if (this.lastReceipt && this.effectivePrintPreference('autoPrint', this.lastReceipt.printer?.auto_print)) {
+                setTimeout(() => this.printReceipt(), 150);
+            }
             notify(payload.message || 'Transaksi berhasil diselesaikan.');
         } finally {
             this.checkoutLoading = false;

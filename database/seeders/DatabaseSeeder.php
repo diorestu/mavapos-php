@@ -194,6 +194,8 @@ class DatabaseSeeder extends Seeder
             [
                 'name' => 'Test User',
                 'password' => 'password',
+                'role' => 'owner',
+                'trial_ends_at' => now()->addDays(14),
             ],
         );
     }

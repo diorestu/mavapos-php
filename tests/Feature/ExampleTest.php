@@ -4,9 +4,11 @@ use App\Models\Billing;
 use App\Models\Customer;
 use App\Models\Product;
 use App\Models\RawMaterial;
+use App\Models\StoreSetting;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
 
 uses(RefreshDatabase::class);
@@ -71,6 +73,27 @@ test('pengguna dapat masuk dan keluar', function () {
     $this->assertGuest();
 });
 
+test('seed test user menggunakan role owner', function () {
+    $this->assertDatabaseHas('users', [
+        'email' => 'test@example.com',
+        'role' => 'owner',
+    ]);
+});
+
+test('halaman 403 tampil ramah saat role tidak memiliki akses', function () {
+    $cashier = User::factory()->create([
+        'role' => 'kasir',
+        'trial_ends_at' => now()->addDays(14),
+    ]);
+
+    $this->actingAs($cashier)
+        ->get('/settings')
+        ->assertForbidden()
+        ->assertSee('Akses dibatasi')
+        ->assertSee('Role akun Anda belum memiliki izin')
+        ->assertSee('Kembali ke Dashboard');
+});
+
 test('dashboard toko menampilkan ringkasan dan grafik berbahasa indonesia', function () {
     $user = User::factory()->create();
 
@@ -120,6 +143,10 @@ test('dashboard toko menyinkronkan grafik dan ringkasan dari database', function
 
 test('notification header menampilkan aktivitas sistem dari database', function () {
     $user = User::factory()->create(['name' => 'Kasir Notifikasi']);
+    StoreSetting::current()->update([
+        'store_name' => 'Mava Logo Mart',
+        'logo_path' => 'store-logos/logo-test.png',
+    ]);
 
     $this->actingAs($user)
         ->postJson(route('pos.shift.start'))
@@ -137,6 +164,8 @@ test('notification header menampilkan aktivitas sistem dari database', function 
         ->assertOk();
 
     $invoice = $checkout->json('sale.invoice_number');
+    expect($checkout->json('sale.store.name'))->toBe('Mava Logo Mart')
+        ->and($checkout->json('sale.store.logo_url'))->toBe('/storage/store-logos/logo-test.png');
 
     $this->actingAs($user)
         ->get('/')
@@ -515,6 +544,49 @@ test('pengguna dapat membuka halaman test printing', function () {
         ->assertSee('Service UUID');
 });
 
+test('role membatasi akses halaman sesuai tugas user', function () {
+    $cashier = User::factory()->create([
+        'role' => 'kasir',
+        'trial_ends_at' => now()->addDays(7),
+    ]);
+    $warehouse = User::factory()->create([
+        'role' => 'gudang',
+        'trial_ends_at' => now()->addDays(7),
+    ]);
+
+    $this->actingAs($cashier)
+        ->get('/pos')
+        ->assertOk();
+
+    $this->actingAs($cashier)
+        ->get('/settings')
+        ->assertForbidden();
+
+    $this->actingAs($warehouse)
+        ->get('/inventory')
+        ->assertOk();
+
+    $this->actingAs($warehouse)
+        ->get('/pos')
+        ->assertForbidden();
+});
+
+test('subscription gate memblokir fitur operasional saat trial dan langganan berakhir', function () {
+    $owner = User::factory()->create([
+        'role' => 'owner',
+        'trial_ends_at' => now()->subDay(),
+    ]);
+
+    $this->actingAs($owner)
+        ->get('/pos')
+        ->assertRedirect('/billings');
+
+    $this->actingAs($owner)
+        ->get('/billings')
+        ->assertOk()
+        ->assertSee('Buat Tagihan Langganan');
+});
+
 test('pengguna dapat membuka halaman pengeluaran', function () {
     $user = User::factory()->create();
 
@@ -859,6 +931,73 @@ test('pengguna dapat membuat tagihan langganan qris pakasir tanpa isi data diri'
         && $request['api_key'] === 'secret-test');
 });
 
+test('form buat tagihan langganan hanya muncul pada masa renewal h-7 atau subscription tidak aktif', function () {
+    Carbon::setTestNow('2026-06-21 10:00:00');
+
+    $user = User::factory()->create();
+
+    Billing::query()->create([
+        'invoice_number' => 'INV-AKTIF-JAUH',
+        'customer_name' => 'Mava Mart',
+        'title' => 'Plus Plan - Bulanan',
+        'amount' => 249000,
+        'payment_status' => 'completed',
+        'paid_at' => now()->subDay(),
+        'provider_payload' => [
+            'subscription' => [
+                'plan_slug' => 'plus',
+                'plan_name' => 'Plus Plan',
+                'billing_cycle' => 'monthly',
+                'billing_cycle_label' => 'Bulanan',
+                'period_starts_at' => '2026-06-20',
+                'period_ends_at' => '2026-07-10',
+            ],
+        ],
+    ]);
+
+    $this->actingAs($user)
+        ->get('/billings')
+        ->assertOk()
+        ->assertSee('Tagihan Langganan Belum Tersedia')
+        ->assertDontSee('Buat Tagihan Langganan');
+
+    Billing::query()->delete();
+
+    Billing::query()->create([
+        'invoice_number' => 'INV-AKTIF-H7',
+        'customer_name' => 'Mava Mart',
+        'title' => 'Plus Plan - Bulanan',
+        'amount' => 249000,
+        'payment_status' => 'completed',
+        'paid_at' => now()->subDay(),
+        'provider_payload' => [
+            'subscription' => [
+                'plan_slug' => 'plus',
+                'plan_name' => 'Plus Plan',
+                'billing_cycle' => 'monthly',
+                'billing_cycle_label' => 'Bulanan',
+                'period_starts_at' => '2026-06-01',
+                'period_ends_at' => '2026-06-28',
+            ],
+        ],
+    ]);
+
+    $this->actingAs($user)
+        ->get('/billings')
+        ->assertOk()
+        ->assertSee('Buat Tagihan Langganan')
+        ->assertDontSee('Tagihan Langganan Belum Tersedia');
+
+    Billing::query()->delete();
+
+    $this->actingAs($user)
+        ->get('/billings')
+        ->assertOk()
+        ->assertSee('Buat Tagihan Langganan');
+
+    Carbon::setTestNow();
+});
+
 test('webhook pakasir menandai tagihan lunas setelah verifikasi detail', function () {
     config([
         'services.pakasir.project' => 'mava-test',
@@ -1121,4 +1260,170 @@ test('pengguna dapat update pengaturan produk global dan tersimpan ke database',
         'dine_in_takeaway_enabled' => true,
         'serving_time_enabled' => true,
     ]);
+});
+
+test('pengguna dapat update pengaturan struk dan printer', function () {
+    $user = User::factory()->create(['role' => 'owner']);
+
+    $this->actingAs($user)
+        ->patch('/settings', [
+            'store_name' => 'Mava Mart',
+            'business_type' => 'retail',
+            'currency' => 'IDR',
+            'receipt_footer_note' => 'Terima kasih sudah berbelanja.',
+            'receipt_paper_width' => '58',
+            'receipt_show_logo' => '1',
+            'receipt_show_store_address' => '1',
+            'receipt_show_cashier' => '1',
+            'printer_auto_print' => '1',
+            'printer_close_after_print' => '1',
+            'printer_connection_mode' => 'bluetooth',
+            'printer_bluetooth_service_uuid' => '000018f0-0000-1000-8000-00805f9b34fb',
+            'printer_bluetooth_characteristic_uuid' => '00002af1-0000-1000-8000-00805f9b34fb',
+        ])
+        ->assertRedirect('/settings')
+        ->assertSessionHas('status', 'Pengaturan toko berhasil disimpan.');
+
+    $this->assertDatabaseHas('store_settings', [
+        'store_name' => 'Mava Mart',
+        'receipt_footer_note' => 'Terima kasih sudah berbelanja.',
+        'receipt_paper_width' => '58',
+        'receipt_show_logo' => true,
+        'receipt_show_store_address' => true,
+        'receipt_show_cashier' => true,
+        'printer_auto_print' => true,
+        'printer_close_after_print' => true,
+        'printer_connection_mode' => 'bluetooth',
+        'printer_bluetooth_service_uuid' => '000018f0-0000-1000-8000-00805f9b34fb',
+        'printer_bluetooth_characteristic_uuid' => '00002af1-0000-1000-8000-00805f9b34fb',
+    ]);
+});
+
+test('payload checkout membawa pengaturan struk dan printer toko', function () {
+    $user = User::factory()->create(['role' => 'owner']);
+
+    StoreSetting::current()->update([
+        'receipt_footer_note' => 'Barang yang sudah dibeli tidak dapat dikembalikan.',
+        'receipt_paper_width' => '80',
+        'receipt_show_logo' => false,
+        'receipt_show_store_address' => false,
+        'receipt_show_cashier' => true,
+        'printer_auto_print' => true,
+        'printer_close_after_print' => true,
+        'printer_connection_mode' => 'bluetooth',
+        'printer_bluetooth_service_uuid' => 'service-test',
+        'printer_bluetooth_characteristic_uuid' => 'char-test',
+    ]);
+
+    $this->actingAs($user)
+        ->postJson(route('pos.shift.start'))
+        ->assertOk();
+
+    $this->actingAs($user)
+        ->postJson(route('pos.checkout'), [
+            'items' => [
+                ['id' => 'product-SKU-001', 'quantity' => 1],
+            ],
+            'payment_method' => 'cash',
+            'discount' => 0,
+            'paid_amount' => 18000,
+        ])
+        ->assertOk()
+        ->assertJsonPath('sale.receipt.footer_note', 'Barang yang sudah dibeli tidak dapat dikembalikan.')
+        ->assertJsonPath('sale.receipt.paper_width', '80')
+        ->assertJsonPath('sale.receipt.show_logo', false)
+        ->assertJsonPath('sale.receipt.show_store_address', false)
+        ->assertJsonPath('sale.receipt.show_cashier', true)
+        ->assertJsonPath('sale.printer.auto_print', true)
+        ->assertJsonPath('sale.printer.close_after_print', true)
+        ->assertJsonPath('sale.printer.connection_mode', 'bluetooth')
+        ->assertJsonPath('sale.printer.bluetooth_service_uuid', 'service-test')
+        ->assertJsonPath('sale.printer.bluetooth_characteristic_uuid', 'char-test');
+});
+
+test('owner dapat mengelola user dan role staf', function () {
+    $owner = User::factory()->create(['role' => 'owner']);
+
+    $this->actingAs($owner)
+        ->get('/users')
+        ->assertOk()
+        ->assertSee('Manajemen User')
+        ->assertSee('Tambah User');
+
+    $this->actingAs($owner)
+        ->post('/users', [
+            'name' => 'Kasir Cabang',
+            'email' => 'kasir-cabang@example.com',
+            'role' => 'kasir',
+            'password' => 'password123',
+            'password_confirmation' => 'password123',
+        ])
+        ->assertRedirect('/users')
+        ->assertSessionHas('success', 'User staf berhasil ditambahkan.');
+
+    $staff = User::query()->where('email', 'kasir-cabang@example.com')->firstOrFail();
+
+    expect($staff->role)->toBe('kasir')
+        ->and($staff->trial_ends_at)->toBeNull();
+
+    $this->actingAs($owner)
+        ->patch("/users/{$staff->id}", [
+            'name' => 'Admin Cabang',
+            'email' => 'admin-cabang@example.com',
+            'role' => 'admin',
+            'password' => '',
+            'password_confirmation' => '',
+        ])
+        ->assertRedirect('/users')
+        ->assertSessionHas('success', 'User staf berhasil diperbarui.');
+
+    $this->assertDatabaseHas('users', [
+        'id' => $staff->id,
+        'name' => 'Admin Cabang',
+        'email' => 'admin-cabang@example.com',
+        'role' => 'admin',
+    ]);
+});
+
+test('owner dapat menonaktifkan user staf dan tidak dapat menonaktifkan diri sendiri', function () {
+    $owner = User::factory()->create(['role' => 'owner']);
+    $cashier = User::factory()->create(['role' => 'kasir']);
+
+    $this->actingAs($owner)
+        ->delete("/users/{$cashier->id}")
+        ->assertRedirect('/users')
+        ->assertSessionHas('success', 'User staf berhasil dinonaktifkan.');
+
+    $this->assertDatabaseMissing('users', ['id' => $cashier->id]);
+
+    $this->actingAs($owner)
+        ->delete("/users/{$owner->id}")
+        ->assertRedirect('/users')
+        ->assertSessionHasErrors('user');
+
+    $this->assertDatabaseHas('users', ['id' => $owner->id]);
+});
+
+test('dashboard menampilkan status trial dan subscription expired', function () {
+    $trialUser = User::factory()->create([
+        'role' => 'owner',
+        'trial_ends_at' => now()->addDays(3),
+    ]);
+
+    $this->actingAs($trialUser)
+        ->get('/')
+        ->assertOk()
+        ->assertSee('Trial aktif')
+        ->assertSee('3 hari tersisa');
+
+    $expiredUser = User::factory()->create([
+        'role' => 'owner',
+        'trial_ends_at' => now()->subDay(),
+    ]);
+
+    $this->actingAs($expiredUser)
+        ->get('/')
+        ->assertOk()
+        ->assertSee('Langganan berakhir')
+        ->assertSee('Perpanjang sekarang');
 });

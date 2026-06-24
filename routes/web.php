@@ -19,6 +19,7 @@ use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SaleController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\UserController;
 use App\Models\StoreSetting;
 use Illuminate\Support\Facades\Storage;
 
@@ -44,44 +45,63 @@ Route::middleware('auth')->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications');
     Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
 
-    Route::get('/products', [ProductController::class, 'index'])->name('products');
-    Route::post('/products', [ProductController::class, 'store'])->name('products.store');
-    Route::patch('/products/{sku}', [ProductController::class, 'update'])->name('products.update');
-    Route::get('/product-recipes', [ProductRecipeController::class, 'index'])->name('product-recipes');
-    Route::post('/product-recipes', [ProductRecipeController::class, 'store'])->name('product-recipes.store');
-    Route::get('/product-categories', [ProductCategoryController::class, 'index'])->name('product-categories');
-    Route::post('/product-categories', [ProductCategoryController::class, 'store'])->name('product-categories.store');
-    Route::patch('/product-categories/{code}', [ProductCategoryController::class, 'update'])->name('product-categories.update');
-    Route::get('/customers', [CustomerController::class, 'index'])->name('customers');
-    Route::post('/customers', [CustomerController::class, 'store'])->name('customers.store');
-    Route::patch('/customers/{code}', [CustomerController::class, 'update'])->name('customers.update');
-    Route::get('/billings', [BillingController::class, 'index'])->name('billings');
-    Route::post('/billings', [BillingController::class, 'store'])->name('billings.store');
-    Route::post('/billings/{billing}/refresh', [BillingController::class, 'refresh'])->name('billings.refresh');
-    Route::get('/suppliers', [SupplierController::class, 'index'])->name('suppliers');
-    Route::post('/suppliers', [SupplierController::class, 'store'])->name('suppliers.store');
-    Route::patch('/suppliers/{code}', [SupplierController::class, 'update'])->name('suppliers.update');
-    Route::get('/raw-materials', [RawMaterialController::class, 'index'])->name('raw-materials');
-    Route::post('/raw-materials', [RawMaterialController::class, 'store'])->name('raw-materials.store');
-    Route::get('/expenses', [ExpenseController::class, 'index'])->name('expenses');
-    Route::post('/expenses', [ExpenseController::class, 'store'])->name('expenses.store');
-    Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory');
-    Route::post('/inventory/{sku}/in', [InventoryController::class, 'storeIn'])->name('inventory.in');
-    Route::post('/inventory/{sku}/out', [InventoryController::class, 'storeOut'])->name('inventory.out');
-    Route::patch('/inventory/{sku}', [InventoryController::class, 'update'])->name('inventory.update');
-    Route::get('/settings', [SettingController::class, 'index'])->name('settings');
-    Route::patch('/settings', [SettingController::class, 'update'])->name('settings.update');
-    Route::get('/pos', [PosController::class, 'index'])->name('pos');
-    Route::post('/pos/shift/start', [PosController::class, 'startShift'])->name('pos.shift.start');
-    Route::post('/pos/shift/close', [PosController::class, 'closeShift'])->name('pos.shift.close');
-    Route::post('/pos/checkout', [PosController::class, 'checkout'])->name('pos.checkout');
-    Route::get('/cashier-shifts', [CashierShiftController::class, 'index'])->name('cashier-shifts');
-    Route::get('/sales', [SaleController::class, 'index'])->name('sales');
-    Route::get('/reports', [ReportController::class, 'index'])->name('reports');
-    Route::get('/reports/download', [ReportController::class, 'download'])->name('reports.download');
-    Route::get('/print-test', function () {
-        return view('pages.print-test', ['title' => 'Test Printing']);
-    })->name('print-test');
+    Route::middleware('role:owner,admin')->group(function () {
+        Route::get('/billings', [BillingController::class, 'index'])->name('billings');
+        Route::post('/billings', [BillingController::class, 'store'])->name('billings.store');
+        Route::post('/billings/{billing}/refresh', [BillingController::class, 'refresh'])->name('billings.refresh');
+        Route::get('/settings', [SettingController::class, 'index'])->name('settings');
+        Route::patch('/settings', [SettingController::class, 'update'])->name('settings.update');
+        Route::get('/users', [UserController::class, 'index'])->name('users.index');
+        Route::post('/users', [UserController::class, 'store'])->name('users.store');
+        Route::patch('/users/{user}', [UserController::class, 'update'])->name('users.update');
+        Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+    });
+
+    Route::middleware('subscription')->group(function () {
+        Route::middleware('role:owner,admin,gudang')->group(function () {
+            Route::get('/products', [ProductController::class, 'index'])->name('products');
+            Route::post('/products', [ProductController::class, 'store'])->name('products.store');
+            Route::patch('/products/{sku}', [ProductController::class, 'update'])->name('products.update');
+            Route::get('/product-recipes', [ProductRecipeController::class, 'index'])->name('product-recipes');
+            Route::post('/product-recipes', [ProductRecipeController::class, 'store'])->name('product-recipes.store');
+            Route::get('/product-categories', [ProductCategoryController::class, 'index'])->name('product-categories');
+            Route::post('/product-categories', [ProductCategoryController::class, 'store'])->name('product-categories.store');
+            Route::patch('/product-categories/{code}', [ProductCategoryController::class, 'update'])->name('product-categories.update');
+            Route::get('/raw-materials', [RawMaterialController::class, 'index'])->name('raw-materials');
+            Route::post('/raw-materials', [RawMaterialController::class, 'store'])->name('raw-materials.store');
+            Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory');
+            Route::post('/inventory/{sku}/in', [InventoryController::class, 'storeIn'])->name('inventory.in');
+            Route::post('/inventory/{sku}/out', [InventoryController::class, 'storeOut'])->name('inventory.out');
+            Route::patch('/inventory/{sku}', [InventoryController::class, 'update'])->name('inventory.update');
+        });
+
+        Route::middleware('role:owner,admin,kasir')->group(function () {
+            Route::get('/pos', [PosController::class, 'index'])->name('pos');
+            Route::post('/pos/shift/start', [PosController::class, 'startShift'])->name('pos.shift.start');
+            Route::post('/pos/shift/close', [PosController::class, 'closeShift'])->name('pos.shift.close');
+            Route::post('/pos/checkout', [PosController::class, 'checkout'])->name('pos.checkout');
+            Route::get('/cashier-shifts', [CashierShiftController::class, 'index'])->name('cashier-shifts');
+            Route::get('/sales', [SaleController::class, 'index'])->name('sales');
+        });
+
+        Route::middleware('role:owner,admin')->group(function () {
+            Route::get('/customers', [CustomerController::class, 'index'])->name('customers');
+            Route::post('/customers', [CustomerController::class, 'store'])->name('customers.store');
+            Route::patch('/customers/{code}', [CustomerController::class, 'update'])->name('customers.update');
+            Route::get('/suppliers', [SupplierController::class, 'index'])->name('suppliers');
+            Route::post('/suppliers', [SupplierController::class, 'store'])->name('suppliers.store');
+            Route::patch('/suppliers/{code}', [SupplierController::class, 'update'])->name('suppliers.update');
+            Route::get('/expenses', [ExpenseController::class, 'index'])->name('expenses');
+            Route::post('/expenses', [ExpenseController::class, 'store'])->name('expenses.store');
+            Route::get('/reports', [ReportController::class, 'index'])->name('reports');
+            Route::get('/reports/download', [ReportController::class, 'download'])->name('reports.download');
+        });
+    });
+    Route::middleware('role:owner,admin')->group(function () {
+        Route::get('/print-test', function () {
+            return view('pages.print-test', ['title' => 'Test Printing']);
+        })->name('print-test');
+    });
 
     Route::get('/calendar', function () {
         return view('pages.calender', ['title' => 'Kalender']);

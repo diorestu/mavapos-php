@@ -13,6 +13,10 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->redirectGuestsTo('/signin');
         $middleware->redirectUsersTo('/');
+        $middleware->alias([
+            'role' => \App\Http\Middleware\EnsureUserRole::class,
+            'subscription' => \App\Http\Middleware\EnsureSubscriptionAccess::class,
+        ]);
         $middleware->validateCsrfTokens(except: [
             'pakasir/webhook',
         ]);

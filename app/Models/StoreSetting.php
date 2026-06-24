@@ -43,6 +43,16 @@ class StoreSetting extends Model
         'kitchen_notes_enabled',
         'dine_in_takeaway_enabled',
         'serving_time_enabled',
+        'receipt_footer_note',
+        'receipt_paper_width',
+        'receipt_show_logo',
+        'receipt_show_store_address',
+        'receipt_show_cashier',
+        'printer_auto_print',
+        'printer_close_after_print',
+        'printer_connection_mode',
+        'printer_bluetooth_service_uuid',
+        'printer_bluetooth_characteristic_uuid',
     ];
 
     protected function casts(): array
@@ -58,6 +68,11 @@ class StoreSetting extends Model
             'kitchen_notes_enabled' => 'boolean',
             'dine_in_takeaway_enabled' => 'boolean',
             'serving_time_enabled' => 'boolean',
+            'receipt_show_logo' => 'boolean',
+            'receipt_show_store_address' => 'boolean',
+            'receipt_show_cashier' => 'boolean',
+            'printer_auto_print' => 'boolean',
+            'printer_close_after_print' => 'boolean',
         ];
     }
 
@@ -105,6 +120,16 @@ class StoreSetting extends Model
             'kitchen_notes_enabled' => true,
             'dine_in_takeaway_enabled' => true,
             'serving_time_enabled' => true,
+            'receipt_footer_note' => 'Terima kasih sudah berbelanja.',
+            'receipt_paper_width' => '58',
+            'receipt_show_logo' => true,
+            'receipt_show_store_address' => true,
+            'receipt_show_cashier' => true,
+            'printer_auto_print' => false,
+            'printer_close_after_print' => false,
+            'printer_connection_mode' => 'browser',
+            'printer_bluetooth_service_uuid' => null,
+            'printer_bluetooth_characteristic_uuid' => null,
         ];
     }
 }

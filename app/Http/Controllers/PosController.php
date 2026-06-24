@@ -10,9 +10,11 @@ use App\Models\ProductRecipeItem;
 use App\Models\ProductVariant;
 use App\Models\RawMaterial;
 use App\Models\StockMovement;
+use App\Models\StoreSetting;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 
@@ -251,10 +253,32 @@ class PosController extends Controller
             return $sale->load('items', 'shift.user');
         });
 
+        $setting = StoreSetting::current();
+
         return response()->json([
             'message' => 'Transaksi '.$sale->invoice_number.' berhasil diselesaikan.',
             'sale' => [
                 'invoice_number' => $sale->invoice_number,
+                'store' => [
+                    'name' => $setting->store_name,
+                    'address' => $setting->address,
+                    'phone' => $setting->phone,
+                    'logo_url' => $setting->logo_path ? Storage::url($setting->logo_path) : null,
+                ],
+                'receipt' => [
+                    'footer_note' => $setting->receipt_footer_note,
+                    'paper_width' => $setting->receipt_paper_width,
+                    'show_logo' => $setting->receipt_show_logo,
+                    'show_store_address' => $setting->receipt_show_store_address,
+                    'show_cashier' => $setting->receipt_show_cashier,
+                ],
+                'printer' => [
+                    'auto_print' => $setting->printer_auto_print,
+                    'close_after_print' => $setting->printer_close_after_print,
+                    'connection_mode' => $setting->printer_connection_mode,
+                    'bluetooth_service_uuid' => $setting->printer_bluetooth_service_uuid,
+                    'bluetooth_characteristic_uuid' => $setting->printer_bluetooth_characteristic_uuid,
+                ],
                 'cashier' => $sale->shift?->user?->name,
                 'sold_at' => $sale->sold_at?->format('d M Y H:i'),
                 'payment_method' => $sale->payment_method,
