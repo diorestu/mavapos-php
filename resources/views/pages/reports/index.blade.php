@@ -20,7 +20,10 @@
                     </ol>
                 </nav>
                 <h1 class="mt-1 text-xl font-semibold text-gray-800 dark:text-white/90">Laporan</h1>
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Ringkasan stok, nilai inventori, pendapatan POS, billing, dan pergerakan barang.</p>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Ringkasan stok, nilai inventori, pendapatan POS, billing, dan pergerakan barang.
+                    <span class="font-semibold text-gray-700 dark:text-gray-300">Cabang aktif: {{ $activeBranch->name }}</span>
+                </p>
             </div>
 
             <form method="GET" action="{{ route('reports') }}" class="grid gap-2 rounded-xl border border-gray-200 bg-white p-2 dark:border-gray-800 dark:bg-white/[0.03] sm:grid-cols-[150px_150px_auto_auto]">

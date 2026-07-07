@@ -126,6 +126,21 @@
         <!-- Application Menu (mobile) and Right Side Actions (desktop) -->
         <div :class="isApplicationMenuOpen ? 'flex' : 'hidden'"
             class="items-center justify-between w-full gap-3 px-4 py-3 xl:flex shadow-theme-md xl:justify-end xl:px-0 xl:shadow-none">
+            @isset($branchOptions, $activeBranch)
+                <form method="POST" action="{{ route('branches.switch') }}" class="min-w-[180px]">
+                    @csrf
+                    <label class="sr-only" for="active_branch_id">Cabang aktif</label>
+                    <select id="active_branch_id" name="branch_id" onchange="this.form.submit()"
+                        class="h-[38px] w-full rounded-lg border border-gray-200 bg-white px-3 pr-9 text-xs font-semibold text-gray-700 shadow-theme-xs outline-none transition focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90">
+                        @foreach ($branchOptions as $branch)
+                            <option value="{{ $branch->id }}" @selected($activeBranch->id === $branch->id)>
+                                {{ $branch->name }}
+                            </option>
+                        @endforeach
+                    </select>
+                </form>
+            @endisset
+
             <div class="flex items-center gap-1.5 2xsm:gap-2.5">
                 <!-- Theme Toggle Button -->
                 <button

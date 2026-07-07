@@ -20,6 +20,9 @@
                 </nav>
 
                 <h1 class="mt-1 text-xl font-semibold text-gray-800 dark:text-white/90">Stok</h1>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                    Cabang aktif: <span class="font-semibold text-gray-700 dark:text-gray-300">{{ $activeBranch->name }}</span>
+                </p>
             </div>
         </div>
 

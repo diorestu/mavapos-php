@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Expense;
 use App\Models\Product;
 use App\Models\StockMovement;
+use App\Support\BranchContext;
+use App\Support\BranchInventoryManager;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -15,8 +17,11 @@ class ExpenseController extends Controller
 {
     public function index(): View
     {
+        $branchId = app(BranchContext::class)->activeId();
+
         $expenses = Expense::query()
-            ->with('product')
+            ->with(['product', 'branch'])
+            ->where('branch_id', $branchId)
             ->latest('spent_at')
             ->latest()
             ->get();
@@ -48,8 +53,9 @@ class ExpenseController extends Controller
             'note' => ['nullable', 'string', 'max:500'],
             'spent_at' => ['required', 'date'],
         ]);
+        $branchId = app(BranchContext::class)->activeId();
 
-        DB::transaction(function () use ($validated): void {
+        DB::transaction(function () use ($validated, $branchId): void {
             $stockMovement = null;
             $product = null;
 
@@ -57,17 +63,24 @@ class ExpenseController extends Controller
                 $product = Product::query()
                     ->lockForUpdate()
                     ->findOrFail($validated['product_id']);
+                $inventory = app(BranchInventoryManager::class)->forProduct($branchId, $product, true);
 
                 $quantity = (int) $validated['quantity'];
-                $stockBefore = $product->stock;
+                $stockBefore = $inventory->stock;
                 $stockAfter = $stockBefore + $quantity;
 
                 $product->update([
-                    'stock' => $stockAfter,
                     'buy_price' => (int) ($validated['unit_cost'] ?? $product->buy_price),
+                ]);
+                $inventory->update([
+                    'stock' => $stockAfter,
+                ]);
+                $product->update([
+                    'stock' => $stockAfter,
                 ]);
 
                 $stockMovement = StockMovement::query()->create([
+                    'branch_id' => $branchId,
                     'product_id' => $product->id,
                     'type' => 'in',
                     'quantity' => $quantity,
@@ -80,6 +93,7 @@ class ExpenseController extends Controller
             }
 
             Expense::query()->create([
+                'branch_id' => $branchId,
                 'product_id' => $product?->id,
                 'stock_movement_id' => $stockMovement?->id,
                 'expense_number' => $this->nextExpenseNumber(),

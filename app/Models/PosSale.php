@@ -10,6 +10,7 @@ class PosSale extends Model
 {
     protected $fillable = [
         'cashier_shift_id',
+        'branch_id',
         'user_id',
         'invoice_number',
         'payment_method',
@@ -25,6 +26,7 @@ class PosSale extends Model
     {
         return [
             'subtotal' => 'integer',
+            'branch_id' => 'integer',
             'discount' => 'integer',
             'total' => 'integer',
             'paid_amount' => 'integer',
@@ -36,6 +38,11 @@ class PosSale extends Model
     public function shift(): BelongsTo
     {
         return $this->belongsTo(CashierShift::class, 'cashier_shift_id');
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     public function user(): BelongsTo

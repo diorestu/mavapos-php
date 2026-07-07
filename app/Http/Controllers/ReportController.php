@@ -9,6 +9,8 @@ use App\Models\Product;
 use App\Models\StockMovement;
 use App\Models\StoreSetting;
 use App\Models\User;
+use App\Support\BranchContext;
+use App\Support\BranchInventoryManager;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -55,12 +57,29 @@ class ReportController extends Controller
         $to = isset($validated['date_to'])
             ? Carbon::parse($validated['date_to'])->endOfDay()
             : now()->endOfDay();
+        $activeBranch = app(BranchContext::class)->active();
 
-        $products = Product::query()->with('category')->orderBy('name')->get();
+        $inventoryManager = app(BranchInventoryManager::class);
+        $products = Product::query()
+            ->with('category')
+            ->orderBy('name')
+            ->get()
+            ->map(function (Product $product) use ($inventoryManager, $activeBranch): Product {
+                $product->stock = $inventoryManager->stockForProduct($activeBranch->id, $product);
+                $product->min_stock = $inventoryManager->minStockForProduct($activeBranch->id, $product);
+
+                return $product;
+            });
         $billingQuery = Billing::query()->whereBetween('created_at', [$from, $to]);
-        $posSaleQuery = PosSale::query()->whereBetween('sold_at', [$from, $to]);
-        $expenseQuery = Expense::query()->whereBetween('spent_at', [$from, $to]);
-        $movementQuery = StockMovement::query()->whereBetween('occurred_at', [$from, $to]);
+        $posSaleQuery = PosSale::query()
+            ->where('branch_id', $activeBranch->id)
+            ->whereBetween('sold_at', [$from, $to]);
+        $expenseQuery = Expense::query()
+            ->where('branch_id', $activeBranch->id)
+            ->whereBetween('spent_at', [$from, $to]);
+        $movementQuery = StockMovement::query()
+            ->where('branch_id', $activeBranch->id)
+            ->whereBetween('occurred_at', [$from, $to]);
         $periodMovements = (clone $movementQuery)->with('product')->get();
 
         $paidStatuses = ['paid', 'completed'];
@@ -103,6 +122,7 @@ class ReportController extends Controller
 
         return [
             'store' => StoreSetting::current(),
+            'activeBranch' => $activeBranch,
             'period' => [
                 'from' => $from,
                 'to' => $to,

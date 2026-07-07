@@ -11,6 +11,8 @@ use App\Models\ProductVariant;
 use App\Models\RawMaterial;
 use App\Models\StockMovement;
 use App\Models\StoreSetting;
+use App\Support\BranchContext;
+use App\Support\BranchInventoryManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,12 +24,14 @@ class PosController extends Controller
 {
     public function index(): View
     {
+        $branchId = app(BranchContext::class)->activeId();
         $products = Product::query()
             ->with(['category', 'variants'])
             ->orderBy('name')
             ->get();
         $openShift = CashierShift::query()
-            ->with('user')
+            ->with(['user', 'branch'])
+            ->where('branch_id', $branchId)
             ->whereNull('closed_at')
             ->latest('opened_at')
             ->first();
@@ -48,12 +52,12 @@ class PosController extends Controller
                 ])
                 ->values(),
             'items' => $products
-                ->flatMap(function (Product $product): array {
-                    $base = [$this->productPayload($product)];
+                ->flatMap(function (Product $product) use ($branchId): array {
+                    $base = [$this->productPayload($product, $branchId)];
 
                     $variants = $product->variants
                         ->where('is_active', true)
-                        ->map(fn (ProductVariant $variant): array => $this->variantPayload($product, $variant))
+                        ->map(fn (ProductVariant $variant): array => $this->variantPayload($product, $variant, $branchId))
                         ->values()
                         ->all();
 
@@ -66,11 +70,14 @@ class PosController extends Controller
     public function startShift(Request $request): JsonResponse
     {
         $validated = $request->validate([
+            'opening_cash_amount' => ['nullable', 'integer', 'min:0', 'max:999999999999'],
             'opening_note' => ['nullable', 'string', 'max:1000'],
         ]);
+        $branchId = app(BranchContext::class)->activeId();
 
-        $shift = DB::transaction(function () use ($validated): CashierShift {
+        $shift = DB::transaction(function () use ($validated, $branchId): CashierShift {
             $openShift = CashierShift::query()
+                ->where('branch_id', $branchId)
                 ->whereNull('closed_at')
                 ->lockForUpdate()
                 ->latest('opened_at')
@@ -81,14 +88,16 @@ class PosController extends Controller
             }
 
             if ($openShift) {
-                return $openShift->load('user');
+                return $openShift->load(['user', 'branch']);
             }
 
             return CashierShift::query()->create([
                 'user_id' => auth()->id(),
+                'branch_id' => $branchId,
                 'opened_at' => now(),
+                'opening_cash_amount' => $validated['opening_cash_amount'] ?? 0,
                 'opening_note' => $validated['opening_note'] ?? null,
-            ])->load('user');
+            ])->load(['user', 'branch']);
         });
 
         return response()->json([
@@ -102,10 +111,12 @@ class PosController extends Controller
         $validated = $request->validate([
             'closing_note' => ['nullable', 'string', 'max:1000'],
         ]);
+        $branchId = app(BranchContext::class)->activeId();
 
-        $shift = DB::transaction(function () use ($validated): CashierShift {
+        $shift = DB::transaction(function () use ($validated, $branchId): CashierShift {
             $shift = CashierShift::query()
                 ->where('user_id', auth()->id())
+                ->where('branch_id', $branchId)
                 ->whereNull('closed_at')
                 ->lockForUpdate()
                 ->first();
@@ -137,7 +148,7 @@ class PosController extends Controller
                 'closing_note' => $validated['closing_note'] ?? null,
             ]);
 
-            return $shift->load('user');
+            return $shift->load(['user', 'branch']);
         });
 
         return response()->json([
@@ -156,10 +167,12 @@ class PosController extends Controller
             'discount' => ['nullable', 'integer', 'min:0'],
             'paid_amount' => ['nullable', 'integer', 'min:0'],
         ]);
+        $branchId = app(BranchContext::class)->activeId();
 
-        $sale = DB::transaction(function () use ($validated): PosSale {
+        $sale = DB::transaction(function () use ($validated, $branchId): PosSale {
             $shift = CashierShift::query()
                 ->where('user_id', auth()->id())
+                ->where('branch_id', $branchId)
                 ->whereNull('closed_at')
                 ->lockForUpdate()
                 ->first();
@@ -173,8 +186,8 @@ class PosController extends Controller
 
             foreach ($validated['items'] as $line) {
                 $quantity = (int) $line['quantity'];
-                $sellable = $this->lockSellable($line['id']);
-                $availableStock = (int) $sellable['model']->stock;
+                $sellable = $this->lockSellable($line['id'], $branchId);
+                $availableStock = (int) $sellable['inventory']->stock;
 
                 if ($availableStock < $quantity) {
                     abort(422, 'Stok '.$sellable['name'].' tidak cukup.');
@@ -202,6 +215,7 @@ class PosController extends Controller
 
             $sale = PosSale::query()->create([
                 'cashier_shift_id' => $shift->id,
+                'branch_id' => $branchId,
                 'user_id' => auth()->id(),
                 'invoice_number' => $this->nextInvoiceNumber(),
                 'payment_method' => $validated['payment_method'],
@@ -216,10 +230,11 @@ class PosController extends Controller
             foreach ($saleItems as $line) {
                 $sellable = $line['sellable'];
                 $quantity = $line['quantity'];
-                $model = $sellable['model'];
-                $stockBefore = (int) $model->stock;
+                $inventory = $sellable['inventory'];
+                $stockBefore = (int) $inventory->stock;
 
-                $model->update(['stock' => $stockBefore - $quantity]);
+                $inventory->update(['stock' => $stockBefore - $quantity]);
+                $sellable['model']->update(['stock' => $inventory->stock]);
 
                 $sale->items()->create([
                     'product_id' => $sellable['product_id'],
@@ -296,12 +311,14 @@ class PosController extends Controller
                 ])->values(),
             ],
             'shift' => $this->shiftPayload($sale->shift),
-            'items' => $this->itemsPayload(),
+            'items' => $this->itemsPayload($branchId),
         ]);
     }
 
-    private function productPayload(Product $product): array
+    private function productPayload(Product $product, int $branchId): array
     {
+        $inventory = app(BranchInventoryManager::class)->forProduct($branchId, $product);
+
         return [
             'id' => 'product-'.$product->sku,
             'sourceType' => 'product',
@@ -312,15 +329,17 @@ class PosController extends Controller
             'category' => $product->category?->code ?? 'umum',
             'categoryName' => $product->category?->name ?? 'Umum',
             'price' => $product->sell_price,
-            'stock' => $product->stock,
+            'stock' => $inventory->stock,
             'type' => 'Produk',
             'unit' => 'pcs',
             'isFavorite' => false,
         ];
     }
 
-    private function variantPayload(Product $product, ProductVariant $variant): array
+    private function variantPayload(Product $product, ProductVariant $variant, int $branchId): array
     {
+        $inventory = app(BranchInventoryManager::class)->forVariant($branchId, $variant);
+
         return [
             'id' => 'variant-'.$variant->id,
             'sourceType' => 'variant',
@@ -331,24 +350,24 @@ class PosController extends Controller
             'category' => $product->category?->code ?? 'umum',
             'categoryName' => $product->category?->name ?? 'Umum',
             'price' => $variant->sell_price,
-            'stock' => $variant->stock,
+            'stock' => $inventory->stock,
             'type' => 'Varian',
             'unit' => $variant->unit ?: 'pcs',
             'isFavorite' => $variant->is_favorite,
         ];
     }
 
-    private function itemsPayload()
+    private function itemsPayload(int $branchId)
     {
         return Product::query()
             ->with(['category', 'variants'])
             ->orderBy('name')
             ->get()
-            ->flatMap(function (Product $product): array {
-                $base = [$this->productPayload($product)];
+            ->flatMap(function (Product $product) use ($branchId): array {
+                $base = [$this->productPayload($product, $branchId)];
                 $variants = $product->variants
                     ->where('is_active', true)
-                    ->map(fn (ProductVariant $variant): array => $this->variantPayload($product, $variant))
+                    ->map(fn (ProductVariant $variant): array => $this->variantPayload($product, $variant, $branchId))
                     ->values()
                     ->all();
 
@@ -357,14 +376,16 @@ class PosController extends Controller
             ->values();
     }
 
-    private function lockSellable(string $id): array
+    private function lockSellable(string $id, int $branchId): array
     {
         if (Str::startsWith($id, 'product-')) {
             $sku = Str::after($id, 'product-');
             $product = Product::query()->where('sku', $sku)->lockForUpdate()->firstOrFail();
+            $inventory = app(BranchInventoryManager::class)->forProduct($branchId, $product, true);
 
             return [
                 'model' => $product,
+                'inventory' => $inventory,
                 'type' => 'product',
                 'product_id' => $product->id,
                 'variant_id' => null,
@@ -380,9 +401,11 @@ class PosController extends Controller
                 ->whereKey((int) Str::after($id, 'variant-'))
                 ->lockForUpdate()
                 ->firstOrFail();
+            $inventory = app(BranchInventoryManager::class)->forVariant($branchId, $variant, true);
 
             return [
                 'model' => $variant,
+                'inventory' => $inventory,
                 'type' => 'variant',
                 'product_id' => $variant->product_id,
                 'variant_id' => $variant->id,
@@ -453,6 +476,7 @@ class PosController extends Controller
         return [
             'id' => $shift->id,
             'cashier' => $shift->user?->name ?? 'Kasir',
+            'branch' => $shift->branch?->name ?? 'Cabang',
             'openedAt' => $shift->opened_at?->format('d M Y H:i'),
             'closedAt' => $shift->closed_at?->format('d M Y H:i'),
             'salesCount' => $shift->sales_count,
@@ -460,6 +484,8 @@ class PosController extends Controller
             'cashTotal' => $shift->cash_total,
             'qrisTotal' => $shift->qris_total,
             'cardTotal' => $shift->card_total,
+            'openingCashAmount' => $shift->opening_cash_amount,
+            'cashInDrawer' => $shift->opening_cash_amount + $shift->cash_total,
         ];
     }
 }

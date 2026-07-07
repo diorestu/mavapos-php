@@ -12,8 +12,7 @@ class PakasirClient
         private readonly string $apiKey = '',
         private readonly string $baseUrl = 'https://app.pakasir.com/api',
         private readonly int $timeout = 30,
-    ) {
-    }
+    ) {}
 
     public function isConfigured(): bool
     {

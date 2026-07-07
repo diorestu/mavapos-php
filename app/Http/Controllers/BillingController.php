@@ -43,9 +43,7 @@ class BillingController extends Controller
         ],
     ];
 
-    public function __construct(private readonly PakasirClient $pakasir)
-    {
-    }
+    public function __construct(private readonly PakasirClient $pakasir) {}
 
     public function index(): View
     {

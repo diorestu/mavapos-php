@@ -10,6 +10,7 @@ class CashierShift extends Model
 {
     protected $fillable = [
         'user_id',
+        'branch_id',
         'opened_at',
         'closed_at',
         'sales_count',
@@ -19,6 +20,7 @@ class CashierShift extends Model
         'cash_total',
         'qris_total',
         'card_total',
+        'opening_cash_amount',
         'opening_note',
         'closing_note',
     ];
@@ -28,6 +30,7 @@ class CashierShift extends Model
         return [
             'opened_at' => 'datetime',
             'closed_at' => 'datetime',
+            'branch_id' => 'integer',
             'sales_count' => 'integer',
             'gross_sales' => 'integer',
             'discount_total' => 'integer',
@@ -35,12 +38,18 @@ class CashierShift extends Model
             'cash_total' => 'integer',
             'qris_total' => 'integer',
             'card_total' => 'integer',
+            'opening_cash_amount' => 'integer',
         ];
     }
 
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     public function sales(): HasMany

@@ -40,6 +40,11 @@ class Product extends Model
         return $this->hasMany(StockMovement::class);
     }
 
+    public function branchInventories(): HasMany
+    {
+        return $this->hasMany(BranchInventory::class);
+    }
+
     public function variants(): HasMany
     {
         return $this->hasMany(ProductVariant::class);

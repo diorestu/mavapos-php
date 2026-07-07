@@ -8,9 +8,7 @@ use Illuminate\View\Component;
 
 class EcommerceMetrics extends Component
 {
-    public function __construct(public array $stats = [])
-    {
-    }
+    public function __construct(public array $stats = []) {}
 
     public function render(): View|Closure|string
     {

@@ -1,8 +1,8 @@
 <?php
 
 use App\Models\Billing;
-use App\Models\Customer;
 use App\Models\Product;
+use App\Models\ProductCategory;
 use App\Models\RawMaterial;
 use App\Models\StoreSetting;
 use App\Models\User;
@@ -29,12 +29,26 @@ test('halaman masuk dan daftar dapat dibuka guest', function () {
     $this->get('/signin')
         ->assertOk()
         ->assertSee('Masuk')
-        ->assertSee('Masukkan email dan kata sandi untuk masuk.');
+        ->assertSee('Masukkan email dan kata sandi untuk masuk.')
+        ->assertSee(route('auth.google.redirect'), false);
 
     $this->get('/signup')
         ->assertOk()
         ->assertSee('Daftar')
-        ->assertSee('Buat akun baru untuk mengakses dashboard.');
+        ->assertSee('Buat akun baru untuk mengakses dashboard.')
+        ->assertSee(route('auth.google.redirect'), false);
+});
+
+test('halaman legal publik dapat dibuka guest', function () {
+    $this->get('/privacy-policy')
+        ->assertOk()
+        ->assertSee('Kebijakan Privasi MavaPOS')
+        ->assertSee('Data yang Kami Kumpulkan');
+
+    $this->get('/terms-of-service')
+        ->assertOk()
+        ->assertSee('Syarat dan Ketentuan Layanan MavaPOS')
+        ->assertSee('Penerimaan Ketentuan');
 });
 
 test('pengguna dapat daftar lalu masuk ke dashboard', function () {
@@ -241,6 +255,56 @@ test('pengguna dapat membuat produk dan tersimpan ke database', function () {
         'sku' => 'SKU-088',
         'buy_price' => 7000,
         'sell_price' => 10000,
+    ]);
+});
+
+test('pengguna dapat menghapus produk beserta data stok cabang dan varian', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->postJson('/products', [
+            'name' => 'Produk Hapus',
+            'sku' => 'DEL-001',
+            'category' => 'minuman',
+            'sellPrice' => 15000,
+            'stock' => 12,
+            'variants' => [
+                [
+                    'name' => 'Produk Hapus Varian',
+                    'sku' => 'DEL-001-VAR',
+                    'sellPrice' => 17000,
+                    'stock' => 5,
+                ],
+            ],
+        ])
+        ->assertCreated();
+
+    $product = Product::query()->where('sku', 'DEL-001')->firstOrFail();
+    $variant = $product->variants()->where('sku', 'DEL-001-VAR')->firstOrFail();
+
+    $this->assertDatabaseHas('branch_inventories', [
+        'product_id' => $product->id,
+    ]);
+    $this->assertDatabaseHas('branch_inventories', [
+        'product_variant_id' => $variant->id,
+    ]);
+
+    $this->actingAs($user)
+        ->deleteJson('/products/DEL-001')
+        ->assertOk()
+        ->assertJsonPath('message', 'Produk DEL-001 berhasil dihapus.');
+
+    $this->assertDatabaseMissing('products', [
+        'sku' => 'DEL-001',
+    ]);
+    $this->assertDatabaseMissing('product_variants', [
+        'sku' => 'DEL-001-VAR',
+    ]);
+    $this->assertDatabaseMissing('branch_inventories', [
+        'product_id' => $product->id,
+    ]);
+    $this->assertDatabaseMissing('branch_inventories', [
+        'product_variant_id' => $variant->id,
     ]);
 });
 
@@ -809,6 +873,38 @@ test('pengguna dapat membuat kategori produk dan tersimpan ke database', functio
         'name' => 'Frozen Food',
         'code' => 'frozen-food',
         'status' => 'aktif',
+    ]);
+});
+
+test('pengguna dapat menghapus kategori produk yang belum digunakan', function () {
+    $user = User::factory()->create();
+    ProductCategory::query()->create([
+        'name' => 'Kategori Hapus',
+        'code' => 'kategori-hapus',
+        'status' => 'aktif',
+        'product_count' => 0,
+    ]);
+
+    $this->actingAs($user)
+        ->deleteJson('/product-categories/kategori-hapus')
+        ->assertOk()
+        ->assertJsonPath('message', 'Kategori produk kategori-hapus berhasil dihapus.');
+
+    $this->assertDatabaseMissing('product_categories', [
+        'code' => 'kategori-hapus',
+    ]);
+});
+
+test('kategori produk yang masih digunakan tidak dapat dihapus', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->deleteJson('/product-categories/minuman')
+        ->assertUnprocessable()
+        ->assertJsonPath('message', 'Kategori produk masih digunakan oleh produk. Pindahkan atau hapus produk terkait terlebih dahulu.');
+
+    $this->assertDatabaseHas('product_categories', [
+        'code' => 'minuman',
     ]);
 });
 

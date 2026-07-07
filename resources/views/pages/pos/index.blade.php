@@ -58,6 +58,7 @@
                         <span class="text-xs text-gray-500 dark:text-gray-400">mulai <span x-text="shift.openedAt"></span></span>
                         <span class="text-xs text-gray-500 dark:text-gray-400">· <span x-text="shift.salesCount"></span> transaksi</span>
                         <span class="text-xs font-semibold tabular-nums text-gray-800 dark:text-white/90" x-text="formatRupiah(shift.netSales)"></span>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">Kas awal <span class="font-semibold tabular-nums text-gray-800 dark:text-white/90" x-text="formatRupiah(shift.openingCashAmount || 0)"></span></span>
                     </div>
                 </template>
                 <template x-if="!shift && blockingShift">
@@ -356,6 +357,13 @@
                 </div>
 
                 <label class="mt-4 block">
+                    <span class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Uang kas awal untuk kembalian</span>
+                    <input type="text" inputmode="numeric" autocomplete="off" :value="formatInputNumber(openingCashAmount)" @input="onMoneyInput('openingCashAmount', $event)" placeholder="0"
+                        class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-right text-sm tabular-nums text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-950 dark:text-white/90" />
+                    <span class="mt-1 block text-[11px] text-gray-500 dark:text-gray-400">Nominal cash yang disiapkan di laci kas untuk uang kembalian.</span>
+                </label>
+
+                <label class="mt-4 block">
                     <span class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Catatan awal shift (opsional)</span>
                     <textarea x-model="openingNote" rows="3" class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-950 dark:text-white/90"></textarea>
                 </label>
@@ -386,6 +394,14 @@
                     <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.04]">
                         <p class="text-[10px] uppercase text-gray-400">Pendapatan</p>
                         <p class="mt-1 text-sm font-semibold tabular-nums text-gray-800 dark:text-white/90" x-text="formatRupiah(shift?.netSales || 0)"></p>
+                    </div>
+                    <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.04]">
+                        <p class="text-[10px] uppercase text-gray-400">Kas Awal</p>
+                        <p class="mt-1 text-sm font-semibold tabular-nums text-gray-800 dark:text-white/90" x-text="formatRupiah(shift?.openingCashAmount || 0)"></p>
+                    </div>
+                    <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.04]">
+                        <p class="text-[10px] uppercase text-gray-400">Kas Tunai</p>
+                        <p class="mt-1 text-sm font-semibold tabular-nums text-gray-800 dark:text-white/90" x-text="formatRupiah(shift?.cashInDrawer || 0)"></p>
                     </div>
                 </div>
                 <label class="mt-4 block">

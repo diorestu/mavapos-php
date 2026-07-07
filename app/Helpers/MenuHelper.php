@@ -87,6 +87,18 @@ class MenuHelper
                         'path' => '/inventory',
                         'roles' => ['owner', 'admin', 'gudang'],
                     ],
+                    [
+                        'icon' => 'inventory',
+                        'name' => 'Transfer Stok',
+                        'path' => '/stock-transfers',
+                        'roles' => ['owner', 'admin', 'gudang'],
+                    ],
+                    [
+                        'icon' => 'suppliers',
+                        'name' => 'Purchase Order',
+                        'path' => '/purchase-orders',
+                        'roles' => ['owner', 'admin', 'gudang'],
+                    ],
                 ],
             ],
             [
@@ -135,6 +147,12 @@ class MenuHelper
                         'icon' => 'settings',
                         'name' => 'Pengaturan',
                         'path' => '/settings',
+                        'roles' => ['owner', 'admin'],
+                    ],
+                    [
+                        'icon' => 'suppliers',
+                        'name' => 'Cabang',
+                        'path' => '/branches',
                         'roles' => ['owner', 'admin'],
                     ],
                     [

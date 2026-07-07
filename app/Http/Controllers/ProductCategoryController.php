@@ -66,6 +66,26 @@ class ProductCategoryController extends Controller
         ]);
     }
 
+    public function destroy(string $code): JsonResponse
+    {
+        $category = ProductCategory::query()
+            ->withCount('products')
+            ->where('code', $code)
+            ->firstOrFail();
+
+        if ($category->products_count > 0) {
+            return response()->json([
+                'message' => 'Kategori produk masih digunakan oleh produk. Pindahkan atau hapus produk terkait terlebih dahulu.',
+            ], 422);
+        }
+
+        $category->delete();
+
+        return response()->json([
+            'message' => "Kategori produk {$code} berhasil dihapus.",
+        ]);
+    }
+
     private function categoryAttributes(array $validated): array
     {
         return [

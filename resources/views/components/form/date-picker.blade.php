@@ -11,7 +11,8 @@
 <div x-data="{
     flatpickrInstance: null,
     init() {
-        this.$nextTick(() => {
+        this.$nextTick(async () => {
+            const flatpickr = await window.loadFlatpickr();
             this.flatpickrInstance = flatpickr(this.$refs.dateInput, {
                 mode: '{{ $mode }}',
                 static: true,

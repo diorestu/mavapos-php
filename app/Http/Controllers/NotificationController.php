@@ -9,9 +9,7 @@ use Illuminate\View\View;
 
 class NotificationController extends Controller
 {
-    public function __construct(private readonly ActivityNotificationService $notifications)
-    {
-    }
+    public function __construct(private readonly ActivityNotificationService $notifications) {}
 
     public function index(Request $request): View
     {

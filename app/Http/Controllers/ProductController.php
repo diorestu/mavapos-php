@@ -5,6 +5,8 @@ namespace App\Http\Controllers;
 use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\ProductVariant;
+use App\Support\BranchContext;
+use App\Support\BranchInventoryManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -22,25 +24,32 @@ class ProductController extends Controller
             'status' => ['nullable', 'string', Rule::in(['aktif', 'stok-menipis', 'habis'])],
         ]);
         $search = trim((string) ($filters['search'] ?? ''));
+        $branchId = app(BranchContext::class)->activeId();
+        $products = Product::query()
+            ->with(['category', 'variants'])
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($nested) use ($search): void {
+                    $nested->where('name', 'like', "%{$search}%")
+                        ->orWhere('sku', 'like', "%{$search}%")
+                        ->orWhere('barcode', 'like', "%{$search}%");
+                });
+            })
+            ->when($filters['category'] ?? null, fn ($query, string $categoryCode) => $query
+                ->whereHas('category', fn ($categoryQuery) => $categoryQuery->where('code', $categoryCode)))
+            ->latest()
+            ->get()
+            ->map(fn (Product $product): array => $this->productPayload($product, $branchId))
+            ->when($filters['status'] ?? null, fn ($collection, string $status) => $collection
+                ->filter(fn (array $product): bool => match ($status) {
+                    'habis' => $product['stock'] <= 0,
+                    'stok-menipis' => $product['stock'] > 0 && $product['minStock'] > 0 && $product['stock'] <= $product['minStock'],
+                    default => $product['stock'] > 0 && ($product['minStock'] <= 0 || $product['stock'] > $product['minStock']),
+                }))
+            ->values();
 
         return view('pages.products.index', [
             'title' => 'Produk',
-            'products' => Product::query()
-                ->with(['category', 'variants'])
-                ->when($search !== '', function ($query) use ($search): void {
-                    $query->where(function ($nested) use ($search): void {
-                        $nested->where('name', 'like', "%{$search}%")
-                            ->orWhere('sku', 'like', "%{$search}%")
-                            ->orWhere('barcode', 'like', "%{$search}%");
-                    });
-                })
-                ->when($filters['category'] ?? null, fn ($query, string $categoryCode) => $query
-                    ->whereHas('category', fn ($categoryQuery) => $categoryQuery->where('code', $categoryCode)))
-                ->when($filters['status'] ?? null, fn ($query, string $status) => $this->applyStockStatusFilter($query, $status))
-                ->latest()
-                ->get()
-                ->map(fn (Product $product): array => $this->productPayload($product))
-                ->values(),
+            'products' => $products,
             'categories' => ProductCategory::query()
                 ->orderBy('name')
                 ->get()
@@ -61,13 +70,14 @@ class ProductController extends Controller
         $product = DB::transaction(function () use ($validated): Product {
             $product = Product::query()->create($this->productAttributes($validated));
             $this->syncVariants($product, $validated['variants'] ?? null);
+            $this->syncBranchInventories($product, $validated);
 
             return $product;
         });
 
         return response()->json([
             'message' => 'Produk berhasil dibuat.',
-            'product' => $this->productPayload($product->load(['category', 'variants'])),
+            'product' => $this->productPayload($product->load(['category', 'variants']), app(BranchContext::class)->activeId()),
         ], 201);
     }
 
@@ -79,13 +89,40 @@ class ProductController extends Controller
             $product = Product::query()->firstOrNew(['sku' => $sku]);
             $product->fill($this->productAttributes($validated))->save();
             $this->syncVariants($product, $validated['variants'] ?? null);
+            $this->syncBranchInventories($product, $validated);
 
             return $product;
         });
 
         return response()->json([
             'message' => "Produk {$sku} berhasil diperbarui.",
-            'product' => $this->productPayload($product->load(['category', 'variants'])),
+            'product' => $this->productPayload($product->load(['category', 'variants']), app(BranchContext::class)->activeId()),
+        ]);
+    }
+
+    public function destroy(string $sku): JsonResponse
+    {
+        $product = Product::query()
+            ->with('variants')
+            ->where('sku', $sku)
+            ->firstOrFail();
+
+        DB::transaction(function () use ($product): void {
+            $variantIds = $product->variants->pluck('id');
+
+            $product->branchInventories()->delete();
+
+            if ($variantIds->isNotEmpty()) {
+                DB::table('branch_inventories')
+                    ->whereIn('product_variant_id', $variantIds)
+                    ->delete();
+            }
+
+            $product->delete();
+        });
+
+        return response()->json([
+            'message' => "Produk {$sku} berhasil dihapus.",
         ]);
     }
 
@@ -146,9 +183,10 @@ class ProductController extends Controller
         ];
     }
 
-    private function productPayload(Product $product): array
+    private function productPayload(Product $product, int $branchId): array
     {
         $product->loadMissing('variants');
+        $inventory = app(BranchInventoryManager::class)->forProduct($branchId, $product);
 
         return [
             'name' => $product->name,
@@ -157,15 +195,15 @@ class ProductController extends Controller
             'category' => $product->category?->name ?? 'Umum',
             'barcode' => $product->barcode ?? '',
             'buyPrice' => $product->buy_price > 0 ? $this->formatRupiah($product->buy_price) : '',
-            'stock' => $product->stock,
-            'minStock' => $product->min_stock,
+            'stock' => $inventory->stock,
+            'minStock' => $inventory->min_stock,
             'price' => $this->formatRupiah($product->sell_price),
-            'status' => $this->productStatus($product->stock, $product->min_stock),
+            'status' => $this->productStatus($inventory->stock, $inventory->min_stock),
             'description' => $product->description ?? '',
             'variantCount' => $product->variants->count(),
             'variants' => $product->variants
                 ->sortBy('id')
-                ->map(fn (ProductVariant $variant): array => $this->variantPayload($variant))
+                ->map(fn (ProductVariant $variant): array => $this->variantPayload($variant, $branchId))
                 ->values(),
         ];
     }
@@ -201,8 +239,35 @@ class ProductController extends Controller
         }
     }
 
-    private function variantPayload(ProductVariant $variant): array
+    private function syncBranchInventories(Product $product, array $validated): void
     {
+        $branchId = app(BranchContext::class)->activeId();
+        $inventoryManager = app(BranchInventoryManager::class);
+        $inventoryManager->forProduct($branchId, $product)->update([
+            'stock' => (int) ($validated['stock'] ?? 0),
+            'min_stock' => (int) ($validated['minStock'] ?? 0),
+        ]);
+
+        $variantPayloads = collect($validated['variants'] ?? []);
+        $product->load('variants');
+
+        $product->variants
+            ->sortBy('id')
+            ->values()
+            ->each(function (ProductVariant $variant, int $index) use ($branchId, $inventoryManager, $variantPayloads): void {
+                $payload = $variantPayloads->get($index, []);
+
+                $inventoryManager->forVariant($branchId, $variant)->update([
+                    'stock' => (int) ($payload['stock'] ?? 0),
+                    'min_stock' => (int) ($payload['minStock'] ?? 0),
+                ]);
+            });
+    }
+
+    private function variantPayload(ProductVariant $variant, int $branchId): array
+    {
+        $inventory = app(BranchInventoryManager::class)->forVariant($branchId, $variant);
+
         return [
             'name' => $variant->name,
             'sku' => $variant->sku ?? '',
@@ -212,8 +277,8 @@ class ProductController extends Controller
             'attributes' => $variant->attributes ?? [],
             'buyPrice' => $variant->buy_price > 0 ? $this->formatRupiah($variant->buy_price) : '',
             'sellPrice' => $this->formatRupiah($variant->sell_price),
-            'stock' => $variant->stock,
-            'minStock' => $variant->min_stock,
+            'stock' => $inventory->stock,
+            'minStock' => $inventory->min_stock,
             'isActive' => $variant->is_active,
             'isFavorite' => $variant->is_favorite,
             'isTaxable' => $variant->is_taxable,
@@ -237,7 +302,7 @@ class ProductController extends Controller
 
     private function formatRupiah(int|float $value): string
     {
-        return 'Rp' . number_format($value, 0, ',', '.');
+        return 'Rp'.number_format($value, 0, ',', '.');
     }
 
     private function productStatus(int $stock, int $minStock): string
@@ -251,23 +316,6 @@ class ProductController extends Controller
         }
 
         return 'Aktif';
-    }
-
-    private function applyStockStatusFilter($query, string $status): void
-    {
-        match ($status) {
-            'habis' => $query->where('stock', '<=', 0),
-            'stok-menipis' => $query
-                ->where('stock', '>', 0)
-                ->where('min_stock', '>', 0)
-                ->whereColumn('stock', '<=', 'min_stock'),
-            default => $query
-                ->where('stock', '>', 0)
-                ->where(function ($nested): void {
-                    $nested->where('min_stock', '<=', 0)
-                        ->orWhereColumn('stock', '>', 'min_stock');
-                }),
-        };
     }
 
     private function statusLabel(string $status): string

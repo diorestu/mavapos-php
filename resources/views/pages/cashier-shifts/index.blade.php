@@ -36,7 +36,7 @@
                         <h2 class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{{ $activeShift->user?->name ?? 'Kasir' }}</h2>
                         <p class="mt-1 text-xs text-gray-600 dark:text-gray-300">Mulai {{ $activeShift->opened_at?->format('d M Y H:i') }}</p>
                     </div>
-                    <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                    <div class="grid grid-cols-2 gap-2 sm:grid-cols-5">
                         <div class="rounded-lg bg-white/70 px-3 py-2 dark:bg-white/[0.04]">
                             <p class="text-[10px] uppercase text-gray-500">Transaksi</p>
                             <p class="mt-1 text-sm font-semibold">{{ number_format($activeShift->sales_count, 0, ',', '.') }}</p>
@@ -48,6 +48,10 @@
                         <div class="rounded-lg bg-white/70 px-3 py-2 dark:bg-white/[0.04]">
                             <p class="text-[10px] uppercase text-gray-500">Tunai</p>
                             <p class="mt-1 text-sm font-semibold tabular-nums">{{ $rupiah($activeShift->cash_total) }}</p>
+                        </div>
+                        <div class="rounded-lg bg-white/70 px-3 py-2 dark:bg-white/[0.04]">
+                            <p class="text-[10px] uppercase text-gray-500">Kas Awal</p>
+                            <p class="mt-1 text-sm font-semibold tabular-nums">{{ $rupiah($activeShift->opening_cash_amount) }}</p>
                         </div>
                         <div class="rounded-lg bg-white/70 px-3 py-2 dark:bg-white/[0.04]">
                             <p class="text-[10px] uppercase text-gray-500">Non-tunai</p>
@@ -63,7 +67,7 @@
                 <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Riwayat Shift</h2>
             </div>
             <div class="max-w-full overflow-x-auto custom-scrollbar">
-                <table class="w-full min-w-[860px]">
+                <table class="w-full min-w-[940px]">
                     <thead>
                         <tr class="bg-gray-50 text-left dark:bg-gray-900/40">
                             <th class="px-4 py-2 text-[11px] font-semibold uppercase text-gray-500">Kasir</th>
@@ -71,6 +75,7 @@
                             <th class="px-4 py-2 text-[11px] font-semibold uppercase text-gray-500">Tutup</th>
                             <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Transaksi</th>
                             <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Pendapatan</th>
+                            <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Kas Awal</th>
                             <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Tunai</th>
                             <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">QRIS</th>
                             <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Kartu</th>
@@ -88,6 +93,7 @@
                                 <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">{{ $shift->closed_at?->format('d M Y H:i') ?? '-' }}</td>
                                 <td class="px-4 py-3 text-right text-xs font-semibold tabular-nums text-gray-800 dark:text-white/90">{{ number_format($shift->sales_count, 0, ',', '.') }}</td>
                                 <td class="px-4 py-3 text-right text-xs font-semibold tabular-nums text-gray-800 dark:text-white/90">{{ $rupiah($shift->net_sales) }}</td>
+                                <td class="px-4 py-3 text-right text-xs tabular-nums text-gray-600 dark:text-gray-300">{{ $rupiah($shift->opening_cash_amount) }}</td>
                                 <td class="px-4 py-3 text-right text-xs tabular-nums text-gray-600 dark:text-gray-300">{{ $rupiah($shift->cash_total) }}</td>
                                 <td class="px-4 py-3 text-right text-xs tabular-nums text-gray-600 dark:text-gray-300">{{ $rupiah($shift->qris_total) }}</td>
                                 <td class="px-4 py-3 text-right text-xs tabular-nums text-gray-600 dark:text-gray-300">{{ $rupiah($shift->card_total) }}</td>
@@ -100,7 +106,7 @@
                                 </td>
                             </tr>
                         @empty
-                            <tr><td colspan="9" class="px-4 py-8 text-center text-sm text-gray-500">Belum ada shift kasir.</td></tr>
+                            <tr><td colspan="10" class="px-4 py-8 text-center text-sm text-gray-500">Belum ada shift kasir.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

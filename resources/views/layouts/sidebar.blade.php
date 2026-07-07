@@ -64,14 +64,13 @@
         :class="(!$store.sidebar.isExpanded && !$store.sidebar.isHovered && !$store.sidebar.isMobileOpen) ?
         'xl:justify-center' :
         'justify-start'">
-        <a href="/" class="inline-flex items-center gap-3">
-            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-500 text-sm font-bold text-white shadow-theme-xs">
-                mP
-            </span>
-            <span x-show="$store.sidebar.isExpanded || $store.sidebar.isHovered || $store.sidebar.isMobileOpen"
-                class="text-xl font-bold tracking-tight text-gray-900 dark:text-white">
-                mava<span class="text-brand-500">POS</span>
-            </span>
+        <a href="/" class="inline-flex min-w-0 items-center">
+            <img src="{{ asset('logo.png') }}" alt="MavaPOS"
+                class="h-8 w-auto object-contain"
+                x-show="$store.sidebar.isExpanded || $store.sidebar.isHovered || $store.sidebar.isMobileOpen">
+            <img src="{{ asset('logo.png') }}" alt="MavaPOS"
+                class="h-6 w-10 object-contain"
+                x-show="!$store.sidebar.isExpanded && !$store.sidebar.isHovered && !$store.sidebar.isMobileOpen">
         </a>
     </div>
 

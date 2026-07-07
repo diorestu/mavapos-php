@@ -6,7 +6,10 @@ use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Illuminate\View\View;
+use Laravel\Socialite\Facades\Socialite;
+use Symfony\Component\HttpFoundation\RedirectResponse as SymfonyRedirectResponse;
 
 class AuthController extends Controller
 {
@@ -35,6 +38,47 @@ class AuthController extends Controller
         }
 
         $request->session()->regenerate();
+
+        return redirect()->intended(route('dashboard'));
+    }
+
+    public function redirectToGoogle(): SymfonyRedirectResponse
+    {
+        return Socialite::driver('google')
+            ->with(['prompt' => 'select_account'])
+            ->redirect();
+    }
+
+    public function handleGoogleCallback(): RedirectResponse
+    {
+        $googleUser = Socialite::driver('google')->user();
+
+        $user = User::query()->where('google_id', $googleUser->getId())->first();
+
+        if (! $user) {
+            $user = User::query()->where('email', $googleUser->getEmail())->first();
+        }
+
+        if ($user) {
+            $user->forceFill([
+                'google_id' => $googleUser->getId(),
+                'email_verified_at' => $user->email_verified_at ?? now(),
+            ])->save();
+        } else {
+            $user = User::create([
+                'name' => $googleUser->getName() ?: $googleUser->getNickname() ?: 'Pengguna Google',
+                'email' => $googleUser->getEmail(),
+                'email_verified_at' => now(),
+                'password' => Str::random(32),
+                'google_id' => $googleUser->getId(),
+                'role' => 'owner',
+                'trial_ends_at' => now()->addDays(14),
+            ]);
+        }
+
+        Auth::login($user, true);
+
+        request()->session()->regenerate();
 
         return redirect()->intended(route('dashboard'));
     }

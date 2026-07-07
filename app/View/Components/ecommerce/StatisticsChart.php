@@ -11,9 +11,7 @@ class StatisticsChart extends Component
     /**
      * Create a new component instance.
      */
-    public function __construct(public array $chart = [])
-    {
-    }
+    public function __construct(public array $chart = []) {}
 
     /**
      * Get the view / contents that represent the component.

@@ -25,7 +25,7 @@
                             </p>
                         </div>
                             <div class="flex flex-col gap-3">
-                                <button type="button"
+                                <a href="{{ route('auth.google.redirect') }}"
                                     class="inline-flex items-center justify-center gap-3 rounded-lg bg-gray-100 px-7 py-3 text-sm font-normal text-gray-700 transition-colors hover:bg-gray-200 hover:text-gray-800 dark:bg-white/5 dark:text-white/90 dark:hover:bg-white/10 w-full">
                                     <svg width="20" height="20" viewBox="0 0 20 20" fill="none"
                                         xmlns="http://www.w3.org/2000/svg">
@@ -43,7 +43,7 @@
                                             fill="#EB4335" />
                                     </svg>
                                     Masuk dengan Google
-                                </button>
+                                </a>
                             </div>
                             <div class="relative py-3 sm:py-5">
                                 <div class="absolute inset-0 flex items-center">
@@ -142,25 +142,6 @@
                 </div>
             </div>
 
-            <div class="bg-brand-950 relative hidden h-full w-full items-center lg:grid lg:w-1/2 dark:bg-white/5">
-                <div class="z-1 flex items-center justify-center">
-                    <!-- ===== Common Grid Shape Start ===== -->
-                    <x-common.common-grid-shape/>
-                    <div class="flex max-w-xs flex-col items-center">
-                        <a href="/" class="mb-4 inline-flex items-center gap-3">
-                            <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-500 text-sm font-bold text-white shadow-theme-xs">
-                                mP
-                            </span>
-                            <span class="text-xl font-bold tracking-tight text-white">
-                                mava<span class="text-brand-500">POS</span>
-                            </span>
-                        </a>
-                        <p class="text-center text-gray-400 dark:text-white/60">
-                            Kelola operasional Mava dari satu dashboard yang aman dan mudah digunakan.
-                        </p>
-                    </div>
-                </div>
-            </div>
             <!-- Toggler -->
             <div class="fixed right-6 bottom-6 z-50">
                 <button

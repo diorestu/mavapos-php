@@ -179,6 +179,15 @@
                                                     stroke-linejoin="round" />
                                             </svg>
                                         </button>
+                                        <button type="button" aria-label="Hapus produk" @click="deleteProduct(product)"
+                                            class="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition hover:bg-error-50 hover:text-error-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error-500/20 dark:text-gray-400 dark:hover:bg-error-500/10 dark:hover:text-error-500">
+                                            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                <path d="M7.5 4.16669H12.5M3.33337 5.83335H16.6667M15 5.83335L14.4167 14.5834C14.35 15.5667 13.5334 16.3334 12.55 16.3334H7.45004C6.46671 16.3334 5.65004 15.5667 5.58337 14.5834L5.00004 5.83335"
+                                                    stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                                                <path d="M8.33337 9.16669V13.3334M11.6667 9.16669V13.3334"
+                                                    stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                                            </svg>
+                                        </button>
                                     </div>
                                 </td>
                             </tr>

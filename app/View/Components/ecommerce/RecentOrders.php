@@ -11,9 +11,7 @@ class RecentOrders extends Component
     /**
      * Create a new component instance.
      */
-    public function __construct(public array $products = [])
-    {
-    }
+    public function __construct(public array $products = []) {}
 
     /**
      * Get the view / contents that represent the component.

@@ -1,5 +1,7 @@
 <?php
 
+use App\Http\Middleware\EnsureSubscriptionAccess;
+use App\Http\Middleware\EnsureUserRole;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -14,8 +16,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->redirectGuestsTo('/signin');
         $middleware->redirectUsersTo('/');
         $middleware->alias([
-            'role' => \App\Http\Middleware\EnsureUserRole::class,
-            'subscription' => \App\Http\Middleware\EnsureSubscriptionAccess::class,
+            'role' => EnsureUserRole::class,
+            'subscription' => EnsureSubscriptionAccess::class,
         ]);
         $middleware->validateCsrfTokens(except: [
             'pakasir/webhook',

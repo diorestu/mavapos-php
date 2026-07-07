@@ -3,6 +3,8 @@
 namespace App\Providers;
 
 use App\Services\PakasirClient;
+use App\Support\BranchContext;
+use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -29,6 +31,17 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        View::composer(['layouts.app-header', 'layouts.sidebar'], function ($view): void {
+            if (! auth()->check()) {
+                return;
+            }
+
+            $branchContext = app(BranchContext::class);
+
+            $view->with([
+                'activeBranch' => $branchContext->active(),
+                'branchOptions' => $branchContext->options(),
+            ]);
+        });
     }
 }

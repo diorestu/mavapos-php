@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\PosSale;
 use App\Models\User;
+use App\Support\BranchContext;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
@@ -26,9 +27,11 @@ class SaleController extends Controller
         $to = isset($validated['date_to'])
             ? Carbon::parse($validated['date_to'])->endOfDay()
             : now()->endOfDay();
+        $branchId = app(BranchContext::class)->activeId();
 
         $baseQuery = PosSale::query()
-            ->with(['user', 'shift.user', 'items'])
+            ->with(['user', 'branch', 'shift.user', 'items'])
+            ->where('branch_id', $branchId)
             ->whereBetween('sold_at', [$from, $to])
             ->when($validated['cashier_id'] ?? null, fn ($query, $cashierId) => $query->where('user_id', $cashierId))
             ->when($validated['payment_method'] ?? null, fn ($query, $method) => $query->where('payment_method', $method))
@@ -61,7 +64,7 @@ class SaleController extends Controller
             'title' => 'Penjualan',
             'sales' => $sales,
             'cashiers' => User::query()
-                ->whereHas('posSales')
+                ->whereHas('posSales', fn ($query) => $query->where('branch_id', $branchId))
                 ->orderBy('name')
                 ->get(['id', 'name', 'email']),
             'filters' => [

@@ -105,46 +105,6 @@
         scrollbar-width: none;
     }
 
-    /* Browser Mockup styling */
-    .browser-frame {
-        border: 1px solid rgba(228, 231, 236, 1);
-        border-radius: 16px;
-        box-shadow: 0 25px 50px -12px rgba(16, 24, 40, 0.15);
-        overflow: hidden;
-    }
-
-    .browser-header {
-        background: #f2f4f7;
-        border-bottom: 1px solid #e4e7ec;
-    }
-
-    .dot {
-        width: 10px;
-        height: 10px;
-        border-radius: 50%;
-        display: inline-block;
-    }
-
-    /* Custom Floating Badges */
-    .floating-badge {
-        animation: float 4s ease-in-out infinite alternate;
-    }
-
-    @keyframes float {
-        0% { transform: translateY(0px); }
-        100% { transform: translateY(-8px); }
-    }
-
-    .floating-badge-2 {
-        animation: float2 4s ease-in-out infinite alternate;
-        animation-delay: 1.5s;
-    }
-
-    @keyframes float2 {
-        0% { transform: translateY(0px); }
-        100% { transform: translateY(8px); }
-    }
-
     /* FAQ smooth details */
     details summary::-webkit-details-marker {
         display: none;
@@ -165,7 +125,7 @@
         <div class="mx-auto flex max-w-7xl items-center justify-between">
             <!-- Logo -->
             <a href="#" class="flex items-center gap-3 rounded-xl focus:outline-none">
-                <img src="{{ asset('images/logo/logo.svg') }}" class="h-8 w-auto" alt="MavaPOS Logo">
+                <img src="{{ asset('logo.png') }}" class="h-8 w-auto" alt="MavaPOS Logo">
             </a>
 
             <!-- Navigation Links -->
@@ -223,54 +183,14 @@
                     </div>
 
                     <!-- Hero Visual -->
-                    <div class="relative mx-auto w-full max-w-lg lg:max-w-none">
-                        <!-- Decorative Orbs -->
-                        <div class="absolute -right-12 -top-12 h-44 w-44 rounded-full bg-blue-100/50 blur-2xl"></div>
-                        <div class="absolute -bottom-8 -left-8 h-48 w-48 rounded-full bg-brand-50/50 blur-3xl"></div>
-
-                        <!-- Browser Mockup -->
-                        <div class="browser-frame relative bg-white">
-                            <!-- Browser Top -->
-                            <div class="browser-header flex items-center justify-between px-4 py-3">
-                                <div class="flex gap-2">
-                                    <span class="dot bg-[#ff5f56]"></span>
-                                    <span class="dot bg-[#ffbd2e]"></span>
-                                    <span class="dot bg-[#27c93f]"></span>
-                                </div>
-                                <div class="rounded bg-white px-8 py-0.5 text-[10px] text-gray-400">
-                                    app.mavapos.com/dashboard
-                                </div>
-                                <div class="w-8"></div>
-                            </div>
-                            <!-- Mockup Image -->
-                            <img src="{{ asset('images/brand/dashboard_preview.png') }}" class="aspect-[16/10] w-full object-cover" alt="MavaPOS Dashboard Preview">
-                        </div>
-
-                        <!-- Floating Badge 1 -->
-                        <div class="floating-badge absolute -left-6 top-[20%] flex items-center gap-3 rounded-2xl border border-gray-100 bg-white/95 p-4.5 shadow-theme-xl backdrop-blur-md">
-                            <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-green-500/10 text-green-600">
-                                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
-                                </svg>
-                            </span>
-                            <div>
-                                <p class="text-xs font-medium text-gray-500">Omset Hari Ini</p>
-                                <p class="text-base font-bold text-gray-900">Rp 8.472.000</p>
-                            </div>
-                        </div>
-
-                        <!-- Floating Badge 2 -->
-                        <div class="floating-badge-2 absolute -right-6 bottom-[15%] flex items-center gap-3 rounded-2xl border border-gray-100 bg-white/95 p-4.5 shadow-theme-xl backdrop-blur-md">
-                            <span class="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-500/10 text-brand-500">
-                                <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10" />
-                                </svg>
-                            </span>
-                            <div>
-                                <p class="text-xs font-medium text-gray-500">Stok Inventaris</p>
-                                <p class="text-base font-bold text-gray-900">Aman & Terjaga 95%</p>
-                            </div>
-                        </div>
+                    <div class="relative mx-auto w-full max-w-2xl lg:max-w-none">
+                        <img
+                            src="{{ asset('images/brand/hero-macbook-dashboard.webp') }}"
+                            class="w-full object-contain"
+                            alt="Dashboard MavaPOS pada MacBook Air"
+                            loading="eager"
+                            fetchpriority="high"
+                        >
                     </div>
                 </div>
             </div>
@@ -921,7 +841,7 @@
             <div class="grid gap-10 md:grid-cols-4">
                 <!-- Brand Info -->
                 <div class="space-y-4 md:col-span-2">
-                    <img src="{{ asset('images/logo/logo.svg') }}" class="h-8 w-auto" alt="MavaPOS Logo">
+                    <img src="{{ asset('logo.png') }}" class="h-8 w-auto" alt="MavaPOS Logo">
                     <p class="text-sm leading-relaxed text-gray-500 max-w-sm">
                         MavaPOS adalah platform solusi kasir digital (POS) berbasis cloud untuk UMKM, F&B, toko retail, dan penyedia jasa yang ingin mengelola transaksi kasir, stok gudang, resep, dan laporan finansial dari satu sistem terpusat.
                     </p>
@@ -952,9 +872,9 @@
             <div class="mt-12 pt-8 border-t border-gray-100 flex flex-col justify-between items-center gap-4 sm:flex-row text-xs text-gray-400">
                 <p>&copy; {{ date('Y') }} MavaPOS (PT Mava POS Teknologi). Hak Cipta Dilindungi.</p>
                 <div class="flex gap-4">
-                    <a href="#" class="hover:text-gray-600">Kebijakan Privasi</a>
+                    <a href="{{ route('privacy-policy') }}" class="hover:text-gray-600">Kebijakan Privasi</a>
                     <span>•</span>
-                    <a href="#" class="hover:text-gray-600">Syarat & Ketentuan</a>
+                    <a href="{{ route('terms-of-service') }}" class="hover:text-gray-600">Syarat & Ketentuan</a>
                 </div>
             </div>
         </div>

@@ -4,6 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\StockMovement;
+use App\Support\BranchContext;
+use App\Support\BranchInventoryManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,27 +22,36 @@ class InventoryController extends Controller
             'status' => ['nullable', 'string', Rule::in(['aktif', 'stok-menipis', 'habis'])],
         ]);
         $search = trim((string) ($filters['search'] ?? ''));
+        $activeBranch = app(BranchContext::class)->active();
+        $branchId = $activeBranch->id;
+        $items = Product::query()
+            ->with('category')
+            ->when($search !== '', function ($query) use ($search): void {
+                $query->where(function ($nested) use ($search): void {
+                    $nested->where('name', 'like', "%{$search}%")
+                        ->orWhere('sku', 'like', "%{$search}%")
+                        ->orWhereHas('category', fn ($categoryQuery) => $categoryQuery
+                            ->where('name', 'like', "%{$search}%")
+                            ->orWhere('code', 'like', "%{$search}%"));
+                });
+            })
+            ->orderBy('name')
+            ->get()
+            ->map(fn (Product $product): array => $this->payload($product, $branchId))
+            ->when($filters['status'] ?? null, fn ($collection, string $status) => $collection
+                ->filter(fn (array $item): bool => match ($status) {
+                    'habis' => $item['stock'] <= 0,
+                    'stok-menipis' => $item['stock'] > 0 && $item['minStock'] > 0 && $item['stock'] <= $item['minStock'],
+                    default => $item['stock'] > 0 && ($item['minStock'] <= 0 || $item['stock'] > $item['minStock']),
+                }))
+            ->values();
 
         return view('pages.inventory.index', [
             'title' => 'Stok',
-            'items' => Product::query()
-                ->with('category')
-                ->when($search !== '', function ($query) use ($search): void {
-                    $query->where(function ($nested) use ($search): void {
-                        $nested->where('name', 'like', "%{$search}%")
-                            ->orWhere('sku', 'like', "%{$search}%")
-                            ->orWhereHas('category', fn ($categoryQuery) => $categoryQuery
-                                ->where('name', 'like', "%{$search}%")
-                                ->orWhere('code', 'like', "%{$search}%"));
-                    });
-                })
-                ->when($filters['status'] ?? null, fn ($query, string $status) => $this->applyStockStatusFilter($query, $status))
-                ->orderBy('name')
-                ->get()
-                ->map(fn (Product $product): array => $this->payload($product))
-                ->values(),
+            'items' => $items,
             'movements' => StockMovement::query()
                 ->with('product')
+                ->where('branch_id', $branchId)
                 ->latest('occurred_at')
                 ->latest()
                 ->limit(8)
@@ -51,6 +62,7 @@ class InventoryController extends Controller
                 'search' => $search,
                 'status' => $filters['status'] ?? '',
             ],
+            'activeBranch' => $activeBranch,
         ]);
     }
 
@@ -62,14 +74,20 @@ class InventoryController extends Controller
         ]);
 
         $product = Product::query()->where('sku', $sku)->firstOrFail();
-        $product->update([
+        $branchId = app(BranchContext::class)->activeId();
+        $inventory = app(BranchInventoryManager::class)->forProduct($branchId, $product);
+        $inventory->update([
             'stock' => (int) $validated['stock'],
             'min_stock' => (int) ($validated['minStock'] ?? 0),
+        ]);
+        $product->update([
+            'stock' => $inventory->stock,
+            'min_stock' => $inventory->min_stock,
         ]);
 
         return response()->json([
             'message' => "Stok {$sku} berhasil diperbarui.",
-            'item' => $this->payload($product->load('category')),
+            'item' => $this->payload($product->load('category'), $branchId),
         ]);
     }
 
@@ -83,16 +101,24 @@ class InventoryController extends Controller
         return $this->storeMovement($request, $sku, 'out');
     }
 
-    private function payload(Product $product): array
+    private function payload(Product $product, int $branchId): array
     {
+        $inventory = $product->branchInventories()
+            ->where('branch_id', $branchId)
+            ->whereNull('product_variant_id')
+            ->first();
+        $inventoryManager = app(BranchInventoryManager::class);
+        $stock = $inventoryManager->stockForProduct($branchId, $product);
+        $minStock = $inventoryManager->minStockForProduct($branchId, $product);
+
         return [
             'name' => $product->name,
             'sku' => $product->sku,
             'category' => $product->category?->name ?? 'Umum',
-            'stock' => $product->stock,
-            'minStock' => $product->min_stock,
-            'status' => $this->stockStatus($product->stock, $product->min_stock),
-            'updatedAt' => $product->updated_at?->format('d M Y H:i') ?? '-',
+            'stock' => $stock,
+            'minStock' => $minStock,
+            'status' => $this->stockStatus($stock, $minStock),
+            'updatedAt' => $inventory?->updated_at?->format('d M Y H:i') ?? '-',
         ];
     }
 
@@ -109,23 +135,6 @@ class InventoryController extends Controller
         return 'Aktif';
     }
 
-    private function applyStockStatusFilter($query, string $status): void
-    {
-        match ($status) {
-            'habis' => $query->where('stock', '<=', 0),
-            'stok-menipis' => $query
-                ->where('stock', '>', 0)
-                ->where('min_stock', '>', 0)
-                ->whereColumn('stock', '<=', 'min_stock'),
-            default => $query
-                ->where('stock', '>', 0)
-                ->where(function ($nested): void {
-                    $nested->where('min_stock', '<=', 0)
-                        ->orWhereColumn('stock', '>', 'min_stock');
-                }),
-        };
-    }
-
     private function storeMovement(Request $request, string $sku, string $type): JsonResponse
     {
         $validated = $request->validate([
@@ -134,15 +143,17 @@ class InventoryController extends Controller
             'note' => ['nullable', 'string', 'max:500'],
             'occurredAt' => ['nullable', 'date'],
         ]);
+        $branchId = app(BranchContext::class)->activeId();
 
-        $result = DB::transaction(function () use ($validated, $sku, $type): array {
+        $result = DB::transaction(function () use ($validated, $sku, $type, $branchId): array {
             $product = Product::query()
                 ->where('sku', $sku)
                 ->lockForUpdate()
                 ->firstOrFail();
+            $inventory = app(BranchInventoryManager::class)->forProduct($branchId, $product, true);
 
             $quantity = (int) $validated['quantity'];
-            $stockBefore = $product->stock;
+            $stockBefore = $inventory->stock;
 
             if ($type === 'out' && $quantity > $stockBefore) {
                 throw ValidationException::withMessages([
@@ -154,11 +165,15 @@ class InventoryController extends Controller
                 ? $stockBefore + $quantity
                 : $stockBefore - $quantity;
 
+            $inventory->update([
+                'stock' => $stockAfter,
+            ]);
             $product->update([
                 'stock' => $stockAfter,
             ]);
 
             $movement = StockMovement::query()->create([
+                'branch_id' => $branchId,
                 'product_id' => $product->id,
                 'type' => $type,
                 'quantity' => $quantity,
@@ -179,7 +194,7 @@ class InventoryController extends Controller
             'message' => $type === 'in'
                 ? 'Stok masuk berhasil dicatat.'
                 : 'Stok keluar berhasil dicatat.',
-            'item' => $this->payload($result['product']),
+            'item' => $this->payload($result['product'], $branchId),
             'movement' => $this->movementPayload($result['movement']),
         ], 201);
     }

@@ -1,21 +1,40 @@
 import './bootstrap';
 import Alpine from 'alpinejs';
-import ApexCharts from 'apexcharts';
 import Toastify from 'toastify-js';
 import 'toastify-js/src/toastify.css';
 
-// flatpickr
-import flatpickr from 'flatpickr';
-import 'flatpickr/dist/flatpickr.min.css';
-// FullCalendar
-import { Calendar } from '@fullcalendar/core';
-
-
-
 window.Alpine = Alpine;
-window.ApexCharts = ApexCharts;
-window.flatpickr = flatpickr;
-window.FullCalendar = Calendar;
+
+let apexChartsLoader;
+window.loadApexCharts = async () => {
+    if (!window.ApexCharts) {
+        apexChartsLoader ??= import('apexcharts').then((module) => {
+            window.ApexCharts = module.default;
+
+            return window.ApexCharts;
+        });
+        await apexChartsLoader;
+    }
+
+    return window.ApexCharts;
+};
+
+let flatpickrLoader;
+window.loadFlatpickr = async () => {
+    if (!window.flatpickr) {
+        flatpickrLoader ??= Promise.all([
+            import('flatpickr'),
+            import('flatpickr/dist/flatpickr.min.css'),
+        ]).then(([module]) => {
+            window.flatpickr = module.default;
+
+            return window.flatpickr;
+        });
+        await flatpickrLoader;
+    }
+
+    return window.flatpickr;
+};
 
 const toastThemes = {
     success: 'linear-gradient(135deg, #039855, #12b76a)',
@@ -141,12 +160,13 @@ Alpine.data('salesDateRange', (initialFrom = '', initialTo = '') => ({
     dateTo: initialTo || '',
     picker: null,
 
-    mount(input) {
+    async mount(input) {
         if (!input) {
             return;
         }
 
-        this.$nextTick(() => {
+        this.$nextTick(async () => {
+            const flatpickr = await window.loadFlatpickr();
             this.picker = flatpickr(input, {
                 mode: 'range',
                 dateFormat: 'd M Y',
@@ -621,6 +641,31 @@ Alpine.data('productManager', (initialProducts = [], initialCategories = [], ini
         notify(payload.message || 'Produk berhasil diperbarui.');
     },
 
+    async deleteProduct(product) {
+        if (!product?.sku || !window.confirm(`Hapus produk ${product.name}?`)) {
+            return;
+        }
+
+        const response = await fetch(`/products/${encodeURIComponent(product.sku)}`, {
+            method: 'DELETE',
+            headers: {
+                Accept: 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+            },
+        });
+
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            notify(payload.message || 'Produk gagal dihapus.', 'error');
+            return;
+        }
+
+        this.products = this.products.filter((item) => item.sku !== product.sku);
+        this.currentPage = Math.min(this.currentPage, this.totalPages);
+        notify(payload.message || 'Produk berhasil dihapus.');
+    },
+
     goToPage(page) {
         this.currentPage = Math.min(Math.max(Number(page), 1), this.totalPages);
     },
@@ -883,6 +928,31 @@ Alpine.data('productCategoryManager', (initialCategories = [], initialFilters = 
 
         this.closeEditModal();
         notify(payload.message || 'Kategori produk berhasil diperbarui.');
+    },
+
+    async deleteCategory(category) {
+        if (!category?.code || !window.confirm(`Hapus kategori ${category.name}?`)) {
+            return;
+        }
+
+        const response = await fetch(`/product-categories/${encodeURIComponent(category.code)}`, {
+            method: 'DELETE',
+            headers: {
+                Accept: 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+            },
+        });
+
+        const payload = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            notify(payload.message || 'Kategori produk gagal dihapus.', 'error');
+            return;
+        }
+
+        this.categories = this.categories.filter((item) => item.code !== category.code);
+        this.currentPage = Math.min(this.currentPage, this.totalPages);
+        notify(payload.message || 'Kategori produk berhasil dihapus.');
     },
 
     goToPage(page) {
@@ -1382,9 +1452,10 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     shift: initialShift,
     blockingShift,
     endpoints,
-    sopModal: true,
+    sopModal: false,
     startModal: !initialShift && !blockingShift,
     closeModal: false,
+    openingCashAmount: '',
     openingNote: '',
     closingNote: '',
     shiftError: '',
@@ -1763,6 +1834,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                     'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
                 },
                 body: JSON.stringify({
+                    opening_cash_amount: this.numberFromInput(this.openingCashAmount),
                     opening_note: this.openingNote,
                 }),
             });
@@ -1778,6 +1850,8 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             this.shift = payload.shift;
             this.blockingShift = null;
             this.startModal = false;
+            this.sopModal = true;
+            this.openingCashAmount = '';
             this.openingNote = '';
             notify(payload.message || 'Shift kasir dimulai.');
         } finally {
@@ -1813,6 +1887,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             this.shift = null;
             this.closeModal = false;
             this.startModal = true;
+            this.sopModal = false;
             this.closingNote = '';
             this.clearCart();
             notify(payload.message || 'Shift kasir ditutup.');
@@ -1949,24 +2024,34 @@ document.addEventListener('DOMContentLoaded', () => {
         import('./components/map').then(module => module.initMap());
     }
 
+    const hasChart = [
+        '#chartOne',
+        '#chartTwo',
+        '#chartThree',
+        '#chartSix',
+        '#chartEight',
+        '#chartThirteen',
+    ].some((selector) => document.querySelector(selector));
+
     // Chart imports
+    const chartReady = hasChart ? window.loadApexCharts() : Promise.resolve();
     if (document.querySelector('#chartOne')) {
-        import('./components/chart/chart-1').then(module => module.initChartOne());
+        chartReady.then(() => import('./components/chart/chart-1')).then(module => module.initChartOne());
     }
     if (document.querySelector('#chartTwo')) {
-        import('./components/chart/chart-2').then(module => module.initChartTwo());
+        chartReady.then(() => import('./components/chart/chart-2')).then(module => module.initChartTwo());
     }
     if (document.querySelector('#chartThree')) {
-        import('./components/chart/chart-3').then(module => module.initChartThree());
+        chartReady.then(() => import('./components/chart/chart-3')).then(module => module.initChartThree());
     }
     if (document.querySelector('#chartSix')) {
-        import('./components/chart/chart-6').then(module => module.initChartSix());
+        chartReady.then(() => import('./components/chart/chart-6')).then(module => module.initChartSix());
     }
     if (document.querySelector('#chartEight')) {
-        import('./components/chart/chart-8').then(module => module.initChartEight());
+        chartReady.then(() => import('./components/chart/chart-8')).then(module => module.initChartEight());
     }
     if (document.querySelector('#chartThirteen')) {
-        import('./components/chart/chart-13').then(module => module.initChartThirteen());
+        chartReady.then(() => import('./components/chart/chart-13')).then(module => module.initChartThirteen());
     }
 
     // Calendar init

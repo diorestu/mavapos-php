@@ -126,7 +126,7 @@
             <h1 class="title">Laporan Operasional</h1>
             <p class="store">{{ $store->store_name }}</p>
             <p class="period">
-                Periode {{ $period['from']->format('d M Y') }} sampai {{ $period['to']->format('d M Y') }}
+                Cabang {{ $activeBranch->name }} · Periode {{ $period['from']->format('d M Y') }} sampai {{ $period['to']->format('d M Y') }}
                 · Dicetak {{ now()->format('d M Y H:i') }}
             </p>
         </div>

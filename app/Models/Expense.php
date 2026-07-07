@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 class Expense extends Model
 {
     protected $fillable = [
+        'branch_id',
         'product_id',
         'stock_movement_id',
         'expense_number',
@@ -26,6 +27,7 @@ class Expense extends Model
     {
         return [
             'amount' => 'integer',
+            'branch_id' => 'integer',
             'quantity' => 'integer',
             'unit_cost' => 'integer',
             'spent_at' => 'datetime',
@@ -35,6 +37,11 @@ class Expense extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     public function stockMovement(): BelongsTo

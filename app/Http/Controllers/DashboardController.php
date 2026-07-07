@@ -3,9 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Billing;
+use App\Models\BranchInventory;
 use App\Models\PosSale;
 use App\Models\PosSaleItem;
 use App\Models\Product;
+use App\Support\BranchContext;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 
@@ -20,8 +22,10 @@ class DashboardController extends Controller
         $monthEnd = $now->copy()->endOfMonth();
         $todayStart = $now->copy()->startOfDay();
         $todayEnd = $now->copy()->endOfDay();
+        $branchId = app(BranchContext::class)->activeId();
 
         $yearSales = PosSale::query()
+            ->where('branch_id', $branchId)
             ->whereBetween('sold_at', [$yearStart, $yearEnd])
             ->get(['id', 'total', 'sold_at']);
         $monthlySales = $yearSales
@@ -36,9 +40,11 @@ class DashboardController extends Controller
 
         $monthItems = PosSaleItem::query()
             ->with(['product.category', 'productVariant'])
-            ->whereHas('sale', fn ($query) => $query->whereBetween('sold_at', [$monthStart, $monthEnd]))
+            ->whereHas('sale', fn ($query) => $query
+                ->where('branch_id', $branchId)
+                ->whereBetween('sold_at', [$monthStart, $monthEnd]))
             ->get();
-        $grossProfitByMonth = $this->grossProfitByMonth($yearStart, $yearEnd);
+        $grossProfitByMonth = $this->grossProfitByMonth($yearStart, $yearEnd, $branchId);
         $topProducts = $this->topProducts($monthItems);
 
         $dashboardData = [
@@ -51,19 +57,24 @@ class DashboardController extends Controller
                 ],
                 [
                     'label' => 'Penjualan Hari Ini',
-                    'value' => number_format(PosSale::query()->whereBetween('sold_at', [$todayStart, $todayEnd])->count(), 0, ',', '.'),
+                    'value' => number_format(PosSale::query()->where('branch_id', $branchId)->whereBetween('sold_at', [$todayStart, $todayEnd])->count(), 0, ',', '.'),
                     'note' => 'Transaksi selesai',
                     'tone' => 'text-success-600 bg-success-50 dark:bg-success-500/15',
                 ],
                 [
                     'label' => 'Pendapatan Bulan Ini',
-                    'value' => $this->formatCompactRupiah(PosSale::query()->whereBetween('sold_at', [$monthStart, $monthEnd])->sum('total')),
+                    'value' => $this->formatCompactRupiah(PosSale::query()->where('branch_id', $branchId)->whereBetween('sold_at', [$monthStart, $monthEnd])->sum('total')),
                     'note' => 'Omzet berjalan',
                     'tone' => 'text-warning-700 bg-warning-50 dark:bg-warning-500/15',
                 ],
                 [
                     'label' => 'Stok Menipis',
-                    'value' => number_format(Product::query()->whereColumn('stock', '<=', 'min_stock')->where('min_stock', '>', 0)->count(), 0, ',', '.'),
+                    'value' => number_format(BranchInventory::query()
+                        ->where('branch_id', $branchId)
+                        ->whereNotNull('product_id')
+                        ->whereColumn('stock', '<=', 'min_stock')
+                        ->where('min_stock', '>', 0)
+                        ->count(), 0, ',', '.'),
                     'note' => 'Perlu restok',
                     'tone' => 'text-error-600 bg-error-50 dark:bg-error-500/15',
                 ],
@@ -140,11 +151,13 @@ class DashboardController extends Controller
         ];
     }
 
-    private function grossProfitByMonth(Carbon $from, Carbon $to): array
+    private function grossProfitByMonth(Carbon $from, Carbon $to, int $branchId): array
     {
         $items = PosSaleItem::query()
             ->with(['sale', 'product', 'productVariant'])
-            ->whereHas('sale', fn ($query) => $query->whereBetween('sold_at', [$from, $to]))
+            ->whereHas('sale', fn ($query) => $query
+                ->where('branch_id', $branchId)
+                ->whereBetween('sold_at', [$from, $to]))
             ->get();
 
         return $items
