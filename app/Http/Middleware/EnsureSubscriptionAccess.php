@@ -25,9 +25,13 @@ class EnsureSubscriptionAccess
             ], 402);
         }
 
-        return redirect()
-            ->route('billings')
-            ->withErrors(['subscription' => 'Masa trial atau langganan sudah berakhir. Buat tagihan langganan untuk melanjutkan.']);
+        if ($user?->hasRole(['owner', 'admin'])) {
+            return redirect()
+                ->route('billings')
+                ->withErrors(['subscription' => 'Masa trial atau langganan sudah berakhir. Buat tagihan langganan untuk melanjutkan.']);
+        }
+
+        return response('Masa trial atau langganan sudah berakhir. Hubungi owner atau admin untuk memperpanjang langganan.', 402);
     }
 
     private function hasActiveSubscription(): bool

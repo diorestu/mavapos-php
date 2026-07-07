@@ -42,7 +42,7 @@ class UserController extends Controller
             'email' => $validated['email'],
             'role' => $validated['role'],
             'password' => $validated['password'],
-            'trial_ends_at' => null,
+            'trial_ends_at' => $request->user()?->trial_ends_at,
         ]);
 
         return redirect()

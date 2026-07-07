@@ -656,6 +656,16 @@ test('subscription gate memblokir fitur operasional saat trial dan langganan ber
         ->get('/billings')
         ->assertOk()
         ->assertSee('Buat Tagihan Langganan');
+
+    $cashier = User::factory()->create([
+        'role' => 'kasir',
+        'trial_ends_at' => null,
+    ]);
+
+    $this->actingAs($cashier)
+        ->get('/pos')
+        ->assertStatus(402)
+        ->assertSee('Masa trial atau langganan sudah berakhir');
 });
 
 test('pengguna dapat membuka halaman pengeluaran', function () {
@@ -1445,7 +1455,10 @@ test('payload checkout membawa pengaturan struk dan printer toko', function () {
 });
 
 test('owner dapat mengelola user dan role staf', function () {
-    $owner = User::factory()->create(['role' => 'owner']);
+    $owner = User::factory()->create([
+        'role' => 'owner',
+        'trial_ends_at' => now()->addDays(7),
+    ]);
 
     $this->actingAs($owner)
         ->get('/users')
@@ -1467,7 +1480,12 @@ test('owner dapat mengelola user dan role staf', function () {
     $staff = User::query()->where('email', 'kasir-cabang@example.com')->firstOrFail();
 
     expect($staff->role)->toBe('kasir')
-        ->and($staff->trial_ends_at)->toBeNull();
+        ->and($staff->trial_ends_at?->toDateString())->toBe($owner->trial_ends_at->toDateString());
+
+    $this->actingAs($staff)
+        ->get('/pos')
+        ->assertOk()
+        ->assertSee('Kasir');
 
     $this->actingAs($owner)
         ->patch("/users/{$staff->id}", [
