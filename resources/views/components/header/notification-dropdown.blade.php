@@ -1,4 +1,9 @@
 {{-- Notification Dropdown Component --}}
+@php
+    $attentionCount = $attentionCount ?? 0;
+    $activities = $activities ?? [];
+@endphp
+
 <div class="relative" x-data="{
     dropdownOpen: false,
     notifying: @js($attentionCount > 0),

@@ -192,6 +192,13 @@ test('notification header menampilkan aktivitas sistem dari database', function 
         ->assertDontSee('Project - Nganter App');
 });
 
+test('notification dropdown tetap aman saat dirender tanpa data class component', function () {
+    $html = view('components.header.notification-dropdown')->render();
+
+    expect($html)->toContain('Aktivitas Sistem')
+        ->and($html)->toContain('Semua aktivitas terbaru sudah normal');
+});
+
 test('pengguna dapat update produk melalui controller', function () {
     $user = User::factory()->create();
 
