@@ -91,6 +91,7 @@ class BranchInventoryManager
             ]));
 
         ProductVariant::query()
+            ->whereHas('product')
             ->orderBy('id')
             ->each(fn (ProductVariant $variant) => BranchInventory::query()->firstOrCreate([
                 'branch_id' => $branchId,

@@ -1697,7 +1697,7 @@ Alpine.data('inventoryManager', (initialItems = [], initialMovements = [], initi
         }
 
         const payload = await response.json();
-        const itemIndex = this.items.findIndex((item) => item.sku === this.editingSku);
+        const itemIndex = this.items.findIndex((item) => item.sku === this.editingSku || (item.variants && item.variants.some((v) => v.sku === this.editingSku)));
 
         if (itemIndex !== -1) {
             this.items.splice(itemIndex, 1, payload.item);
@@ -1737,7 +1737,7 @@ Alpine.data('inventoryManager', (initialItems = [], initialMovements = [], initi
         }
 
         const payload = await response.json();
-        const itemIndex = this.items.findIndex((item) => item.sku === this.movementDraft.sku);
+        const itemIndex = this.items.findIndex((item) => item.sku === this.movementDraft.sku || (item.variants && item.variants.some((v) => v.sku === this.movementDraft.sku)));
 
         if (itemIndex !== -1) {
             this.items.splice(itemIndex, 1, payload.item);
@@ -1804,7 +1804,12 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             const matchesKeyword = !keyword ||
                 this.normalize(item.name).includes(keyword) ||
                 this.normalize(item.sku).includes(keyword) ||
-                this.normalize(item.barcode).includes(keyword);
+                this.normalize(item.barcode).includes(keyword) ||
+                (item.variants && item.variants.some((v) =>
+                    this.normalize(v.name).includes(keyword) ||
+                    this.normalize(v.sku).includes(keyword) ||
+                    this.normalize(v.barcode).includes(keyword)
+                ));
             const matchesCategory = !this.activeCategory || item.category === this.activeCategory;
 
             const hasStock = Number(item.stock) > 0 || (item.variants && item.variants.some((v) => Number(v.stock) > 0));
@@ -2091,12 +2096,8 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         const storeTagline = store.tagline || '';
         const storeAddress = store.address || '';
         const storeInstagram = store.instagram || '';
-        const showLogo = receiptOptions.show_logo !== false;
-        const logoHtml = (showLogo && store.logo_url)
-            ? `<div class="center" style="margin-bottom: 12px;"><img src="${this.escapeHtml(store.logo_url)}" style="max-height: 44px; max-width: 140px; object-fit: contain;" /></div>`
-            : '';
         const discountHtml = Number(receipt.discount || 0) > 0
-            ? `<div><span>Diskon</span><span>-${this.formatRupiah(receipt.discount)}</span></div>`
+            ? `<div><span>Diskon</span><span class="num">-${this.formatRupiah(receipt.discount)}</span></div>`
             : '';
         const typography = this.receiptTypography();
         const storeMetaHtml = [
@@ -2115,7 +2116,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                     <strong class="item-total">${this.formatRupiah(item.line_total)}</strong>
                 </div>
                 <div class="item-meta" style="justify-content: flex-end;">
-                    <span>${Number(item.quantity || 0)} x ${this.formatRupiah(item.unit_price)}</span>
+                    <span class="num">${Number(item.quantity || 0)} x ${this.formatRupiah(item.unit_price)}</span>
                 </div>
             </div>
         `).join('');
@@ -2149,42 +2150,41 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                         .store-line { margin: 1px 0 0; font-size: ${typography.small}px; }
                         .section-title { margin: 6px 0 4px; font-size: ${typography.small}px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; text-align: center; color: #374151; }
                         .meta { margin-top: 6px; border-top: 1px dashed #9ca3af; padding-top: 4px; }
-                        .meta .row { padding: 1.5px 0; }
-                        .meta .row span:first-child { color: #6b7280; }
-                        .meta .row span:last-child, .meta .row strong:last-child { font-weight: 500; }
-                        .row, .totals div { display: flex; justify-content: space-between; gap: 8px; }
-                        .row span:last-child, .row strong:last-child, .totals span:last-child { text-align: right; }
+                        .meta .row { padding: 1.5px 0; clear: both; overflow: hidden; }
+                        .meta .row span:first-child { float: left; color: #6b7280; }
+                        .meta .row span:last-child, .meta .row strong:last-child { float: right; font-weight: 500; }
+                        .row, .totals div { clear: both; overflow: hidden; display: block; }
+                        .row span:first-child, .totals div span:first-child { float: left; }
+                        .row span:last-child, .row strong:last-child, .totals div span:last-child { float: right; text-align: right; }
                         .items { margin-top: 6px; border-top: 1px dashed #9ca3af; }
-                        .item-row { padding: 4px 0; border-bottom: 1px dotted #e5e7eb; }
-                        .item-main { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; font-size: ${typography.item}px; line-height: 1.28; }
-                        .item-name { min-width: 0; flex: 1 1 auto; text-align: left; overflow-wrap: anywhere; font-weight: 700; }
-                        .item-total { flex: 0 0 auto; text-align: right; white-space: nowrap; font-weight: 700; }
-                        .item-meta { margin-top: 2px; display: flex; justify-content: space-between; gap: 8px; color: #4b5563; font-size: ${typography.meta}px; line-height: 1.25; }
-                        .item-meta span:last-child { text-align: right; }
-                        strong, span { display: block; }
+                        .item-row { padding: 4px 0; border-bottom: 1px dotted #e5e7eb; clear: both; overflow: hidden; }
+                        .item-main { clear: both; overflow: hidden; font-size: ${typography.item}px; line-height: 1.28; display: block; }
+                        .item-name { float: left; width: 68%; text-align: left; overflow-wrap: anywhere; font-weight: 700; }
+                        .item-total { float: right; width: 30%; text-align: right; white-space: nowrap; font-weight: 700; }
+                        .item-meta { margin-top: 2px; clear: both; overflow: hidden; color: #4b5563; font-size: ${typography.meta}px; line-height: 1.25; display: block; }
+                        .item-meta span { float: right; text-align: right; }
                         .totals { margin-top: 6px; border-top: 1px solid #111827; border-bottom: 1px solid #111827; padding: 4px 0; }
-                        .grand { margin: 4px 0 2px; padding: 2px 0; font-size: ${typography.total}px; font-weight: 700; letter-spacing: 0.02em; }
-                        .footer { margin-top: 8px; border-top: 1px dashed #9ca3af; padding-top: 6px; text-align: center; font-style: italic; color: #6b7280; }
+                        .grand { margin: 4px 0 2px; padding: 2px 0; font-size: ${typography.total}px; font-weight: 700; letter-spacing: 0.02em; clear: both; overflow: hidden; }
+                        .footer { margin-top: 8px; border-top: 1px dashed #9ca3af; padding-top: 6px; text-align: center; font-style: italic; color: #6b7280; clear: both; }
                         @page { margin: 0; size: ${paperWidth} auto; }
                     </style>
                 </head>
                 <body>
-                    ${logoHtml}
                     <h1>${this.escapeHtml(storeName)}</h1>
                     ${storeMetaHtml}
                     <div class="meta">
-                        <div class="row"><span>No Nota</span><strong>${this.escapeHtml(receipt.invoice_number)}</strong></div>
-                        <div class="row"><span>Tanggal</span><span>${this.escapeHtml(receipt.sold_at || '-')}</span></div>
+                        <div class="row"><span>No Nota</span><strong class="num">${this.escapeHtml(receipt.invoice_number)}</strong></div>
+                        <div class="row"><span>Tanggal</span><span class="num">${this.escapeHtml(receipt.sold_at || '-')}</span></div>
                         ${cashierHtml}
                         <div class="row"><span>Pembayaran</span><span>${this.escapeHtml(this.paymentLabel(receipt.payment_method))}</span></div>
                     </div>
                     <div class="items">${itemRows}</div>
                     <div class="totals">
-                        <div><span>Subtotal</span><span>${this.formatRupiah(receipt.subtotal)}</span></div>
+                        <div><span>Subtotal</span><span class="num">${this.formatRupiah(receipt.subtotal)}</span></div>
                         ${discountHtml}
-                        <div class="grand"><span>Total Bayar</span><span>${this.formatRupiah(receipt.total)}</span></div>
-                        <div><span>Dibayar</span><span>${this.formatRupiah(receipt.paid_amount)}</span></div>
-                        <div><span>Kembali</span><span>${this.formatRupiah(receipt.change_amount)}</span></div>
+                        <div class="grand"><span>Total Bayar</span><span class="num">${this.formatRupiah(receipt.total)}</span></div>
+                        <div><span>Dibayar</span><span class="num">${this.formatRupiah(receipt.paid_amount)}</span></div>
+                        <div><span>Kembali</span><span class="num">${this.formatRupiah(receipt.change_amount)}</span></div>
                     </div>
                     <p class="footer muted">${this.escapeHtml(footerNote)}</p>
                     <script>

@@ -245,18 +245,17 @@ class PosController extends Controller
                     'line_total' => $line['line_total'],
                 ]);
 
-                if ($sellable['type'] === 'product') {
-                    StockMovement::query()->create([
-                        'product_id' => $sellable['product_id'],
-                        'type' => 'out',
-                        'quantity' => $quantity,
-                        'stock_before' => $stockBefore,
-                        'stock_after' => $stockBefore - $quantity,
-                        'reference' => $sale->invoice_number,
-                        'note' => 'Penjualan POS oleh '.auth()->user()->name,
-                        'occurred_at' => $sale->sold_at,
-                    ]);
-                }
+                StockMovement::query()->create([
+                    'product_id' => $sellable['product_id'],
+                    'product_variant_id' => $sellable['variant_id'],
+                    'type' => 'out',
+                    'quantity' => $quantity,
+                    'stock_before' => $stockBefore,
+                    'stock_after' => $stockBefore - $quantity,
+                    'reference' => $sale->invoice_number,
+                    'note' => 'Penjualan POS oleh '.auth()->user()->name,
+                    'occurred_at' => $sale->sold_at,
+                ]);
 
                 $this->consumeRawMaterials($sellable['product_id'], $quantity);
             }
@@ -345,6 +344,7 @@ class PosController extends Controller
             'sourceType' => 'variant',
             'sourceId' => $variant->id,
             'name' => $product->name.' · '.$variant->name,
+            'variant_name' => $variant->name,
             'sku' => $variant->sku ?? $product->sku.'-'.$variant->id,
             'barcode' => $variant->barcode ?? '',
             'category' => $product->category?->code ?? 'umum',
@@ -397,6 +397,7 @@ class PosController extends Controller
 
         if (Str::startsWith($id, 'variant-')) {
             $variant = ProductVariant::query()
+                ->whereHas('product')
                 ->with('product')
                 ->whereKey((int) Str::after($id, 'variant-'))
                 ->lockForUpdate()

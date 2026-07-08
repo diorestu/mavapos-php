@@ -80,9 +80,9 @@
                             <th class="px-4 py-2.5 text-center"><p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Aksi</p></th>
                         </tr>
                     </thead>
-                    <tbody>
-                        <template x-for="item in paginatedItems" :key="item.sku">
-                            <tr class="border-b border-gray-100 transition-colors last:border-0 hover:bg-gray-25 dark:border-gray-800 dark:hover:bg-white/[0.02]">
+                    <template x-for="item in paginatedItems" :key="item.sku">
+                        <tbody class="border-b border-gray-100 last:border-0 dark:border-gray-800">
+                            <tr class="transition-colors hover:bg-gray-25 dark:hover:bg-white/[0.02]">
                                 <td class="px-4 py-2">
                                     <div class="flex items-center gap-2">
                                         <div class="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-brand-50 text-brand-500 dark:bg-brand-500/15 dark:text-brand-400">
@@ -91,7 +91,14 @@
                                                 <path d="M4.75 8.75L10 11.75L15.25 8.75M10 17V11.75" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
                                             </svg>
                                         </div>
-                                        <p class="max-w-[240px] truncate text-[13px] font-semibold text-gray-800 dark:text-white/90" x-text="item.name"></p>
+                                        <div class="min-w-0">
+                                            <div class="flex flex-wrap items-center gap-1.5">
+                                                <p class="max-w-[240px] truncate text-[13px] font-semibold text-gray-800 dark:text-white/90" x-text="item.name"></p>
+                                                <template x-if="item.hasVariants">
+                                                    <span class="rounded bg-brand-50 px-1.5 py-0.5 text-[9px] font-medium text-brand-600 dark:bg-brand-500/10 dark:text-brand-400 shrink-0">Varian</span>
+                                                </template>
+                                            </div>
+                                        </div>
                                     </div>
                                 </td>
                                 <td class="px-4 py-2 text-center text-[12px] font-medium text-gray-500 dark:text-gray-400" x-text="item.sku"></td>
@@ -102,28 +109,77 @@
                                     <span class="rounded-full px-2 py-0.5 text-[11px] font-semibold" :class="statusClass(item.status)" x-text="item.status"></span>
                                 </td>
                                 <td class="px-4 py-2 text-center">
-                                    <button type="button" aria-label="Stok masuk" @click="openMovementModal('in', item)"
-                                        class="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition hover:bg-success-50 hover:text-success-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success-500/20 dark:text-gray-400 dark:hover:bg-success-500/10 dark:hover:text-success-400">
-                                        <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M10 4.16666V15.8333M4.16663 10H15.8333" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
-                                        </svg>
-                                    </button>
-                                    <button type="button" aria-label="Stok keluar" @click="openMovementModal('out', item)"
-                                        class="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition hover:bg-error-50 hover:text-error-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error-500/20 dark:text-gray-400 dark:hover:bg-error-500/10 dark:hover:text-error-400">
-                                        <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M4.16663 10H15.8333" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
-                                        </svg>
-                                    </button>
-                                    <button type="button" aria-label="Update stok" @click="openEditModal(item)"
-                                        class="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition hover:bg-brand-50 hover:text-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/20 dark:text-gray-400 dark:hover:bg-brand-500/10 dark:hover:text-brand-400">
-                                        <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                            <path d="M4.16663 10.8333L7.49996 14.1667L15.8333 5.83334" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
-                                        </svg>
-                                    </button>
+                                    <template x-if="!item.hasVariants">
+                                        <div class="inline-flex">
+                                            <button type="button" aria-label="Stok masuk" @click="openMovementModal('in', item)"
+                                                class="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition hover:bg-success-50 hover:text-success-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success-500/20 dark:text-gray-400 dark:hover:bg-success-500/10 dark:hover:text-success-400">
+                                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M10 4.16666V15.8333M4.16663 10H15.8333" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                                                </svg>
+                                            </button>
+                                            <button type="button" aria-label="Stok keluar" @click="openMovementModal('out', item)"
+                                                class="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition hover:bg-error-50 hover:text-error-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error-500/20 dark:text-gray-400 dark:hover:bg-error-500/10 dark:hover:text-error-400">
+                                                    <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M4.16663 10H15.8333" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                                                </svg>
+                                            </button>
+                                            <button type="button" aria-label="Update stok" @click="openEditModal(item)"
+                                                class="inline-flex h-7 w-7 items-center justify-center rounded-md text-gray-500 transition hover:bg-brand-50 hover:text-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/20 dark:text-gray-400 dark:hover:bg-brand-500/10 dark:hover:text-brand-400">
+                                                <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M4.16663 10.8333L7.49996 14.1667L15.8333 5.83334" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </template>
+                                    <template x-if="item.hasVariants">
+                                        <span class="text-[11px] text-gray-400 dark:text-gray-500 italic">Kelola di varian</span>
+                                    </template>
                                 </td>
                             </tr>
-                        </template>
-                        <tr x-show="filteredItems.length === 0" class="border-b border-gray-100 last:border-0 dark:border-gray-800">
+                            <template x-for="v in item.variants" :key="v.sku">
+                                <tr class="bg-gray-50/30 dark:bg-gray-900/10 border-t border-gray-100/50 dark:border-gray-800/40">
+                                    <td class="px-4 py-1.5 pl-10">
+                                        <div class="flex items-center gap-1.5 text-gray-600 dark:text-gray-400">
+                                            <span class="text-xs text-gray-300 dark:text-gray-700">↳</span>
+                                            <span class="text-[12px] font-medium" x-text="v.name"></span>
+                                        </div>
+                                    </td>
+                                    <td class="px-4 py-1.5 text-center text-[11px] font-medium text-gray-400 dark:text-gray-500" x-text="v.sku"></td>
+                                    <td class="px-4 py-1.5 text-center text-[11px] text-gray-400 dark:text-gray-500" x-text="v.category"></td>
+                                    <td class="px-4 py-1.5 text-right text-[11px] font-semibold tabular-nums text-gray-700 dark:text-white/80" x-text="v.stock"></td>
+                                    <td class="px-4 py-1.5 text-right text-[11px] font-semibold tabular-nums text-gray-700 dark:text-white/80" x-text="v.minStock"></td>
+                                    <td class="px-4 py-1.5 text-center">
+                                        <span class="rounded-full px-1.5 py-0.5 text-[10px] font-semibold" :class="statusClass(v.status)" x-text="v.status"></span>
+                                    </td>
+                                    <td class="px-4 py-1.5 text-center">
+                                        <div class="inline-flex">
+                                            <button type="button" aria-label="Stok masuk" @click="openMovementModal('in', v)"
+                                                class="inline-flex h-6 w-6 items-center justify-center rounded text-gray-400 transition hover:bg-success-50 hover:text-success-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success-500/20 dark:hover:bg-success-500/10 dark:hover:text-success-400">
+                                                <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M10 4.16666V15.8333M4.16663 10H15.8333" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                                                </svg>
+                                            </button>
+                                            <button type="button" aria-label="Stok keluar" @click="openMovementModal('out', v)"
+                                                class="inline-flex h-6 w-6 items-center justify-center rounded text-gray-400 transition hover:bg-error-50 hover:text-error-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-error-500/20 dark:hover:bg-error-500/10 dark:hover:text-error-400">
+                                                <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M4.16663 10H15.8333" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" />
+                                                </svg>
+                                            </button>
+                                            <button type="button" aria-label="Update stok" @click="openEditModal(v)"
+                                                class="inline-flex h-6 w-6 items-center justify-center rounded text-gray-400 transition hover:bg-brand-50 hover:text-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/20 dark:hover:bg-brand-500/10 dark:hover:text-brand-400">
+                                                <svg class="h-3.5 w-3.5" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                                    <path d="M4.16663 10.8333L7.49996 14.1667L15.8333 5.83334" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
+                                                </svg>
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            </template>
+                        </tbody>
+                    </template>
+
+                    <tbody x-show="filteredItems.length === 0" class="border-b border-gray-100 last:border-0 dark:border-gray-800">
+                        <tr>
                             <td colspan="7" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                                 Tidak ada stok produk yang cocok dengan filter.
                             </td>

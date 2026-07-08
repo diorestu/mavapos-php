@@ -504,6 +504,9 @@
                         Lewati
                     </button>
                 </div>
+            </div>
+        </div>
+
         <!-- Variant Selection Modal -->
         <div x-cloak x-show="variantModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/50 p-4">
             <div @click.outside="variantModal = false; variantProduct = null" class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
@@ -521,12 +524,14 @@
                 <div class="mt-3 max-h-60 space-y-2 overflow-y-auto custom-scrollbar">
                     <template x-for="v in (variantProduct ? variantProduct.variants : [])" :key="v.id">
                         <button type="button" @click="addVariant(v)"
-                            class="flex w-full items-center justify-between rounded-xl border border-gray-200 bg-white p-3 text-left transition hover:border-brand-200 hover:bg-brand-50/50 dark:border-gray-800 dark:bg-gray-950/50 dark:hover:border-brand-500/40">
+                            :disabled="Number(v.stock || 0) <= 0"
+                            :class="Number(v.stock || 0) <= 0 ? 'opacity-40 cursor-not-allowed bg-gray-50 dark:bg-gray-900/50' : 'hover:border-brand-200 hover:bg-brand-50/50 dark:hover:border-brand-500/40'"
+                            class="flex w-full items-center justify-between rounded-xl border border-gray-200 bg-white p-3 text-left transition dark:border-gray-800 dark:bg-gray-950/50">
                             <div>
-                                <span class="block text-xs font-semibold text-gray-800 dark:text-white/90" x-text="v.name"></span>
-                                <span class="mt-0.5 block text-[10px] text-gray-500 dark:text-gray-400" x-text="`Stok: ${v.stock}`"></span>
+                                <span class="block text-xs font-semibold text-gray-800 dark:text-white/90" x-text="v.variant_name || (v.name.includes(' · ') ? v.name.split(' · ').slice(1).join(' · ') : v.name)"></span>
+                                <span class="mt-0.5 block text-[10px]" :class="Number(v.stock || 0) <= 0 ? 'text-error-500 font-medium' : 'text-gray-500 dark:text-gray-400'" x-text="Number(v.stock || 0) <= 0 ? 'Habis' : `Stok: ${v.stock}`"></span>
                             </div>
-                            <span class="text-xs font-bold text-brand-600 dark:text-brand-400" x-text="formatRupiah(v.price)"></span>
+                            <span class="text-xs font-bold" :class="Number(v.stock || 0) <= 0 ? 'text-gray-400 dark:text-gray-600 line-through font-normal' : 'text-brand-600 dark:text-brand-400'" x-text="formatRupiah(v.price)"></span>
                         </button>
                     </template>
                 </div>

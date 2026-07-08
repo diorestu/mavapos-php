@@ -10,6 +10,7 @@ class StockMovement extends Model
     protected $fillable = [
         'branch_id',
         'product_id',
+        'product_variant_id',
         'type',
         'quantity',
         'stock_before',
@@ -24,6 +25,7 @@ class StockMovement extends Model
         return [
             'quantity' => 'integer',
             'branch_id' => 'integer',
+            'product_variant_id' => 'integer',
             'stock_before' => 'integer',
             'stock_after' => 'integer',
             'occurred_at' => 'datetime',
@@ -33,6 +35,11 @@ class StockMovement extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function productVariant(): BelongsTo
+    {
+        return $this->belongsTo(ProductVariant::class);
     }
 
     public function branch(): BelongsTo

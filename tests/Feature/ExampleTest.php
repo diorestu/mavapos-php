@@ -840,6 +840,77 @@ test('stok keluar tidak boleh melebihi stok tersedia', function () {
     ]);
 });
 
+test('pengguna dapat update dan mencatat pergerakan stok varian produk', function () {
+    $user = User::factory()->create();
+    $product = Product::query()->create([
+        'sku' => 'PARENT-SKU',
+        'name' => 'Product Parent',
+        'sell_price' => 10000,
+    ]);
+    $variant = \App\Models\ProductVariant::query()->create([
+        'product_id' => $product->id,
+        'name' => 'Ukuran L',
+        'sku' => 'VAR-SKU',
+        'sell_price' => 10000,
+        'is_active' => true,
+    ]);
+    $variantWithoutSku = \App\Models\ProductVariant::query()->create([
+        'product_id' => $product->id,
+        'name' => 'Ukuran XL',
+        'sku' => null,
+        'sell_price' => 12000,
+        'is_active' => true,
+    ]);
+
+    $branchId = app(\App\Support\BranchContext::class)->activeId();
+    app(\App\Support\BranchInventoryManager::class)->initializeBranch($branchId);
+
+    // Update variant stock with custom SKU
+    $this->actingAs($user)
+        ->patchJson('/inventory/VAR-SKU', [
+            'stock' => 50,
+            'minStock' => 5,
+        ])
+        ->assertOk()
+        ->assertJsonPath('item.variants.0.stock', 50)
+        ->assertJsonPath('item.variants.0.minStock', 5);
+
+    // Update variant stock with fallback SKU (PARENT-SKU-[id])
+    $fallbackSku = 'PARENT-SKU-' . $variantWithoutSku->id;
+    $this->actingAs($user)
+        ->patchJson('/inventory/' . $fallbackSku, [
+            'stock' => 80,
+            'minStock' => 8,
+        ])
+        ->assertOk()
+        ->assertJsonPath('item.variants.1.stock', 80)
+        ->assertJsonPath('item.variants.1.minStock', 8);
+
+    // Record variant stock in
+    $this->actingAs($user)
+        ->postJson('/inventory/VAR-SKU/in', [
+            'quantity' => 10,
+            'reference' => 'REF-IN',
+            'note' => 'Restock L',
+        ])
+        ->assertCreated()
+        ->assertJsonPath('item.variants.0.stock', 60)
+        ->assertJsonPath('movement.sku', 'VAR-SKU')
+        ->assertJsonPath('movement.quantity', 10);
+
+    // Record variant stock out using fallback SKU
+    $this->actingAs($user)
+        ->postJson('/inventory/' . $fallbackSku . '/out', [
+            'quantity' => 15,
+            'reference' => 'REF-OUT',
+            'note' => 'Penjualan XL',
+        ])
+        ->assertCreated()
+        ->assertJsonPath('item.variants.1.stock', 65)
+        ->assertJsonPath('movement.sku', $fallbackSku)
+        ->assertJsonPath('movement.quantity', 15);
+});
+
 test('pengguna dapat membuka halaman kategori produk', function () {
     $user = User::factory()->create();
 
