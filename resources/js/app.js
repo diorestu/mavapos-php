@@ -1817,6 +1817,14 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         }[method] || method || '-';
     },
 
+    printerModeLabel(mode) {
+        return {
+            browser: 'Browser Print',
+            bluetooth: 'Web Bluetooth',
+            imin_inner_printer: 'IMIN InnerPrinter',
+        }[mode] || 'Browser Print';
+    },
+
     escapeHtml(value) {
         return String(value ?? '')
             .replace(/&/g, '&amp;')
@@ -1947,6 +1955,21 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             return;
         }
 
+        if (printerOptions.connection_mode === 'bluetooth') {
+            try {
+                await this.printBluetoothReceipt(receipt);
+                notify('Struk berhasil dikirim ke printer Bluetooth.');
+
+                if (this.effectivePrintPreference('closeAfterPrint', printerOptions.close_after_print)) {
+                    this.closeReceiptModal();
+                }
+            } catch (error) {
+                notify(error.message || 'Gagal mencetak ke printer Bluetooth.', 'error');
+            }
+
+            return;
+        }
+
         const paperWidth = receiptOptions.paper_width === '80' ? '80mm' : '58mm';
         const showLogo = receiptOptions.show_logo !== false;
         const showStoreAddress = receiptOptions.show_store_address !== false;
@@ -2058,6 +2081,104 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         }
     },
 
+    async printBluetoothReceipt(receipt) {
+        const printerOptions = receipt.printer || {};
+        const serviceUuid = printerOptions.bluetooth_service_uuid;
+        const characteristicUuid = printerOptions.bluetooth_characteristic_uuid;
+
+        if (!navigator.bluetooth) {
+            throw new Error('Web Bluetooth tidak tersedia di browser ini.');
+        }
+
+        if (!serviceUuid || !characteristicUuid) {
+            throw new Error('UUID printer Bluetooth belum diatur di Pengaturan.');
+        }
+
+        const device = await navigator.bluetooth.requestDevice({
+            acceptAllDevices: true,
+            optionalServices: [serviceUuid],
+        });
+        const server = await device.gatt.connect();
+        const service = await server.getPrimaryService(serviceUuid);
+        const characteristic = await service.getCharacteristic(characteristicUuid);
+        const payload = this.buildBluetoothReceiptPayload(receipt);
+
+        try {
+            await this.writeBluetoothChunks(characteristic, payload);
+        } finally {
+            device.gatt?.disconnect();
+        }
+    },
+
+    buildBluetoothReceiptPayload(receipt) {
+        const receiptOptions = receipt.receipt || {};
+        const store = receipt.store || {};
+        const width = receiptOptions.paper_width === '80' ? 48 : 32;
+        const lines = [];
+
+        lines.push(this.centerReceiptText(store.name || 'MavaPOS', width));
+
+        if (receiptOptions.show_store_address !== false) {
+            [store.address, store.phone ? `Telp. ${store.phone}` : '']
+                .filter(Boolean)
+                .forEach((line) => lines.push(this.centerReceiptText(line, width)));
+        }
+
+        lines.push(this.centerReceiptText('Nota Penjualan', width));
+        lines.push(this.receiptDivider(width));
+        lines.push(`No Nota: ${receipt.invoice_number || '-'}`);
+        lines.push(`Tanggal : ${receipt.sold_at || '-'}`);
+
+        if (receiptOptions.show_cashier !== false) {
+            lines.push(`Kasir   : ${receipt.cashier || '-'}`);
+        }
+
+        lines.push(`Bayar   : ${this.paymentLabel(receipt.payment_method)}`);
+        lines.push(this.receiptDivider(width));
+
+        (receipt.items || []).forEach((item) => {
+            this.wrapReceiptText(item.name || '-', width).forEach((line) => lines.push(line));
+            lines.push(`${Number(item.quantity || 0)} x ${this.formatRupiah(item.unit_price)}`);
+            lines.push(this.rightAlignReceiptText(this.formatRupiah(item.line_total), width));
+        });
+
+        lines.push(this.receiptDivider(width));
+        lines.push(this.receiptKeyValue('Subtotal', this.formatRupiah(receipt.subtotal), width));
+        lines.push(this.receiptKeyValue('Diskon', this.formatRupiah(receipt.discount), width));
+        lines.push(this.receiptKeyValue('Total', this.formatRupiah(receipt.total), width));
+        lines.push(this.receiptKeyValue('Dibayar', this.formatRupiah(receipt.paid_amount), width));
+        lines.push(this.receiptKeyValue('Kembali', this.formatRupiah(receipt.change_amount), width));
+        lines.push(this.receiptDivider(width));
+        this.wrapReceiptText(receiptOptions.footer_note || 'Terima kasih atas kunjungan Anda.', width)
+            .forEach((line) => lines.push(this.centerReceiptText(line, width)));
+
+        const encoder = new TextEncoder();
+        const init = [0x1b, 0x40];
+        const alignLeft = [0x1b, 0x61, 0x00];
+        const feed = [0x0a, 0x0a, 0x0a];
+        const cut = [0x1d, 0x56, 0x42, 0x00];
+        const body = Array.from(encoder.encode(`${lines.join('\n')}\n`));
+
+        return new Uint8Array([...init, ...alignLeft, ...body, ...feed, ...cut]);
+    },
+
+    async writeBluetoothChunks(characteristic, payload) {
+        const chunkSize = 120;
+        const chunkDelay = 50;
+
+        for (let offset = 0; offset < payload.length; offset += chunkSize) {
+            const chunk = payload.slice(offset, offset + chunkSize);
+
+            if (typeof characteristic.writeValueWithoutResponse === 'function') {
+                await characteristic.writeValueWithoutResponse(chunk);
+            } else {
+                await characteristic.writeValue(chunk);
+            }
+
+            await new Promise((resolve) => setTimeout(resolve, chunkDelay));
+        }
+    },
+
     async printIminReceipt(receipt) {
         const socket = await this.connectIminPrinter();
         const receiptOptions = receipt.receipt || {};
@@ -2070,56 +2191,74 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
         try {
             this.sendIminCommand(socket, 'SPI', 1);
-            this.sendIminCommand(socket, '', 6, 1);
-            this.sendIminCommand(socket, '', 7, 28);
-            this.sendIminCommand(socket, '', 9, 1);
-            this.sendIminCommand(socket, `${storeName}\n`, 12);
+            await this.sleep(250);
+            const status = await this.getIminPrinterStatus(socket);
 
-            this.sendIminCommand(socket, '', 7, 24);
-            this.sendIminCommand(socket, '', 9, 0);
+            if (Number(status.value) !== 0) {
+                throw new Error(`Status IMIN tidak normal: ${status.text}`);
+            }
+
+            const commands = [
+                ['', 6, 1],
+                ['', 7, 28],
+                ['', 9, 1],
+                [`${storeName}\n`, 12],
+                ['', 7, 24],
+                ['', 9, 0],
+            ];
 
             if (receiptOptions.show_store_address !== false) {
                 [storeAddress, storePhone ? `Telp. ${storePhone}` : '']
                     .filter(Boolean)
-                    .forEach((line) => this.sendIminCommand(socket, `${line}\n`, 12));
+                    .forEach((line) => commands.push([`${line}\n`, 12]));
             }
 
-            this.sendIminCommand(socket, 'Nota Penjualan\n', 12);
-            this.sendIminCommand(socket, '', 6, 0);
-            this.sendIminCommand(socket, `${this.receiptDivider(paperCharacters)}\n`, 12);
-            this.sendIminCommand(socket, `No Nota: ${receipt.invoice_number || '-'}\n`, 12);
-            this.sendIminCommand(socket, `Tanggal : ${receipt.sold_at || '-'}\n`, 12);
+            commands.push(
+                ['Nota Penjualan\n', 12],
+                ['', 6, 0],
+                [`${this.receiptDivider(paperCharacters)}\n`, 12],
+                [`No Nota: ${receipt.invoice_number || '-'}\n`, 12],
+                [`Tanggal : ${receipt.sold_at || '-'}\n`, 12],
+            );
 
             if (receiptOptions.show_cashier !== false) {
-                this.sendIminCommand(socket, `Kasir   : ${receipt.cashier || '-'}\n`, 12);
+                commands.push([`Kasir   : ${receipt.cashier || '-'}\n`, 12]);
             }
 
-            this.sendIminCommand(socket, `Bayar   : ${this.paymentLabel(receipt.payment_method)}\n`, 12);
-            this.sendIminCommand(socket, `${this.receiptDivider(paperCharacters)}\n`, 12);
+            commands.push(
+                [`Bayar   : ${this.paymentLabel(receipt.payment_method)}\n`, 12],
+                [`${this.receiptDivider(paperCharacters)}\n`, 12],
+            );
 
             (receipt.items || []).forEach((item) => {
                 this.wrapReceiptText(item.name || '-', paperCharacters).forEach((line) => {
-                    this.sendIminCommand(socket, `${line}\n`, 12);
+                    commands.push([`${line}\n`, 12]);
                 });
-                this.sendIminCommand(socket, `${Number(item.quantity || 0)} x ${this.formatRupiah(item.unit_price)}\n`, 12);
-                this.sendIminCommand(socket, `${this.rightAlignReceiptText(this.formatRupiah(item.line_total), paperCharacters)}\n`, 12);
+                commands.push(
+                    [`${Number(item.quantity || 0)} x ${this.formatRupiah(item.unit_price)}\n`, 12],
+                    [`${this.rightAlignReceiptText(this.formatRupiah(item.line_total), paperCharacters)}\n`, 12],
+                );
             });
 
-            this.sendIminCommand(socket, `${this.receiptDivider(paperCharacters)}\n`, 12);
-            this.sendIminCommand(socket, `${this.receiptKeyValue('Subtotal', this.formatRupiah(receipt.subtotal), paperCharacters)}\n`, 12);
-            this.sendIminCommand(socket, `${this.receiptKeyValue('Diskon', this.formatRupiah(receipt.discount), paperCharacters)}\n`, 12);
-            this.sendIminCommand(socket, '', 9, 1);
-            this.sendIminCommand(socket, `${this.receiptKeyValue('Total', this.formatRupiah(receipt.total), paperCharacters)}\n`, 12);
-            this.sendIminCommand(socket, '', 9, 0);
-            this.sendIminCommand(socket, `${this.receiptKeyValue('Dibayar', this.formatRupiah(receipt.paid_amount), paperCharacters)}\n`, 12);
-            this.sendIminCommand(socket, `${this.receiptKeyValue('Kembali', this.formatRupiah(receipt.change_amount), paperCharacters)}\n`, 12);
-            this.sendIminCommand(socket, `${this.receiptDivider(paperCharacters)}\n`, 12);
-            this.sendIminCommand(socket, '', 6, 1);
+            commands.push(
+                [`${this.receiptDivider(paperCharacters)}\n`, 12],
+                [`${this.receiptKeyValue('Subtotal', this.formatRupiah(receipt.subtotal), paperCharacters)}\n`, 12],
+                [`${this.receiptKeyValue('Diskon', this.formatRupiah(receipt.discount), paperCharacters)}\n`, 12],
+                ['', 9, 1],
+                [`${this.receiptKeyValue('Total', this.formatRupiah(receipt.total), paperCharacters)}\n`, 12],
+                ['', 9, 0],
+                [`${this.receiptKeyValue('Dibayar', this.formatRupiah(receipt.paid_amount), paperCharacters)}\n`, 12],
+                [`${this.receiptKeyValue('Kembali', this.formatRupiah(receipt.change_amount), paperCharacters)}\n`, 12],
+                [`${this.receiptDivider(paperCharacters)}\n`, 12],
+                ['', 6, 1],
+            );
+
             this.wrapReceiptText(footerNote, paperCharacters).forEach((line) => {
-                this.sendIminCommand(socket, `${line}\n`, 12);
+                commands.push([`${line}\n`, 12]);
             });
-            this.sendIminCommand(socket, '', 4, 120);
-            this.sendIminCommand(socket, '', 5);
+
+            commands.push(['', 4, 120], ['', 5]);
+            await this.sendIminCommands(socket, commands);
         } finally {
             setTimeout(() => socket.close(), 250);
         }
@@ -2151,6 +2290,51 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         });
     },
 
+    getIminPrinterStatus(socket) {
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                reject(new Error('Tidak ada balasan status dari IMIN InnerPrinter.'));
+            }, 5000);
+
+            socket.onmessage = (event) => {
+                if (event.data === 'request') {
+                    this.sendIminCommand(socket, 'ping');
+                    return;
+                }
+
+                let data = null;
+
+                try {
+                    data = JSON.parse(event.data);
+                } catch (error) {
+                    return;
+                }
+
+                if (data?.data?.text === 'ping') {
+                    this.sendIminCommand(socket, 'ping');
+                    return;
+                }
+
+                if (data?.type === 2) {
+                    clearTimeout(timeout);
+                    resolve({
+                        ...data.data,
+                        text: this.iminPrinterStatusText(data.data?.value),
+                    });
+                }
+            };
+
+            this.sendIminCommand(socket, 'SPI', 2);
+        });
+    },
+
+    async sendIminCommands(socket, commands) {
+        for (const command of commands) {
+            this.sendIminCommand(socket, ...command);
+            await this.sleep(60);
+        }
+    },
+
     sendIminCommand(socket, text = '', type = 0, value = -1, extra = {}) {
         socket.send(JSON.stringify({
             data: {
@@ -2161,6 +2345,23 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             },
             type,
         }));
+    },
+
+    iminPrinterStatusText(value) {
+        switch (String(value)) {
+            case '0':
+                return 'Normal';
+            case '3':
+                return 'Head printer terbuka';
+            case '7':
+                return 'Kertas habis';
+            case '8':
+                return 'Kertas hampir habis';
+            case '99':
+                return 'Printer error';
+            default:
+                return 'Printer tidak terhubung atau belum menyala';
+        }
     },
 
     receiptDivider(length) {
@@ -2179,6 +2380,13 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         const value = String(text || '');
 
         return `${' '.repeat(Math.max(0, length - value.length))}${value}`;
+    },
+
+    centerReceiptText(text, length) {
+        const value = String(text || '');
+        const left = Math.max(0, Math.floor((length - value.length) / 2));
+
+        return `${' '.repeat(left)}${value}`;
     },
 
     wrapReceiptText(text, length) {
@@ -2206,6 +2414,10 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         }
 
         return lines.length ? lines : [''];
+    },
+
+    sleep(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
     },
 
     effectivePrintPreference(key, fallback = false) {

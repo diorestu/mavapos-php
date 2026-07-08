@@ -587,6 +587,7 @@ test('pengguna dapat membuka halaman kasir', function () {
         ->assertOk()
         ->assertSee('Kasir')
         ->assertSee('Keranjang')
+        ->assertSee('Metode Printer')
         ->assertSee('Selesaikan Pembayaran')
         ->assertDontSee('Cari atau ketik perintah');
 });
