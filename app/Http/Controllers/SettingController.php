@@ -22,7 +22,7 @@ class SettingController extends Controller
     {
         $validated = $request->validate([
             'store_name' => ['required', 'string', 'max:120'],
-            'logo' => ['nullable', 'image', 'max:2048'],
+            'logo' => ['nullable', 'file', 'mimes:svg,png', 'max:2048'],
             'business_type' => ['nullable', 'string', 'max:40'],
             'currency' => ['nullable', 'string', 'max:10'],
             'legal_name' => ['nullable', 'string', 'max:160'],
@@ -74,7 +74,7 @@ class SettingController extends Controller
         $validated['currency'] = $validated['currency'] ?? 'IDR';
         $validated['sku_mode'] = $validated['sku_mode'] ?? 'manual';
         $validated['receipt_paper_width'] = $validated['receipt_paper_width'] ?? '58';
-        $validated['printer_connection_mode'] = $validated['printer_connection_mode'] ?? 'browser';
+        $validated['printer_connection_mode'] = $validated['printer_connection_mode'] ?? 'imin_inner_printer';
 
         $setting->update($validated);
 

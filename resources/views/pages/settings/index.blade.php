@@ -161,8 +161,9 @@
                                     </div>
                                 </div>
                             @endif
-                            <input type="file" name="logo" accept="image/*"
+                            <input type="file" name="logo" accept=".svg,.png,image/svg+xml,image/png"
                                 class="h-11 w-full rounded-lg border border-gray-300 bg-transparent text-sm text-gray-800 file:mr-4 file:h-11 file:border-0 file:bg-gray-100 file:px-4 file:text-sm file:font-medium file:text-gray-700 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:file:bg-gray-800 dark:file:text-gray-300" />
+                            <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">SVG atau PNG, maksimal 2 MB.</p>
                             @error('logo')
                                 <span class="mt-1 block text-xs text-error-500">{{ $message }}</span>
                             @enderror

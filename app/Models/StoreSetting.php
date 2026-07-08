@@ -127,7 +127,7 @@ class StoreSetting extends Model
             'receipt_show_cashier' => true,
             'printer_auto_print' => false,
             'printer_close_after_print' => false,
-            'printer_connection_mode' => 'browser',
+            'printer_connection_mode' => 'imin_inner_printer',
             'printer_bluetooth_service_uuid' => null,
             'printer_bluetooth_characteristic_uuid' => null,
         ];

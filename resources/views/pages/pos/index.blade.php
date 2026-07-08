@@ -458,10 +458,6 @@
                             <p class="text-[10px] font-medium uppercase text-gray-400">Kembalian</p>
                             <p class="mt-1 font-semibold tabular-nums text-success-700 dark:text-success-400" x-text="formatRupiah(lastReceipt?.change_amount || 0)"></p>
                         </div>
-                        <div>
-                            <p class="text-[10px] font-medium uppercase text-gray-400">Metode Printer</p>
-                            <p class="mt-1 font-semibold text-gray-800 dark:text-white/90" x-text="printerModeLabel(lastReceipt?.printer?.connection_mode)"></p>
-                        </div>
                     </div>
 
                     <div class="mt-3 max-h-40 space-y-1.5 overflow-y-auto custom-scrollbar">

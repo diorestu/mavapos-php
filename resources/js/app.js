@@ -1822,7 +1822,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             browser: 'Browser Print',
             bluetooth: 'Web Bluetooth',
             imin_inner_printer: 'IMIN InnerPrinter',
-        }[mode] || 'Browser Print';
+        }[mode] || 'IMIN InnerPrinter';
     },
 
     escapeHtml(value) {
@@ -1939,8 +1939,9 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         const receipt = this.lastReceipt;
         const receiptOptions = receipt.receipt || {};
         const printerOptions = receipt.printer || {};
+        const connectionMode = printerOptions.connection_mode || 'imin_inner_printer';
 
-        if (printerOptions.connection_mode === 'imin_inner_printer') {
+        if (connectionMode === 'imin_inner_printer') {
             try {
                 await this.printIminReceipt(receipt);
                 notify('Struk berhasil dikirim ke IMIN InnerPrinter.');
@@ -1955,7 +1956,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             return;
         }
 
-        if (printerOptions.connection_mode === 'bluetooth') {
+        if (connectionMode === 'bluetooth') {
             try {
                 await this.printBluetoothReceipt(receipt);
                 notify('Struk berhasil dikirim ke printer Bluetooth.');

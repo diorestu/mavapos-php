@@ -16,7 +16,7 @@ return new class extends Migration
             $table->boolean('receipt_show_cashier')->default(true)->after('receipt_show_store_address');
             $table->boolean('printer_auto_print')->default(false)->after('receipt_show_cashier');
             $table->boolean('printer_close_after_print')->default(false)->after('printer_auto_print');
-            $table->string('printer_connection_mode', 20)->default('browser')->after('printer_close_after_print');
+            $table->string('printer_connection_mode', 20)->default('imin_inner_printer')->after('printer_close_after_print');
             $table->string('printer_bluetooth_service_uuid')->nullable()->after('printer_connection_mode');
             $table->string('printer_bluetooth_characteristic_uuid')->nullable()->after('printer_bluetooth_service_uuid');
         });

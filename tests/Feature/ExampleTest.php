@@ -8,8 +8,10 @@ use App\Models\StoreSetting;
 use App\Models\User;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
 
@@ -587,7 +589,7 @@ test('pengguna dapat membuka halaman kasir', function () {
         ->assertOk()
         ->assertSee('Kasir')
         ->assertSee('Keranjang')
-        ->assertSee('Metode Printer')
+        ->assertDontSee('Metode Printer')
         ->assertSee('Selesaikan Pembayaran')
         ->assertDontSee('Cari atau ketik perintah');
 });
@@ -1266,6 +1268,7 @@ test('pengguna dapat membuka halaman pengaturan toko', function () {
         ->assertSee('Pengaturan Dasar')
         ->assertSee('Pengaturan Produk')
         ->assertSee('Nama Bisnis')
+        ->assertSee('SVG atau PNG')
         ->assertSee('Tipe Bisnis')
         ->assertSee('Mata Uang')
         ->assertSee('Mava Mart')
@@ -1273,6 +1276,30 @@ test('pengguna dapat membuka halaman pengaturan toko', function () {
         ->assertSee('Modifier/Add-on')
         ->assertSee('Level Pedas')
         ->assertSee('Catatan Dapur');
+});
+
+test('pengguna dapat mengganti logo toko dengan file svg', function () {
+    Storage::fake('public');
+
+    $user = User::factory()->create(['role' => 'owner']);
+    $svg = UploadedFile::fake()->create('logo.svg', 12, 'image/svg+xml');
+
+    $this->actingAs($user)
+        ->patch('/settings', [
+            'store_name' => 'Mava Mart SVG',
+            'business_type' => 'retail',
+            'currency' => 'IDR',
+            'logo' => $svg,
+        ])
+        ->assertRedirect('/settings')
+        ->assertSessionHas('status', 'Pengaturan toko berhasil disimpan.');
+
+    $setting = StoreSetting::current();
+
+    expect($setting->logo_path)->toStartWith('store-logos/')
+        ->and($setting->logo_path)->toEndWith('.svg');
+
+    Storage::disk('public')->assertExists($setting->logo_path);
 });
 
 test('pengguna dapat update identitas toko dan tersimpan ke database', function () {
@@ -1438,6 +1465,12 @@ test('pengguna dapat memilih mode printer imin inner printer', function () {
         'store_name' => 'Mava Mart',
         'printer_connection_mode' => 'imin_inner_printer',
     ]);
+});
+
+test('default metode printer toko memakai imin inner printer', function () {
+    $setting = StoreSetting::query()->create(StoreSetting::defaults());
+
+    expect($setting->printer_connection_mode)->toBe('imin_inner_printer');
 });
 
 test('payload checkout membawa pengaturan struk dan printer toko', function () {
