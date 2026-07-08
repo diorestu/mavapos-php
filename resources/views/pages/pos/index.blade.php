@@ -508,7 +508,7 @@
         <div x-cloak x-show="variantModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/50 p-4">
             <div @click.outside="variantModal = false; variantProduct = null" class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
                 <div class="flex items-center justify-between border-b border-gray-100 pb-3 dark:border-gray-800">
-                    <h3 class="text-base font-bold text-gray-900 dark:text-white" x-text="variantProduct?.name"></h3>
+                    <h3 class="text-base font-bold text-gray-900 dark:text-white" x-text="variantProduct ? variantProduct.name : ''"></h3>
                     <button type="button" @click="variantModal = false; variantProduct = null" class="text-gray-400 hover:text-gray-500">
                         <svg class="h-5 w-5" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M15 5L5 15M5 5L15 15" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" />
@@ -519,7 +519,7 @@
                 <p class="mt-3 text-xs text-gray-500 dark:text-gray-400">Pilih varian produk yang tersedia:</p>
 
                 <div class="mt-3 max-h-60 space-y-2 overflow-y-auto custom-scrollbar">
-                    <template x-for="v in variantProduct?.variants || []" :key="v.id">
+                    <template x-for="v in (variantProduct ? variantProduct.variants : [])" :key="v.id">
                         <button type="button" @click="addVariant(v)"
                             class="flex w-full items-center justify-between rounded-xl border border-gray-200 bg-white p-3 text-left transition hover:border-brand-200 hover:bg-brand-50/50 dark:border-gray-800 dark:bg-gray-950/50 dark:hover:border-brand-500/40">
                             <div>
