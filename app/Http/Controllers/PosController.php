@@ -52,16 +52,14 @@ class PosController extends Controller
                 ])
                 ->values(),
             'items' => $products
-                ->flatMap(function (Product $product) use ($branchId): array {
-                    $base = [$this->productPayload($product, $branchId)];
-
-                    $variants = $product->variants
+                ->map(function (Product $product) use ($branchId): array {
+                    $payload = $this->productPayload($product, $branchId);
+                    $payload['variants'] = $product->variants
                         ->where('is_active', true)
                         ->map(fn (ProductVariant $variant): array => $this->variantPayload($product, $variant, $branchId))
                         ->values()
                         ->all();
-
-                    return array_merge($base, $variants);
+                    return $payload;
                 })
                 ->values(),
         ]);
@@ -362,18 +360,18 @@ class PosController extends Controller
     private function itemsPayload(int $branchId)
     {
         return Product::query()
-            ->with(['category', 'variants'])
+            ->with(['category', 'variants' => function ($query) {
+                $query->where('is_active', true);
+            }])
             ->orderBy('name')
             ->get()
-            ->flatMap(function (Product $product) use ($branchId): array {
-                $base = [$this->productPayload($product, $branchId)];
-                $variants = $product->variants
-                    ->where('is_active', true)
+            ->map(function (Product $product) use ($branchId): array {
+                $payload = $this->productPayload($product, $branchId);
+                $payload['variants'] = $product->variants
                     ->map(fn (ProductVariant $variant): array => $this->variantPayload($product, $variant, $branchId))
                     ->values()
                     ->all();
-
-                return array_merge($base, $variants);
+                return $payload;
             })
             ->values();
     }

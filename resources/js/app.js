@@ -1729,6 +1729,8 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     shiftLoading: false,
     checkoutLoading: false,
     receiptModal: false,
+    variantModal: false,
+    variantProduct: null,
     lastReceipt: null,
     query: '',
     activeCategory: '',
@@ -1755,12 +1757,17 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                 this.normalize(item.barcode).includes(keyword);
             const matchesCategory = !this.activeCategory || item.category === this.activeCategory;
 
-            return matchesKeyword && matchesCategory && Number(item.stock) > 0;
+            const hasStock = Number(item.stock) > 0 || (item.variants && item.variants.some((v) => Number(v.stock) > 0));
+            return matchesKeyword && matchesCategory && hasStock;
         });
     },
 
     get favoriteItems() {
-        return this.items.filter((item) => item.isFavorite && Number(item.stock) > 0).slice(0, 8);
+        return this.items.filter((item) => {
+            const isFav = item.isFavorite || (item.variants && item.variants.some((v) => v.isFavorite));
+            const hasStock = Number(item.stock) > 0 || (item.variants && item.variants.some((v) => Number(v.stock) > 0));
+            return isFav && hasStock;
+        }).slice(0, 8);
     },
 
     get subtotal() {
@@ -1871,6 +1878,12 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     },
 
     addItem(item) {
+        if (item.variants && item.variants.length > 0) {
+            this.variantProduct = item;
+            this.variantModal = true;
+            return;
+        }
+
         if (Number(item.stock || 0) <= 0) {
             return;
         }
@@ -1890,6 +1903,33 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             stock: Number(item.stock),
             quantity: 1,
         });
+    },
+
+    addVariant(variant) {
+        if (Number(variant.stock || 0) <= 0) {
+            return;
+        }
+
+        const current = this.cart.find((cartItem) => cartItem.id === variant.id);
+
+        if (current) {
+            this.increase(current.id);
+            this.variantModal = false;
+            this.variantProduct = null;
+            return;
+        }
+
+        this.cart.push({
+            id: variant.id,
+            name: variant.name,
+            sku: variant.sku,
+            price: Number(variant.price),
+            stock: Number(variant.stock),
+            quantity: 1,
+        });
+
+        this.variantModal = false;
+        this.variantProduct = null;
     },
 
     increase(id) {
