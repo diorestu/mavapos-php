@@ -19,12 +19,22 @@ class UserController extends Controller
 
     public function index(): View
     {
+        $user = auth()->user();
+        $users = User::query()
+            ->where(function ($query) use ($user) {
+                if ($user->trial_ends_at !== null) {
+                    $query->where('trial_ends_at', $user->trial_ends_at);
+                } else {
+                    $query->where('id', $user->id);
+                }
+            })
+            ->latest()
+            ->get();
+
         return view('pages.users.index', [
             'title' => 'Manajemen User',
             'roles' => self::ROLES,
-            'users' => User::query()
-                ->latest()
-                ->get(),
+            'users' => $users,
         ]);
     }
 
