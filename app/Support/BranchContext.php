@@ -14,14 +14,26 @@ class BranchContext
     public function active(): Branch
     {
         $branchId = Session::get(self::SESSION_KEY);
+        $user = auth()->user();
+        $ownerId = $user ? (\App\Models\User::where('role', 'owner')->where('trial_ends_at', $user->trial_ends_at)->value('id') ?? $user->id) : null;
 
         $branch = $branchId
             ? Branch::query()->whereKey($branchId)->where('is_active', true)->first()
             : null;
 
+        if ($branch && $ownerId && $branch->user_id !== null && $branch->user_id !== $ownerId) {
+            $branch = null;
+        }
+
         if (! $branch) {
-            $branch = Branch::query()->where('is_active', true)->orderBy('id')->first()
-                ?? $this->createDefaultBranch();
+            $query = Branch::query()->where('is_active', true);
+            if ($ownerId) {
+                $query->where(function ($q) use ($ownerId) {
+                    $q->where('user_id', $ownerId)->orWhereNull('user_id');
+                });
+            }
+            $branch = $query->orderBy('id')->first()
+                ?? $this->createDefaultBranch($ownerId);
 
             Session::put(self::SESSION_KEY, $branch->id);
         }
@@ -36,10 +48,17 @@ class BranchContext
 
     public function setActive(int $branchId): Branch
     {
-        $branch = Branch::query()
-            ->whereKey($branchId)
-            ->where('is_active', true)
-            ->firstOrFail();
+        $user = auth()->user();
+        $ownerId = $user ? (\App\Models\User::where('role', 'owner')->where('trial_ends_at', $user->trial_ends_at)->value('id') ?? $user->id) : null;
+
+        $query = Branch::query()->whereKey($branchId)->where('is_active', true);
+        if ($ownerId) {
+            $query->where(function ($q) use ($ownerId) {
+                $q->where('user_id', $ownerId)->orWhereNull('user_id');
+            });
+        }
+
+        $branch = $query->firstOrFail();
 
         Session::put(self::SESSION_KEY, $branch->id);
 
@@ -48,23 +67,30 @@ class BranchContext
 
     public function options(): Collection
     {
-        return Branch::query()
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get();
+        $user = auth()->user();
+        $ownerId = $user ? (\App\Models\User::where('role', 'owner')->where('trial_ends_at', $user->trial_ends_at)->value('id') ?? $user->id) : null;
+
+        $query = Branch::query()->where('is_active', true);
+        if ($ownerId) {
+            $query->where(function ($q) use ($ownerId) {
+                $q->where('user_id', $ownerId)->orWhereNull('user_id');
+            });
+        }
+
+        return $query->orderBy('name')->get();
     }
 
-    private function createDefaultBranch(): Branch
+    private function createDefaultBranch(?int $ownerId = null): Branch
     {
         $baseCode = 'utama';
         $code = $baseCode;
         $suffix = 2;
-
         while (Branch::query()->where('code', $code)->exists()) {
             $code = $baseCode.'-'.$suffix++;
         }
 
         return Branch::query()->create([
+            'user_id' => $ownerId,
             'name' => 'Cabang Utama',
             'code' => Str::slug($code),
             'is_active' => true,

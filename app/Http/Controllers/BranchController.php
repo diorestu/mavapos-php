@@ -15,9 +15,20 @@ class BranchController extends Controller
 {
     public function index(): View
     {
+        $user = auth()->user();
+        $ownerId = \App\Models\User::where('role', 'owner')->where('trial_ends_at', $user->trial_ends_at)->value('id') ?? $user->id;
+
+        $branches = Branch::query()
+            ->where(function ($q) use ($ownerId) {
+                $q->where('user_id', $ownerId)->orWhereNull('user_id');
+            })
+            ->orderByDesc('is_active')
+            ->orderBy('name')
+            ->get();
+
         return view('pages.branches.index', [
             'title' => 'Cabang',
-            'branches' => Branch::query()->orderByDesc('is_active')->orderBy('name')->get(),
+            'branches' => $branches,
         ]);
     }
 
@@ -30,7 +41,11 @@ class BranchController extends Controller
             'address' => ['nullable', 'string', 'max:1000'],
         ]);
 
+        $user = auth()->user();
+        $ownerId = \App\Models\User::where('role', 'owner')->where('trial_ends_at', $user->trial_ends_at)->value('id') ?? $user->id;
+
         $branch = Branch::query()->create([
+            'user_id' => $ownerId,
             'name' => $validated['name'],
             'code' => $validated['code'] ? Str::slug($validated['code']) : $this->uniqueCode($validated['name']),
             'phone' => $validated['phone'] ?? null,

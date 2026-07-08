@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Branch extends Model
 {
     protected $fillable = [
+        'user_id',
         'name',
         'code',
         'phone',
@@ -19,7 +20,13 @@ class Branch extends Model
     {
         return [
             'is_active' => 'boolean',
+            'user_id' => 'integer',
         ];
+    }
+
+    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 
     public function cashierShifts(): HasMany
