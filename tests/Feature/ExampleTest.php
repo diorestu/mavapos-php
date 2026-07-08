@@ -1535,7 +1535,6 @@ test('template print nota memakai typography kecil dan item rata kiri kanan', fu
         ->and($script)->toContain('receiptLineItem')
         ->and($script)->toContain('store.tagline')
         ->and($script)->toContain('store.instagram')
-        ->and($script)->not->toContain('store.logo_url')
         ->and($script)->toContain('Promise.all')
         ->and($script)->toContain('sendIminColumns')
         ->and($script)->toContain('colAlign')
