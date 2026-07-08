@@ -2250,7 +2250,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
             commands.push(
                 ['Nota Penjualan\n', 12],
-                ['', 6, 0],
+                ['', 4, 0],
                 ['', 7, textSize],
                 [`${this.receiptDivider(paperCharacters)}\n`, 12],
                 [`No Nota: ${receipt.invoice_number || '-'}\n`, 12],
@@ -2455,7 +2455,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     },
 
     receiptTextSize() {
-        return 12;
+        return 16;
     },
 
     receiptTypography() {
