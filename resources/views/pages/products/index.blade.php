@@ -357,6 +357,53 @@
                         </div>
                     </div>
 
+                    <!-- Variants Section -->
+                    <div class="border-t border-gray-100 pt-4 dark:border-gray-800">
+                        <label class="flex items-center gap-2.5 cursor-pointer">
+                            <input type="checkbox" x-model="draft.hasVariants" class="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500/20" />
+                            <span class="text-sm font-medium text-gray-700 dark:text-gray-400">Aktifkan Varian Produk (seperti ukuran, rasa, atau tipe)</span>
+                        </label>
+
+                        <div x-show="draft.hasVariants" class="mt-4 space-y-4 rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-gray-800 dark:bg-gray-950/20">
+                            <div class="flex items-center justify-between">
+                                <h4 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Daftar Varian</h4>
+                                <button type="button" @click="addDraftVariant()" class="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-gray-900 px-3 text-xs font-semibold text-white shadow-theme-xs transition hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-white/90">
+                                    + Tambah Varian
+                                </button>
+                            </div>
+
+                            <div class="space-y-3">
+                                <template x-for="(v, index) in draft.variants" :key="index">
+                                    <div class="grid grid-cols-1 gap-3 rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900 sm:grid-cols-5 items-end">
+                                        <div class="sm:col-span-2">
+                                            <label class="mb-1 block text-[11px] font-medium text-gray-500">Nama Varian (misal: Large)</label>
+                                            <input type="text" x-model="v.name" placeholder="Nama opsi" required
+                                                class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                        </div>
+                                        <div>
+                                            <label class="mb-1 block text-[11px] font-medium text-gray-500">Harga Jual</label>
+                                            <input type="number" x-model="v.sellPrice" placeholder="0" required
+                                                class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                        </div>
+                                        <div>
+                                            <label class="mb-1 block text-[11px] font-medium text-gray-500">Stok Awal</label>
+                                            <input type="number" x-model="v.stock" placeholder="0"
+                                                class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                        </div>
+                                        <div class="flex justify-end">
+                                            <button type="button" @click="removeDraftVariant(index)" class="inline-flex h-9 w-full items-center justify-center rounded-lg border border-error-200 bg-error-50 text-xs font-semibold text-error-600 transition hover:bg-error-100 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400">
+                                                Hapus
+                                            </button>
+                                        </div>
+                                    </div>
+                                </template>
+                                <div x-show="draft.variants.length === 0" class="text-center py-4 text-xs text-gray-400">
+                                    Belum ada varian ditambahkan. Klik tombol di atas untuk menambah varian.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
                     <div>
                         <label for="new_product_description" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                             Deskripsi
@@ -478,6 +525,53 @@
                             </label>
                             <input id="edit_product_min_stock" type="number" min="0" x-model="editDraft.minStock"
                                 class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800" />
+                        </div>
+                    </div>
+
+                    <!-- Variants Section -->
+                    <div class="border-t border-gray-100 pt-4 dark:border-gray-800">
+                        <label class="flex items-center gap-2.5 cursor-pointer">
+                            <input type="checkbox" x-model="editDraft.hasVariants" class="h-4 w-4 rounded border-gray-300 text-brand-600 focus:ring-brand-500/20" />
+                            <span class="text-sm font-medium text-gray-700 dark:text-gray-400">Aktifkan Varian Produk (seperti ukuran, rasa, atau tipe)</span>
+                        </label>
+
+                        <div x-show="editDraft.hasVariants" class="mt-4 space-y-4 rounded-xl border border-gray-100 bg-gray-50/50 p-4 dark:border-gray-800 dark:bg-gray-950/20">
+                            <div class="flex items-center justify-between">
+                                <h4 class="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Daftar Varian</h4>
+                                <button type="button" @click="addEditDraftVariant()" class="inline-flex h-8 items-center justify-center gap-1.5 rounded-lg bg-gray-900 px-3 text-xs font-semibold text-white shadow-theme-xs transition hover:bg-gray-800 dark:bg-white dark:text-gray-900 dark:hover:bg-white/90">
+                                    + Tambah Varian
+                                </button>
+                            </div>
+
+                            <div class="space-y-3">
+                                <template x-for="(v, index) in editDraft.variants" :key="index">
+                                    <div class="grid grid-cols-1 gap-3 rounded-lg border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-gray-900 sm:grid-cols-5 items-end">
+                                        <div class="sm:col-span-2">
+                                            <label class="mb-1 block text-[11px] font-medium text-gray-500">Nama Varian (misal: Large)</label>
+                                            <input type="text" x-model="v.name" placeholder="Nama opsi" required
+                                                class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                        </div>
+                                        <div>
+                                            <label class="mb-1 block text-[11px] font-medium text-gray-500">Harga Jual</label>
+                                            <input type="number" x-model="v.sellPrice" placeholder="0" required
+                                                class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                        </div>
+                                        <div>
+                                            <label class="mb-1 block text-[11px] font-medium text-gray-500">Stok Awal</label>
+                                            <input type="number" x-model="v.stock" placeholder="0"
+                                                class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                        </div>
+                                        <div class="flex justify-end">
+                                            <button type="button" @click="removeEditDraftVariant(index)" class="inline-flex h-9 w-full items-center justify-center rounded-lg border border-error-200 bg-error-50 text-xs font-semibold text-error-600 transition hover:bg-error-100 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-400">
+                                                Hapus
+                                            </button>
+                                        </div>
+                                    </div>
+                                </template>
+                                <div x-show="editDraft.variants.length === 0" class="text-center py-4 text-xs text-gray-400">
+                                    Belum ada varian ditambahkan. Klik tombol di atas untuk menambah varian.
+                                </div>
+                            </div>
                         </div>
                     </div>
 

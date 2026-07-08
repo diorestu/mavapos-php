@@ -651,6 +651,8 @@ Alpine.data('productManager', (initialProducts = [], initialCategories = [], ini
         stock: '',
         minStock: '',
         description: '',
+        hasVariants: false,
+        variants: [],
     },
     editDraft: {
         name: '',
@@ -662,6 +664,8 @@ Alpine.data('productManager', (initialProducts = [], initialCategories = [], ini
         stock: '',
         minStock: '',
         description: '',
+        hasVariants: false,
+        variants: [],
     },
 
     get filteredProducts() {
@@ -778,6 +782,8 @@ Alpine.data('productManager', (initialProducts = [], initialCategories = [], ini
             stock: '',
             minStock: '',
             description: '',
+            hasVariants: false,
+            variants: [],
         };
     },
 
@@ -794,7 +800,39 @@ Alpine.data('productManager', (initialProducts = [], initialCategories = [], ini
             stock: '',
             minStock: '',
             description: '',
+            hasVariants: false,
+            variants: [],
         };
+    },
+
+    addDraftVariant() {
+        this.draft.variants.push({
+            name: '',
+            sku: '',
+            sellPrice: '',
+            buyPrice: '',
+            stock: 0,
+            minStock: 0,
+        });
+    },
+
+    removeDraftVariant(index) {
+        this.draft.variants.splice(index, 1);
+    },
+
+    addEditDraftVariant() {
+        this.editDraft.variants.push({
+            name: '',
+            sku: '',
+            sellPrice: '',
+            buyPrice: '',
+            stock: 0,
+            minStock: 0,
+        });
+    },
+
+    removeEditDraftVariant(index) {
+        this.editDraft.variants.splice(index, 1);
     },
 
     openCreateModal() {
@@ -810,6 +848,16 @@ Alpine.data('productManager', (initialProducts = [], initialCategories = [], ini
     openEditModal(product) {
         this.editFormError = '';
         this.editingProductSku = product.sku;
+        
+        const mappedVariants = (product.variants || []).map((v) => ({
+            name: v.name || '',
+            sku: v.sku || '',
+            sellPrice: String(v.sell_price || ''),
+            buyPrice: String(v.buy_price || ''),
+            stock: v.stock ?? '',
+            minStock: v.min_stock ?? '',
+        }));
+
         this.editDraft = {
             name: product.name || '',
             sku: product.sku || '',
@@ -820,6 +868,8 @@ Alpine.data('productManager', (initialProducts = [], initialCategories = [], ini
             stock: product.stock ?? '',
             minStock: product.minStock ?? '',
             description: product.description || '',
+            hasVariants: mappedVariants.length > 0,
+            variants: mappedVariants,
         };
         this.editProductModal = true;
     },
