@@ -2048,34 +2048,34 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                         body {
                             width: ${paperWidth};
                             margin: 0 auto;
-                            padding: 10mm 6mm;
+                            padding: 4mm 2mm;
                             color: #111827;
                             font-family: Arial, Helvetica, sans-serif;
                             font-size: ${typography.body}px;
-                            line-height: 1.36;
+                            line-height: 1.32;
                         }
-                        h1 { margin: 0; font-size: ${typography.heading}px; font-weight: 700; line-height: 1.2; text-align: center; }
+                        h1 { margin: 0; font-size: ${typography.heading}px; font-weight: 700; line-height: 1.18; text-align: center; }
                         .muted { color: #6b7280; }
                         .center { text-align: center; }
-                        .store-line { margin: 2px 0 0; font-size: ${typography.small}px; }
-                        .section-title { margin: 10px 0 6px; font-size: ${typography.small}px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; text-align: center; color: #374151; }
-                        .meta { margin-top: 8px; border-top: 1.5px solid #d1d5db; padding-top: 8px; }
-                        .meta .row { padding: 2px 0; }
+                        .store-line { margin: 1px 0 0; font-size: ${typography.small}px; }
+                        .section-title { margin: 6px 0 4px; font-size: ${typography.small}px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; text-align: center; color: #374151; }
+                        .meta { margin-top: 6px; border-top: 1px dashed #9ca3af; padding-top: 4px; }
+                        .meta .row { padding: 1.5px 0; }
                         .meta .row span:first-child { color: #6b7280; }
                         .meta .row span:last-child, .meta .row strong:last-child { font-weight: 500; }
                         .row, .totals div { display: flex; justify-content: space-between; gap: 8px; }
                         .row span:last-child, .row strong:last-child, .totals span:last-child { text-align: right; }
-                        .items { margin-top: 10px; border-top: 1.5px solid #d1d5db; }
-                        .item-row { padding: 7px 0; border-bottom: 1px dotted #e5e7eb; }
+                        .items { margin-top: 6px; border-top: 1px dashed #9ca3af; }
+                        .item-row { padding: 4px 0; border-bottom: 1px dotted #e5e7eb; }
                         .item-main { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; font-size: ${typography.item}px; line-height: 1.28; }
                         .item-name { min-width: 0; flex: 1 1 auto; text-align: left; overflow-wrap: anywhere; font-weight: 700; }
                         .item-total { flex: 0 0 auto; text-align: right; white-space: nowrap; font-weight: 700; }
-                        .item-meta { margin-top: 4px; display: flex; justify-content: space-between; gap: 8px; color: #4b5563; font-size: ${typography.meta}px; line-height: 1.3; }
+                        .item-meta { margin-top: 2px; display: flex; justify-content: space-between; gap: 8px; color: #4b5563; font-size: ${typography.meta}px; line-height: 1.25; }
                         .item-meta span:last-child { text-align: right; }
                         strong, span { display: block; }
-                        .totals { margin-top: 10px; border-top: 2px solid #111827; border-bottom: 2px solid #111827; padding: 8px 0; }
-                        .grand { margin: 8px 0 4px; padding: 5px 8px; font-size: ${typography.total}px; font-weight: 700; background: #f9fafb; border-radius: 4px; letter-spacing: 0.02em; }
-                        .footer { margin-top: 12px; border-top: 1px solid #d1d5db; padding-top: 8px; text-align: center; font-style: italic; color: #6b7280; }
+                        .totals { margin-top: 6px; border-top: 1px solid #111827; border-bottom: 1px solid #111827; padding: 4px 0; }
+                        .grand { margin: 4px 0 2px; padding: 2px 0; font-size: ${typography.total}px; font-weight: 700; letter-spacing: 0.02em; }
+                        .footer { margin-top: 8px; border-top: 1px dashed #9ca3af; padding-top: 6px; text-align: center; font-style: italic; color: #6b7280; }
                         @page { margin: 0; size: ${paperWidth} auto; }
                     </style>
                 </head>
@@ -2256,7 +2256,6 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                 .forEach((line) => commands.push([`${line}\n`, 12]));
 
             commands.push(
-                ['\n', 12],
                 [`${this.receiptDivider(paperCharacters, 'double')}\n`, 12],
                 ['', 7, textSize],
                 ['', 6, 0],
@@ -2299,7 +2298,6 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
             commands.push(
                 [`${this.receiptDivider(paperCharacters, 'double')}\n`, 12],
-                ['\n', 12],
                 ['', 9, 1],
                 ['', 6, 1],
                 ['', 7, 32],
@@ -2307,10 +2305,8 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                 ['', 7, 24],
                 ['', 6, 0],
                 ['', 9, 0],
-                ['\n', 12],
                 this.iminColumnsCommand(['Dibayar', this.formatRupiah(receipt.paid_amount)], [0.55, 0.45], [0, 2], textSize),
                 this.iminColumnsCommand(['Kembali', this.formatRupiah(receipt.change_amount)], [0.55, 0.45], [0, 2], textSize),
-                ['\n', 12],
                 ['', 9, 1],
                 ['', 6, 1],
             );
