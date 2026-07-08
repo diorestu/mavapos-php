@@ -209,19 +209,30 @@ Alpine.data('bluetoothPrinterTest', () => ({
     isBusy: false,
     logs: [],
     receiptText: [
-        'MAVAPOS',
-        'Jl. Contoh No. 10',
-        '------------------------------',
-        'TEST PRINT WEB BLUETOOTH',
+        '            MAVAPOS             ',
+        '       Jl. Contoh No. 10        ',
+        '================================',
+        '    TEST PRINT WEB BLUETOOTH    ',
+        '================================',
+        'No Nota : INV/2026/0001',
         'Tanggal : ' + new Date().toLocaleString('id-ID'),
         'Kasir   : Test User',
-        '------------------------------',
-        'Kopi Susu Aren      Rp18.000',
-        'Roti Bakar          Rp15.000',
-        '------------------------------',
-        'TOTAL               Rp33.000',
-        '',
-        'Terima kasih',
+        'Bayar   : Tunai',
+        '--------------------------------',
+        'Kopi Susu Aren          Rp18.000',
+        '  1 x Rp18.000',
+        'Roti Bakar              Rp15.000',
+        '  1 x Rp15.000',
+        '--------------------------------',
+        'Subtotal                Rp33.000',
+        'Diskon                  -Rp5.000',
+        '================================',
+        'TOTAL                   Rp28.000',
+        'Dibayar                 Rp30.000',
+        'Kembali                  Rp2.000',
+        '================================',
+        '      Terima kasih atas         ',
+        '        Kunjungan Anda          ',
     ].join('\n'),
 
     get isSupported() {
@@ -365,17 +376,28 @@ Alpine.data('iminPrinterTest', () => ({
     isBusy: false,
     logs: [],
     receiptText: [
-        'MAVAPOS',
-        'TEST PRINT IMIN INNERPRINTER',
+        '            MAVAPOS             ',
+        '  TEST PRINT IMIN INNERPRINTER  ',
+        '================================',
+        'No Nota : INV/2026/0001',
         'Tanggal : ' + new Date().toLocaleString('id-ID'),
         'Kasir   : Test User',
-        '------------------------------',
-        'Kopi Susu Aren      Rp18.000',
-        'Roti Bakar          Rp15.000',
-        '------------------------------',
-        'TOTAL               Rp33.000',
-        '',
-        'Terima kasih',
+        'Bayar   : Tunai',
+        '--------------------------------',
+        'Kopi Susu Aren          Rp18.000',
+        '  1 x Rp18.000',
+        'Roti Bakar              Rp15.000',
+        '  1 x Rp15.000',
+        '--------------------------------',
+        'Subtotal                Rp33.000',
+        'Diskon                  -Rp5.000',
+        '================================',
+        'TOTAL                   Rp28.000',
+        'Dibayar                 Rp30.000',
+        'Kembali                  Rp2.000',
+        '================================',
+        '      Terima kasih atas         ',
+        '        Kunjungan Anda          ',
     ].join('\n'),
 
     get endpoint() {
@@ -2238,7 +2260,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
             commands.push(
                 [`Bayar   : ${this.paymentLabel(receipt.payment_method)}\n`, 12],
-                [`${this.receiptDivider(paperCharacters, 'double')}\n`, 12],
+                [`${this.receiptDivider(paperCharacters, 'single')}\n`, 12],
             );
 
             (receipt.items || []).forEach((item) => {
@@ -2253,6 +2275,17 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                     12,
                 ]);
             });
+
+            commands.push(
+                [`${this.receiptDivider(paperCharacters, 'single')}\n`, 12],
+                this.iminColumnsCommand(['Subtotal', this.formatRupiah(receipt.subtotal)], [0.55, 0.45], [0, 2], textSize)
+            );
+
+            if (Number(receipt.discount || 0) > 0) {
+                commands.push(
+                    this.iminColumnsCommand(['Diskon', `-${this.formatRupiah(receipt.discount)}`], [0.55, 0.45], [0, 2], textSize)
+                );
+            }
 
             commands.push(
                 [`${this.receiptDivider(paperCharacters, 'double')}\n`, 12],
@@ -2415,9 +2448,9 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
     receiptDivider(length, style = 'single') {
         const chars = {
-            single: '\u2500',
-            double: '\u2550',
-            dotted: '\u2504',
+            single: '-',
+            double: '=',
+            dotted: '-',
         };
 
         return (chars[style] || chars.single).repeat(length);
