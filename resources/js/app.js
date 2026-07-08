@@ -2024,8 +2024,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                     <strong class="item-name">${this.escapeHtml(item.name)}</strong>
                     <strong class="item-total">${this.formatRupiah(item.line_total)}</strong>
                 </div>
-                <div class="item-meta">
-                    <span>${this.escapeHtml(item.sku || '-')}</span>
+                <div class="item-meta" style="justify-content: flex-end;">
                     <span>${Number(item.quantity || 0)} x ${this.formatRupiah(item.unit_price)}</span>
                 </div>
             </div>
@@ -2279,10 +2278,12 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                     [0, 2],
                     textSize,
                 ));
-                commands.push([
-                    `  ${Number(item.quantity || 0)} x ${this.formatRupiah(item.unit_price)}${item.sku ? ` · ${item.sku}` : ''}\n`,
-                    12,
-                ]);
+                commands.push(this.iminColumnsCommand(
+                    ['', `${Number(item.quantity || 0)} x ${this.formatRupiah(item.unit_price)}`],
+                    [0.3, 0.7],
+                    [0, 2],
+                    textSize,
+                ));
             });
 
             commands.push(
@@ -2481,7 +2482,6 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         const total = this.formatRupiah(item.line_total);
         const quantity = Number(item.quantity || 0);
         const unitPrice = this.formatRupiah(item.unit_price);
-        const meta = `  ${quantity} x ${unitPrice}`;
         const maxNameLength = Math.max(12, length - total.length - 1);
         const nameLines = this.wrapReceiptText(item.name || '-', maxNameLength);
         const firstName = nameLines.shift() || '-';
@@ -2495,7 +2495,9 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         }
 
         nameLines.forEach((line) => lines.push(line));
-        lines.push(meta.length <= length ? meta : this.wrapReceiptText(meta.trim(), length).join('\n'));
+        
+        const rightMeta = this.rightAlignReceiptText(`${quantity} x ${unitPrice}`, length);
+        lines.push(rightMeta);
 
         return lines.flatMap((line) => String(line).split('\n'));
     },
