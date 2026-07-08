@@ -2001,6 +2001,13 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         const storeTagline = store.tagline || '';
         const storeAddress = store.address || '';
         const storeInstagram = store.instagram || '';
+        const showLogo = receiptOptions.show_logo !== false;
+        const logoHtml = (showLogo && store.logo_url)
+            ? `<div class="center" style="margin-bottom: 12px;"><img src="${this.escapeHtml(store.logo_url)}" style="max-height: 44px; max-width: 140px; object-fit: contain;" /></div>`
+            : '';
+        const discountHtml = Number(receipt.discount || 0) > 0
+            ? `<div><span>Diskon</span><span>-${this.formatRupiah(receipt.discount)}</span></div>`
+            : '';
         const typography = this.receiptTypography();
         const storeMetaHtml = [
             storeTagline,
@@ -2047,7 +2054,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                             font-size: ${typography.body}px;
                             line-height: 1.36;
                         }
-                        h1 { margin: 0; font-size: ${typography.heading}px; line-height: 1.2; text-align: center; }
+                        h1 { margin: 0; font-size: ${typography.heading}px; font-weight: 700; line-height: 1.2; text-align: center; }
                         .muted { color: #6b7280; }
                         .center { text-align: center; }
                         .store-line { margin: 2px 0 0; font-size: ${typography.small}px; }
@@ -2073,6 +2080,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                     </style>
                 </head>
                 <body>
+                    ${logoHtml}
                     <h1>${this.escapeHtml(storeName)}</h1>
                     ${storeMetaHtml}
                     <div class="meta">
@@ -2083,6 +2091,8 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                     </div>
                     <div class="items">${itemRows}</div>
                     <div class="totals">
+                        <div><span>Subtotal</span><span>${this.formatRupiah(receipt.subtotal)}</span></div>
+                        ${discountHtml}
                         <div class="grand"><span>Total</span><span>${this.formatRupiah(receipt.total)}</span></div>
                         <div><span>Dibayar</span><span>${this.formatRupiah(receipt.paid_amount)}</span></div>
                         <div><span>Kembali</span><span>${this.formatRupiah(receipt.change_amount)}</span></div>
