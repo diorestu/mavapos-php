@@ -361,6 +361,7 @@ Alpine.data('iminPrinterTest', () => ({
     host: '127.0.0.1',
     port: 8081,
     socket: null,
+    statusResolver: null,
     isBusy: false,
     logs: [],
     receiptText: [
@@ -408,8 +409,8 @@ Alpine.data('iminPrinterTest', () => ({
             this.socket = await this.openSocket();
             this.socket.onclose = () => this.log('Koneksi IMIN terputus.');
             this.socket.onerror = () => this.log('Koneksi IMIN error.');
-            this.sendCommand('SPI', 1);
-            this.log('IMIN InnerPrinter siap menerima test print.');
+            this.socket.onmessage = (event) => this.handleMessage(event);
+            await this.initializePrinter();
             notify('IMIN InnerPrinter terhubung.');
         } catch (error) {
             this.socket = null;
@@ -452,6 +453,7 @@ Alpine.data('iminPrinterTest', () => ({
         }
 
         this.socket = null;
+        this.statusResolver = null;
 
         if (showLog) {
             this.log('Koneksi IMIN diputuskan.');
@@ -467,18 +469,25 @@ Alpine.data('iminPrinterTest', () => ({
         this.isBusy = true;
 
         try {
-            this.sendCommand('', 6, 1);
-            this.sendCommand('', 7, 28);
-            this.sendCommand('', 9, 1);
-            this.sendCommand('MAVAPOS\n', 12);
-            this.sendCommand('', 6, 0);
-            this.sendCommand('', 7, 24);
-            this.sendCommand('', 9, 0);
-            this.receiptText.split('\n').forEach((line) => {
-                this.sendCommand(`${line}\n`, 12);
-            });
-            this.sendCommand('', 4, 120);
-            this.sendCommand('', 5);
+            await this.initializePrinter();
+            const status = await this.getPrinterStatus();
+
+            if (Number(status.value) !== 0) {
+                throw new Error(`Status printer tidak normal: ${status.text || status.value}`);
+            }
+
+            await this.sendCommands([
+                ['', 6, 1],
+                ['', 7, 28],
+                ['', 9, 1],
+                ['MAVAPOS\n', 12],
+                ['', 6, 0],
+                ['', 7, 24],
+                ['', 9, 0],
+                ...this.receiptText.split('\n').map((line) => [`${line}\n`, 12]),
+                ['', 4, 120],
+                ['', 5],
+            ]);
             this.log('Test print IMIN dikirim.');
             notify('Test print IMIN dikirim.');
         } catch (error) {
@@ -486,6 +495,71 @@ Alpine.data('iminPrinterTest', () => ({
             notify(error.message || 'Test print IMIN gagal.', 'error');
         } finally {
             this.isBusy = false;
+        }
+    },
+
+    async initializePrinter() {
+        this.sendCommand('SPI', 1);
+        await this.sleep(250);
+        const status = await this.getPrinterStatus();
+
+        if (Number(status.value) === 0) {
+            this.log('IMIN InnerPrinter siap menerima test print.');
+            return;
+        }
+
+        this.log(`Status IMIN: ${status.text || status.value}`);
+    },
+
+    getPrinterStatus() {
+        return new Promise((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                this.statusResolver = null;
+                reject(new Error('Tidak ada balasan status dari IMIN InnerPrinter.'));
+            }, 5000);
+
+            this.statusResolver = (data) => {
+                clearTimeout(timeout);
+                this.statusResolver = null;
+                resolve({
+                    ...data.data,
+                    text: this.printerStatusText(data.data?.value),
+                });
+            };
+
+            this.sendCommand('SPI', 2);
+        });
+    },
+
+    handleMessage(event) {
+        if (event.data === 'request') {
+            this.sendCommand('ping');
+            return;
+        }
+
+        let data = null;
+
+        try {
+            data = JSON.parse(event.data);
+        } catch (error) {
+            this.log(`Balasan IMIN tidak valid: ${event.data}`);
+            return;
+        }
+
+        if (data?.data?.text === 'ping') {
+            this.sendCommand('ping');
+            return;
+        }
+
+        if (data?.type === 2 && this.statusResolver) {
+            this.statusResolver(data);
+        }
+    },
+
+    async sendCommands(commands) {
+        for (const command of commands) {
+            this.sendCommand(...command);
+            await this.sleep(60);
         }
     },
 
@@ -503,6 +577,27 @@ Alpine.data('iminPrinterTest', () => ({
             },
             type,
         }));
+    },
+
+    printerStatusText(value) {
+        switch (String(value)) {
+            case '0':
+                return 'Normal';
+            case '3':
+                return 'Head printer terbuka';
+            case '7':
+                return 'Kertas habis';
+            case '8':
+                return 'Kertas hampir habis';
+            case '99':
+                return 'Printer error';
+            default:
+                return 'Printer tidak terhubung atau belum menyala';
+        }
+    },
+
+    sleep(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
     },
 }));
 
