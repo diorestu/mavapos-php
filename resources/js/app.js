@@ -1991,14 +1991,16 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             : '';
         const footerNote = receiptOptions.footer_note || 'Terima kasih atas kunjungan Anda.';
         const itemRows = (receipt.items || []).map((item) => `
-            <tr>
-                <td>
-                    <strong>${this.escapeHtml(item.name)}</strong>
+            <div class="item-row">
+                <div class="item-main">
+                    <strong class="item-name">${this.escapeHtml(item.name)}</strong>
+                    <strong class="item-total">${this.formatRupiah(item.line_total)}</strong>
+                </div>
+                <div class="item-meta">
                     <span>${this.escapeHtml(item.sku || '-')}</span>
                     <span>${Number(item.quantity || 0)} x ${this.formatRupiah(item.unit_price)}</span>
-                </td>
-                <td>${this.formatRupiah(item.line_total)}</td>
-            </tr>
+                </div>
+            </div>
         `).join('');
         const printWindow = window.open('', 'mava_receipt_print', 'width=420,height=640');
 
@@ -2021,28 +2023,31 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                             padding: 10mm 6mm;
                             color: #111827;
                             font-family: Arial, Helvetica, sans-serif;
-                            font-size: 12px;
-                            line-height: 1.35;
+                            font-size: 10.8px;
+                            line-height: 1.32;
                         }
-                        h1 { margin: 0; font-size: 16px; text-align: center; }
+                        h1 { margin: 0; font-size: 14.4px; line-height: 1.2; text-align: center; }
                         .logo {
                             display: block;
-                            max-width: 44mm;
-                            max-height: 18mm;
+                            max-width: 38mm;
+                            max-height: 16mm;
                             object-fit: contain;
-                            margin: 0 auto 6px;
+                            margin: 0 auto 5px;
                         }
                         .muted { color: #6b7280; }
                         .center { text-align: center; }
-                        .store-line { margin: 2px 0 0; font-size: 11px; }
-                        .meta, .totals { margin-top: 10px; border-top: 1px dashed #9ca3af; padding-top: 8px; }
+                        .store-line { margin: 1px 0 0; font-size: 9.9px; }
+                        .meta, .totals { margin-top: 8px; border-top: 1px dashed #9ca3af; padding-top: 6px; }
                         .row, .totals div { display: flex; justify-content: space-between; gap: 8px; }
-                        table { width: 100%; margin-top: 10px; border-collapse: collapse; border-top: 1px dashed #9ca3af; }
-                        td { padding: 7px 0; vertical-align: top; border-bottom: 1px dashed #d1d5db; }
-                        td:last-child { width: 34%; text-align: right; font-weight: 700; }
+                        .items { margin-top: 8px; border-top: 1px dashed #9ca3af; }
+                        .item-row { padding: 5px 0; border-bottom: 1px dashed #d1d5db; }
+                        .item-main { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+                        .item-name { min-width: 0; text-align: left; overflow-wrap: anywhere; }
+                        .item-total { flex: 0 0 auto; text-align: right; white-space: nowrap; }
+                        .item-meta { margin-top: 2px; display: flex; justify-content: space-between; gap: 8px; color: #6b7280; font-size: 9.9px; }
                         strong, span { display: block; }
-                        .grand { margin-top: 6px; font-size: 14px; font-weight: 700; }
-                        .footer { margin-top: 12px; border-top: 1px dashed #9ca3af; padding-top: 8px; text-align: center; }
+                        .grand { margin-top: 5px; font-size: 12.6px; font-weight: 700; }
+                        .footer { margin-top: 10px; border-top: 1px dashed #9ca3af; padding-top: 6px; text-align: center; }
                         @page { margin: 0; size: ${paperWidth} auto; }
                     </style>
                 </head>
@@ -2057,7 +2062,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                         ${cashierHtml}
                         <div class="row"><span>Pembayaran</span><span>${this.escapeHtml(this.paymentLabel(receipt.payment_method))}</span></div>
                     </div>
-                    <table>${itemRows}</table>
+                    <div class="items">${itemRows}</div>
                     <div class="totals">
                         <div><span>Subtotal</span><span>${this.formatRupiah(receipt.subtotal)}</span></div>
                         <div><span>Diskon</span><span>${this.formatRupiah(receipt.discount)}</span></div>
@@ -2138,9 +2143,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         lines.push(this.receiptDivider(width));
 
         (receipt.items || []).forEach((item) => {
-            this.wrapReceiptText(item.name || '-', width).forEach((line) => lines.push(line));
-            lines.push(`${Number(item.quantity || 0)} x ${this.formatRupiah(item.unit_price)}`);
-            lines.push(this.rightAlignReceiptText(this.formatRupiah(item.line_total), width));
+            this.receiptLineItem(item, width).forEach((line) => lines.push(line));
         });
 
         lines.push(this.receiptDivider(width));
@@ -2189,6 +2192,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         const storeAddress = store.address || '';
         const storePhone = store.phone || '';
         const footerNote = receiptOptions.footer_note || 'Terima kasih atas kunjungan Anda.';
+        const textSize = this.receiptTextSize();
 
         try {
             this.sendIminCommand(socket, 'SPI', 1);
@@ -2197,6 +2201,14 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
             if (Number(status.value) !== 0) {
                 throw new Error(`Status IMIN tidak normal: ${status.text}`);
+            }
+
+            if (receiptOptions.show_logo !== false && store.logo_url) {
+                try {
+                    await this.printIminLogo(socket, store.logo_url);
+                } catch (error) {
+                    console.warn('Logo receipt IMIN gagal dicetak.', error);
+                }
             }
 
             const commands = [
@@ -2217,6 +2229,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             commands.push(
                 ['Nota Penjualan\n', 12],
                 ['', 6, 0],
+                ['', 7, textSize],
                 [`${this.receiptDivider(paperCharacters)}\n`, 12],
                 [`No Nota: ${receipt.invoice_number || '-'}\n`, 12],
                 [`Tanggal : ${receipt.sold_at || '-'}\n`, 12],
@@ -2232,13 +2245,9 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             );
 
             (receipt.items || []).forEach((item) => {
-                this.wrapReceiptText(item.name || '-', paperCharacters).forEach((line) => {
+                this.receiptLineItem(item, paperCharacters).forEach((line) => {
                     commands.push([`${line}\n`, 12]);
                 });
-                commands.push(
-                    [`${Number(item.quantity || 0)} x ${this.formatRupiah(item.unit_price)}\n`, 12],
-                    [`${this.rightAlignReceiptText(this.formatRupiah(item.line_total), paperCharacters)}\n`, 12],
-                );
             });
 
             commands.push(
@@ -2263,6 +2272,60 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         } finally {
             setTimeout(() => socket.close(), 250);
         }
+    },
+
+    async printIminLogo(socket, logoUrl) {
+        const blob = await this.receiptLogoBlob(logoUrl);
+        const formData = new FormData();
+
+        formData.append('file', blob, 'receipt-logo.png');
+
+        const response = await fetch('http://127.0.0.1:8081/upload', {
+            method: 'POST',
+            body: formData,
+        });
+
+        if (!response.ok || !(await response.text())) {
+            throw new Error('Service IMIN tidak menerima file logo.');
+        }
+
+        this.sendIminCommand(socket, '', 27, 1);
+        await this.sleep(180);
+    },
+
+    receiptLogoBlob(logoUrl) {
+        return new Promise((resolve, reject) => {
+            const image = new Image();
+            const source = String(logoUrl || '');
+            const isAbsolute = /^https?:\/\//i.test(source);
+            const resolvedSource = isAbsolute ? source : `${window.location.origin}${source}`;
+
+            if (isAbsolute && !resolvedSource.startsWith(window.location.origin)) {
+                image.crossOrigin = 'anonymous';
+            }
+
+            image.onload = () => {
+                const maxWidth = 240;
+                const maxHeight = 96;
+                const ratio = Math.min(maxWidth / image.width, maxHeight / image.height, 1);
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+
+                canvas.width = Math.max(1, Math.round(image.width * ratio));
+                canvas.height = Math.max(1, Math.round(image.height * ratio));
+                context.clearRect(0, 0, canvas.width, canvas.height);
+                context.drawImage(image, 0, 0, canvas.width, canvas.height);
+                canvas.toBlob((blob) => {
+                    if (blob) {
+                        resolve(blob);
+                    } else {
+                        reject(new Error('Logo tidak bisa dikonversi untuk IMIN.'));
+                    }
+                }, 'image/png');
+            };
+            image.onerror = () => reject(new Error('Logo receipt tidak bisa dimuat.'));
+            image.src = `${resolvedSource}${resolvedSource.includes('?') ? '&' : '?'}v=${Date.now()}`;
+        });
     },
 
     connectIminPrinter() {
@@ -2367,6 +2430,33 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
     receiptDivider(length) {
         return '-'.repeat(length);
+    },
+
+    receiptTextSize() {
+        return 11;
+    },
+
+    receiptLineItem(item, length) {
+        const total = this.formatRupiah(item.line_total);
+        const quantity = Number(item.quantity || 0);
+        const unitPrice = this.formatRupiah(item.unit_price);
+        const meta = `  ${quantity} x ${unitPrice}`;
+        const maxNameLength = Math.max(12, length - total.length - 1);
+        const nameLines = this.wrapReceiptText(item.name || '-', maxNameLength);
+        const firstName = nameLines.shift() || '-';
+        const lines = [];
+
+        if ((firstName.length + total.length + 1) <= length) {
+            lines.push(this.receiptKeyValue(firstName, total, length));
+        } else {
+            lines.push(firstName);
+            lines.push(this.rightAlignReceiptText(total, length));
+        }
+
+        nameLines.forEach((line) => lines.push(line));
+        lines.push(meta.length <= length ? meta : this.wrapReceiptText(meta.trim(), length).join('\n'));
+
+        return lines.flatMap((line) => String(line).split('\n'));
     },
 
     receiptKeyValue(key, value, length) {

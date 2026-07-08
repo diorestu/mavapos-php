@@ -1515,6 +1515,17 @@ test('payload checkout membawa pengaturan struk dan printer toko', function () {
         ->assertJsonPath('sale.printer.bluetooth_characteristic_uuid', 'char-test');
 });
 
+test('template print nota memakai typography kecil dan item rata kiri kanan', function () {
+    $script = file_get_contents(resource_path('js/app.js'));
+
+    expect($script)->toContain('font-size: 10.8px')
+        ->and($script)->toContain('font-size: 14.4px')
+        ->and($script)->toContain('class="item-name"')
+        ->and($script)->toContain('class="item-total"')
+        ->and($script)->toContain('receiptLineItem')
+        ->and($script)->toContain('store.logo_url');
+});
+
 test('owner dapat mengelola user dan role staf', function () {
     $owner = User::factory()->create([
         'role' => 'owner',
