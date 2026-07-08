@@ -227,7 +227,7 @@ Alpine.data('bluetoothPrinterTest', () => ({
         'Subtotal                Rp33.000',
         'Diskon                  -Rp5.000',
         '================================',
-        'TOTAL                   Rp28.000',
+        'TOTAL BAYAR             Rp28.000',
         'Dibayar                 Rp30.000',
         'Kembali                  Rp2.000',
         '================================',
@@ -392,7 +392,7 @@ Alpine.data('iminPrinterTest', () => ({
         'Subtotal                Rp33.000',
         'Diskon                  -Rp5.000',
         '================================',
-        'TOTAL                   Rp28.000',
+        'TOTAL BAYAR             Rp28.000',
         'Dibayar                 Rp30.000',
         'Kembali                  Rp2.000',
         '================================',
@@ -2092,7 +2092,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                     <div class="totals">
                         <div><span>Subtotal</span><span>${this.formatRupiah(receipt.subtotal)}</span></div>
                         ${discountHtml}
-                        <div class="grand"><span>Total</span><span>${this.formatRupiah(receipt.total)}</span></div>
+                        <div class="grand"><span>Total Bayar</span><span>${this.formatRupiah(receipt.total)}</span></div>
                         <div><span>Dibayar</span><span>${this.formatRupiah(receipt.paid_amount)}</span></div>
                         <div><span>Kembali</span><span>${this.formatRupiah(receipt.change_amount)}</span></div>
                     </div>
@@ -2185,7 +2185,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
         lines.push(this.receiptDivider(width, 'double'));
         lines.push('');
-        lines.push(this.centerReceiptText(this.receiptKeyValue('TOTAL', this.formatRupiah(receipt.total), width), width));
+        lines.push(this.centerReceiptText(this.receiptKeyValue('TOTAL BAYAR', this.formatRupiah(receipt.total), width), width));
         lines.push('');
         lines.push(this.receiptKeyValue('Dibayar', this.formatRupiah(receipt.paid_amount), width));
         lines.push(this.receiptKeyValue('Kembali', this.formatRupiah(receipt.change_amount), width));
@@ -2302,7 +2302,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                 ['', 9, 1],
                 ['', 6, 1],
                 ['', 7, 32],
-                this.iminColumnsCommand(['TOTAL', this.formatRupiah(receipt.total)], [0.55, 0.45], [0, 2], textSize),
+                this.iminColumnsCommand(['TOTAL BAYAR', this.formatRupiah(receipt.total)], [0.55, 0.45], [0, 2], textSize),
                 ['', 7, 24],
                 ['', 6, 0],
                 ['', 9, 0],
