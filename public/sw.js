@@ -1,6 +1,6 @@
 "use strict";
 
-const CACHE_NAME = "offline-cache-v1";
+const CACHE_NAME = "offline-cache-v2";
 const OFFLINE_URL = '/offline.html';
 
 const filesToCache = [
