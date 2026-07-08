@@ -2048,10 +2048,10 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                         .row span:last-child, .row strong:last-child, .totals span:last-child { text-align: right; }
                         .items { margin-top: 9px; border-top: 1px dashed #9ca3af; }
                         .item-row { padding: 6px 0; border-bottom: 1px dashed #d1d5db; }
-                        .item-main { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
-                        .item-name { min-width: 0; flex: 1 1 auto; text-align: left; overflow-wrap: anywhere; }
-                        .item-total { flex: 0 0 auto; text-align: right; white-space: nowrap; }
-                        .item-meta { margin-top: 3px; display: flex; justify-content: space-between; gap: 8px; color: #6b7280; font-size: ${typography.small}px; }
+                        .item-main { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; font-size: ${typography.item}px; line-height: 1.28; }
+                        .item-name { min-width: 0; flex: 1 1 auto; text-align: left; overflow-wrap: anywhere; font-weight: 700; }
+                        .item-total { flex: 0 0 auto; text-align: right; white-space: nowrap; font-weight: 700; }
+                        .item-meta { margin-top: 4px; display: flex; justify-content: space-between; gap: 8px; color: #4b5563; font-size: ${typography.meta}px; line-height: 1.3; }
                         .item-meta span:last-child { text-align: right; }
                         strong, span { display: block; }
                         .grand { margin-top: 6px; font-size: ${typography.total}px; font-weight: 700; }
@@ -2460,10 +2460,12 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
     receiptTypography() {
         return {
-            body: 12.5,
-            heading: 16,
-            small: 11.25,
-            total: 14.5,
+            body: 14,
+            heading: 18,
+            small: 12.5,
+            item: 15,
+            meta: 13,
+            total: 16,
         };
     },
 
