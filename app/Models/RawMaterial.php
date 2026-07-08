@@ -5,9 +5,14 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+use App\Traits\TenantScoped;
+
 class RawMaterial extends Model
 {
+    use TenantScoped;
+
     protected $fillable = [
+        'user_id',
         'code',
         'name',
         'category',

@@ -5,8 +5,12 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
+use App\Traits\TenantScoped;
+
 class Branch extends Model
 {
+    use TenantScoped;
+
     protected $fillable = [
         'user_id',
         'name',
@@ -22,11 +26,6 @@ class Branch extends Model
             'is_active' => 'boolean',
             'user_id' => 'integer',
         ];
-    }
-
-    public function user(): \Illuminate\Database\Eloquent\Relations\BelongsTo
-    {
-        return $this->belongsTo(User::class);
     }
 
     public function cashierShifts(): HasMany

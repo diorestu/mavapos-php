@@ -4,9 +4,14 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 
+use App\Traits\TenantScoped;
+
 class StoreSetting extends Model
 {
+    use TenantScoped;
+
     protected $fillable = [
+        'user_id',
         'store_name',
         'tagline',
         'logo_path',
