@@ -276,7 +276,9 @@ class PosController extends Controller
                 'invoice_number' => $sale->invoice_number,
                 'store' => [
                     'name' => $setting->store_name,
+                    'tagline' => $setting->tagline,
                     'address' => $setting->address,
+                    'instagram' => $setting->instagram,
                     'phone' => $setting->phone,
                     'logo_url' => $setting->logo_path ? Storage::url($setting->logo_path) : null,
                 ],

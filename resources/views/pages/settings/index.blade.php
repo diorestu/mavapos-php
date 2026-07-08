@@ -150,21 +150,10 @@
                         </label>
 
                         <label class="block">
-                            <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Logo Bisnis</span>
-                            @if ($setting->logo_path)
-                                <div class="mb-2 flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-gray-800 dark:bg-gray-900/50">
-                                    <img src="{{ Storage::url($setting->logo_path) }}" alt="Logo {{ $setting->store_name }}"
-                                        class="h-12 w-12 rounded-md object-contain ring-1 ring-gray-200 dark:ring-gray-800" />
-                                    <div class="min-w-0">
-                                        <p class="text-xs font-semibold text-gray-800 dark:text-white/90">Logo aktif</p>
-                                        <p class="truncate text-[11px] text-gray-500 dark:text-gray-400">Akan tampil di struk nota cetak.</p>
-                                    </div>
-                                </div>
-                            @endif
-                            <input type="file" name="logo" accept=".svg,.png,image/svg+xml,image/png"
-                                class="h-11 w-full rounded-lg border border-gray-300 bg-transparent text-sm text-gray-800 file:mr-4 file:h-11 file:border-0 file:bg-gray-100 file:px-4 file:text-sm file:font-medium file:text-gray-700 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:file:bg-gray-800 dark:file:text-gray-300" />
-                            <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">SVG atau PNG, maksimal 2 MB.</p>
-                            @error('logo')
+                            <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Tagline</span>
+                            <input name="tagline" value="{{ old('tagline', $setting->tagline) }}"
+                                class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                            @error('tagline')
                                 <span class="mt-1 block text-xs text-error-500">{{ $message }}</span>
                             @enderror
                         </label>
@@ -179,13 +168,15 @@
                         </label>
 
                         <label class="block">
-                            <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Nomor Telepon</span>
-                            <input name="phone" value="{{ old('phone', $setting->phone) }}"
+                            <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Nama Akun Instagram</span>
+                            <input name="instagram" value="{{ old('instagram', $setting->instagram) }}" placeholder="@namaakun"
                                 class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
-                            @error('phone')
+                            @error('instagram')
                                 <span class="mt-1 block text-xs text-error-500">{{ $message }}</span>
                             @enderror
                         </label>
+
+                        <input type="hidden" name="phone" value="{{ old('phone', $setting->phone) }}">
 
                         <label class="block">
                             <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Email Bisnis</span>
@@ -233,7 +224,6 @@
                         <input type="hidden" name="owner_name" value="{{ old('owner_name', $setting->owner_name) }}">
                         <input type="hidden" name="whatsapp" value="{{ old('whatsapp', $setting->whatsapp) }}">
                         <input type="hidden" name="website" value="{{ old('website', $setting->website) }}">
-                        <input type="hidden" name="instagram" value="{{ old('instagram', $setting->instagram) }}">
                         <input type="hidden" name="facebook" value="{{ old('facebook', $setting->facebook) }}">
                         <input type="hidden" name="tiktok" value="{{ old('tiktok', $setting->tiktok) }}">
                         <input type="hidden" name="notes" value="{{ old('notes', $setting->notes) }}">
@@ -344,7 +334,6 @@
 
                         <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                             @foreach ([
-                                'receipt_show_logo' => 'Tampilkan Logo',
                                 'receipt_show_store_address' => 'Tampilkan Alamat',
                                 'receipt_show_cashier' => 'Tampilkan Kasir',
                                 'printer_auto_print' => 'Auto-print Setelah Checkout',

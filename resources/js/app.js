@@ -1972,22 +1972,19 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         }
 
         const paperWidth = receiptOptions.paper_width === '80' ? '80mm' : '58mm';
-        const showLogo = receiptOptions.show_logo !== false;
         const showStoreAddress = receiptOptions.show_store_address !== false;
         const showCashier = receiptOptions.show_cashier !== false;
         const store = receipt.store || {};
         const storeName = store.name || 'MavaPOS';
+        const storeTagline = store.tagline || '';
         const storeAddress = store.address || '';
-        const storePhone = store.phone || '';
-        const logoUrl = showLogo && store.logo_url ? this.receiptAssetUrl(store.logo_url) : '';
+        const storeInstagram = store.instagram || '';
         const typography = this.receiptTypography();
-        const logoHtml = logoUrl
-            ? `<div class="receipt-logo-wrap"><img class="logo" src="${this.escapeHtml(logoUrl)}" alt="${this.escapeHtml(storeName)}"></div>`
-            : '';
-        const storeMetaHtml = showStoreAddress ? [
-            storeAddress,
-            storePhone ? `Telp. ${storePhone}` : '',
-        ].filter(Boolean).map((line) => `<p class="center muted store-line">${this.escapeHtml(line)}</p>`).join('') : '';
+        const storeMetaHtml = [
+            storeTagline,
+            showStoreAddress ? storeAddress : '',
+            storeInstagram,
+        ].filter(Boolean).map((line) => `<p class="center muted store-line">${this.escapeHtml(line)}</p>`).join('');
         const cashierHtml = showCashier
             ? `<div class="row"><span>Kasir</span><span>${this.escapeHtml(receipt.cashier || '-')}</span></div>`
             : '';
@@ -2029,41 +2026,34 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                             line-height: 1.36;
                         }
                         h1 { margin: 0; font-size: ${typography.heading}px; line-height: 1.2; text-align: center; }
-                        .receipt-logo-wrap {
-                            display: flex;
-                            justify-content: center;
-                            margin-bottom: 7px;
-                        }
-                        .logo {
-                            display: block;
-                            max-width: 42mm;
-                            max-height: 18mm;
-                            object-fit: contain;
-                        }
                         .muted { color: #6b7280; }
                         .center { text-align: center; }
                         .store-line { margin: 2px 0 0; font-size: ${typography.small}px; }
-                        .meta, .totals { margin-top: 9px; border-top: 1px dashed #9ca3af; padding-top: 7px; }
+                        .section-title { margin: 10px 0 6px; font-size: ${typography.small}px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; text-align: center; color: #374151; }
+                        .meta { margin-top: 8px; border-top: 1.5px solid #d1d5db; padding-top: 8px; }
+                        .meta .row { padding: 2px 0; }
+                        .meta .row span:first-child { color: #6b7280; }
+                        .meta .row span:last-child, .meta .row strong:last-child { font-weight: 500; }
                         .row, .totals div { display: flex; justify-content: space-between; gap: 8px; }
                         .row span:last-child, .row strong:last-child, .totals span:last-child { text-align: right; }
-                        .items { margin-top: 9px; border-top: 1px dashed #9ca3af; }
-                        .item-row { padding: 6px 0; border-bottom: 1px dashed #d1d5db; }
+                        .items { margin-top: 10px; border-top: 1.5px solid #d1d5db; }
+                        .item-row { padding: 7px 0; border-bottom: 1px dotted #e5e7eb; }
                         .item-main { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; font-size: ${typography.item}px; line-height: 1.28; }
                         .item-name { min-width: 0; flex: 1 1 auto; text-align: left; overflow-wrap: anywhere; font-weight: 700; }
                         .item-total { flex: 0 0 auto; text-align: right; white-space: nowrap; font-weight: 700; }
                         .item-meta { margin-top: 4px; display: flex; justify-content: space-between; gap: 8px; color: #4b5563; font-size: ${typography.meta}px; line-height: 1.3; }
                         .item-meta span:last-child { text-align: right; }
                         strong, span { display: block; }
-                        .grand { margin-top: 6px; font-size: ${typography.total}px; font-weight: 700; }
-                        .footer { margin-top: 11px; border-top: 1px dashed #9ca3af; padding-top: 7px; text-align: center; }
+                        .totals { margin-top: 10px; border-top: 2px solid #111827; border-bottom: 2px solid #111827; padding: 8px 0; }
+                        .grand { margin: 8px 0 4px; padding: 5px 8px; font-size: ${typography.total}px; font-weight: 700; background: #f9fafb; border-radius: 4px; letter-spacing: 0.02em; }
+                        .footer { margin-top: 12px; border-top: 1px solid #d1d5db; padding-top: 8px; text-align: center; font-style: italic; color: #6b7280; }
                         @page { margin: 0; size: ${paperWidth} auto; }
                     </style>
                 </head>
                 <body>
-                    ${logoHtml}
                     <h1>${this.escapeHtml(storeName)}</h1>
                     ${storeMetaHtml}
-                    <p class="center muted">Nota Penjualan</p>
+                    <p class="section-title">Nota Penjualan</p>
                     <div class="meta">
                         <div class="row"><span>No Nota</span><strong>${this.escapeHtml(receipt.invoice_number)}</strong></div>
                         <div class="row"><span>Tanggal</span><span>${this.escapeHtml(receipt.sold_at || '-')}</span></div>
@@ -2145,15 +2135,13 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         const lines = [];
 
         lines.push(this.centerReceiptText(store.name || 'MavaPOS', width));
+        [store.tagline, receiptOptions.show_store_address !== false ? store.address : '', store.instagram]
+            .filter(Boolean)
+            .forEach((line) => lines.push(this.centerReceiptText(line, width)));
 
-        if (receiptOptions.show_store_address !== false) {
-            [store.address, store.phone ? `Telp. ${store.phone}` : '']
-                .filter(Boolean)
-                .forEach((line) => lines.push(this.centerReceiptText(line, width)));
-        }
-
+        lines.push('');
         lines.push(this.centerReceiptText('Nota Penjualan', width));
-        lines.push(this.receiptDivider(width));
+        lines.push(this.receiptDivider(width, 'double'));
         lines.push(`No Nota: ${receipt.invoice_number || '-'}`);
         lines.push(`Tanggal : ${receipt.sold_at || '-'}`);
 
@@ -2162,19 +2150,23 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         }
 
         lines.push(`Bayar   : ${this.paymentLabel(receipt.payment_method)}`);
-        lines.push(this.receiptDivider(width));
+        lines.push(this.receiptDivider(width, 'dotted'));
 
         (receipt.items || []).forEach((item) => {
             this.receiptLineItem(item, width).forEach((line) => lines.push(line));
         });
 
-        lines.push(this.receiptDivider(width));
+        lines.push('');
+        lines.push(this.receiptDivider(width, 'double'));
         lines.push(this.receiptKeyValue('Subtotal', this.formatRupiah(receipt.subtotal), width));
         lines.push(this.receiptKeyValue('Diskon', this.formatRupiah(receipt.discount), width));
-        lines.push(this.receiptKeyValue('Total', this.formatRupiah(receipt.total), width));
+        lines.push('');
+        lines.push(this.centerReceiptText(this.receiptKeyValue('TOTAL', this.formatRupiah(receipt.total), width), width));
+        lines.push('');
         lines.push(this.receiptKeyValue('Dibayar', this.formatRupiah(receipt.paid_amount), width));
         lines.push(this.receiptKeyValue('Kembali', this.formatRupiah(receipt.change_amount), width));
-        lines.push(this.receiptDivider(width));
+        lines.push('');
+        lines.push(this.receiptDivider(width, 'double'));
         this.wrapReceiptText(receiptOptions.footer_note || 'Terima kasih atas kunjungan Anda.', width)
             .forEach((line) => lines.push(this.centerReceiptText(line, width)));
 
@@ -2211,8 +2203,9 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         const store = receipt.store || {};
         const paperCharacters = receiptOptions.paper_width === '80' ? 48 : 32;
         const storeName = store.name || 'MavaPOS';
+        const storeTagline = store.tagline || '';
         const storeAddress = store.address || '';
-        const storePhone = store.phone || '';
+        const storeInstagram = store.instagram || '';
         const footerNote = receiptOptions.footer_note || 'Terima kasih atas kunjungan Anda.';
         const textSize = this.receiptTextSize();
 
@@ -2225,14 +2218,6 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                 throw new Error(`Status IMIN tidak normal: ${status.text}`);
             }
 
-            if (receiptOptions.show_logo !== false && store.logo_url) {
-                try {
-                    await this.printIminLogo(socket, store.logo_url);
-                } catch (error) {
-                    console.warn('Logo receipt IMIN gagal dicetak.', error);
-                }
-            }
-
             const commands = [
                 ['', 6, 1],
                 ['', 7, 28],
@@ -2240,19 +2225,21 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                 [`${storeName}\n`, 12],
                 ['', 7, 24],
                 ['', 9, 0],
+                ['\n', 12],
             ];
 
-            if (receiptOptions.show_store_address !== false) {
-                [storeAddress, storePhone ? `Telp. ${storePhone}` : '']
-                    .filter(Boolean)
-                    .forEach((line) => commands.push([`${line}\n`, 12]));
-            }
+            [storeTagline, receiptOptions.show_store_address !== false ? storeAddress : '', storeInstagram]
+                .filter(Boolean)
+                .forEach((line) => commands.push([`${line}\n`, 12]));
+            commands.push(['\n', 12]);
 
             commands.push(
+                ['', 6, 1],
                 ['Nota Penjualan\n', 12],
-                ['', 4, 0],
+                ['', 6, 0],
                 ['', 7, textSize],
-                [`${this.receiptDivider(paperCharacters)}\n`, 12],
+                ['\n', 12],
+                [`${this.receiptDivider(paperCharacters, 'double')}\n`, 12],
                 [`No Nota: ${receipt.invoice_number || '-'}\n`, 12],
                 [`Tanggal : ${receipt.sold_at || '-'}\n`, 12],
             );
@@ -2263,91 +2250,57 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
             commands.push(
                 [`Bayar   : ${this.paymentLabel(receipt.payment_method)}\n`, 12],
-                [`${this.receiptDivider(paperCharacters)}\n`, 12],
+                [`${this.receiptDivider(paperCharacters, 'dotted')}\n`, 12],
             );
 
             (receipt.items || []).forEach((item) => {
-                this.receiptLineItem(item, paperCharacters).forEach((line) => {
-                    commands.push([`${line}\n`, 12]);
-                });
+                commands.push(this.iminColumnsCommand(
+                    [item.name || '-', this.formatRupiah(item.line_total)],
+                    [0.62, 0.38],
+                    [0, 2],
+                    textSize,
+                ));
+                commands.push([
+                    `  ${Number(item.quantity || 0)} x ${this.formatRupiah(item.unit_price)}${item.sku ? ` · ${item.sku}` : ''}\n`,
+                    12,
+                ]);
             });
 
             commands.push(
-                [`${this.receiptDivider(paperCharacters)}\n`, 12],
-                [`${this.receiptKeyValue('Subtotal', this.formatRupiah(receipt.subtotal), paperCharacters)}\n`, 12],
-                [`${this.receiptKeyValue('Diskon', this.formatRupiah(receipt.discount), paperCharacters)}\n`, 12],
+                ['\n', 12],
+                [`${this.receiptDivider(paperCharacters, 'double')}\n`, 12],
+                this.iminColumnsCommand(['Subtotal', this.formatRupiah(receipt.subtotal)], [0.55, 0.45], [0, 2], textSize),
+                this.iminColumnsCommand(['Diskon', this.formatRupiah(receipt.discount)], [0.55, 0.45], [0, 2], textSize),
+                ['\n', 12],
                 ['', 9, 1],
-                [`${this.receiptKeyValue('Total', this.formatRupiah(receipt.total), paperCharacters)}\n`, 12],
+                ['', 6, 1],
+                ['', 7, 32],
+                this.iminColumnsCommand(['TOTAL', this.formatRupiah(receipt.total)], [0.55, 0.45], [0, 2], textSize),
+                ['', 7, 24],
+                ['', 6, 0],
                 ['', 9, 0],
-                [`${this.receiptKeyValue('Dibayar', this.formatRupiah(receipt.paid_amount), paperCharacters)}\n`, 12],
-                [`${this.receiptKeyValue('Kembali', this.formatRupiah(receipt.change_amount), paperCharacters)}\n`, 12],
-                [`${this.receiptDivider(paperCharacters)}\n`, 12],
+                ['\n', 12],
+                this.iminColumnsCommand(['Dibayar', this.formatRupiah(receipt.paid_amount)], [0.55, 0.45], [0, 2], textSize),
+                this.iminColumnsCommand(['Kembali', this.formatRupiah(receipt.change_amount)], [0.55, 0.45], [0, 2], textSize),
+                ['\n', 12],
+                [`${this.receiptDivider(paperCharacters, 'double')}\n`, 12],
+                ['', 9, 1],
                 ['', 6, 1],
             );
+
+            commands.push(['\n', 12]);
+            commands.push([`${this.receiptDivider(paperCharacters, 'single')}\n`, 12]);
 
             this.wrapReceiptText(footerNote, paperCharacters).forEach((line) => {
                 commands.push([`${line}\n`, 12]);
             });
 
-            commands.push(['', 4, 120], ['', 5]);
+            commands.push(['', 9, 0], ['', 6, 0]);
+            commands.push(['\n', 12], ['', 4, 80], ['', 5]);
             await this.sendIminCommands(socket, commands);
         } finally {
             setTimeout(() => socket.close(), 250);
         }
-    },
-
-    async printIminLogo(socket, logoUrl) {
-        const blob = await this.receiptLogoBlob(logoUrl);
-        const formData = new FormData();
-
-        formData.append('file', blob, 'receipt-logo.png');
-
-        const response = await fetch('http://127.0.0.1:8081/upload', {
-            method: 'POST',
-            body: formData,
-        });
-
-        if (!response.ok || !(await response.text())) {
-            throw new Error('Service IMIN tidak menerima file logo.');
-        }
-
-        this.sendIminCommand(socket, '', 27, 1);
-        await this.sleep(180);
-    },
-
-    receiptLogoBlob(logoUrl) {
-        return new Promise((resolve, reject) => {
-            const image = new Image();
-            const source = String(logoUrl || '');
-            const isAbsolute = /^https?:\/\//i.test(source);
-            const resolvedSource = isAbsolute ? source : `${window.location.origin}${source}`;
-
-            if (isAbsolute && !resolvedSource.startsWith(window.location.origin)) {
-                image.crossOrigin = 'anonymous';
-            }
-
-            image.onload = () => {
-                const maxWidth = 240;
-                const maxHeight = 96;
-                const ratio = Math.min(maxWidth / image.width, maxHeight / image.height, 1);
-                const canvas = document.createElement('canvas');
-                const context = canvas.getContext('2d');
-
-                canvas.width = Math.max(1, Math.round(image.width * ratio));
-                canvas.height = Math.max(1, Math.round(image.height * ratio));
-                context.clearRect(0, 0, canvas.width, canvas.height);
-                context.drawImage(image, 0, 0, canvas.width, canvas.height);
-                canvas.toBlob((blob) => {
-                    if (blob) {
-                        resolve(blob);
-                    } else {
-                        reject(new Error('Logo tidak bisa dikonversi untuk IMIN.'));
-                    }
-                }, 'image/png');
-            };
-            image.onerror = () => reject(new Error('Logo receipt tidak bisa dimuat.'));
-            image.src = `${resolvedSource}${resolvedSource.includes('?') ? '&' : '?'}v=${Date.now()}`;
-        });
     },
 
     connectIminPrinter() {
@@ -2416,9 +2369,26 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
     async sendIminCommands(socket, commands) {
         for (const command of commands) {
-            this.sendIminCommand(socket, ...command);
+            if (command?.columns) {
+                this.sendIminColumns(socket, command.columns);
+            } else {
+                this.sendIminCommand(socket, ...command);
+            }
+
             await this.sleep(60);
         }
+    },
+
+    sendIminColumns(socket, columns) {
+        const width = columns.width || 576;
+        const colWidthArr = columns.widths.map((ratio) => Math.round(width * ratio));
+
+        this.sendIminCommand(socket, '', 14, width, {
+            colTextArr: columns.texts,
+            colWidthArr,
+            colAlign: columns.align,
+            size: columns.size,
+        });
     },
 
     sendIminCommand(socket, text = '', type = 0, value = -1, extra = {}) {
@@ -2431,6 +2401,18 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             },
             type,
         }));
+    },
+
+    iminColumnsCommand(texts, widths, align, size, width = 576) {
+        return {
+            columns: {
+                texts,
+                widths,
+                align,
+                size,
+                width,
+            },
+        };
     },
 
     iminPrinterStatusText(value) {
@@ -2450,8 +2432,14 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         }
     },
 
-    receiptDivider(length) {
-        return '-'.repeat(length);
+    receiptDivider(length, style = 'single') {
+        const chars = {
+            single: '\u2500',
+            double: '\u2550',
+            dotted: '\u2504',
+        };
+
+        return (chars[style] || chars.single).repeat(length);
     },
 
     receiptTextSize() {
@@ -2467,20 +2455,6 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             meta: 13,
             total: 16,
         };
-    },
-
-    receiptAssetUrl(url) {
-        const value = String(url || '');
-
-        if (!value) {
-            return '';
-        }
-
-        try {
-            return new URL(value, window.location.origin).toString();
-        } catch (error) {
-            return value;
-        }
     },
 
     receiptLineItem(item, length) {

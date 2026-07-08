@@ -8,6 +8,7 @@ class StoreSetting extends Model
 {
     protected $fillable = [
         'store_name',
+        'tagline',
         'logo_path',
         'legal_name',
         'owner_name',
@@ -85,6 +86,7 @@ class StoreSetting extends Model
     {
         return [
             'store_name' => 'Mava Mart',
+            'tagline' => 'Belanja hemat setiap hari',
             'logo_path' => null,
             'legal_name' => 'Mava Retail',
             'owner_name' => 'Admin Toko',

@@ -22,6 +22,7 @@ class SettingController extends Controller
     {
         $validated = $request->validate([
             'store_name' => ['required', 'string', 'max:120'],
+            'tagline' => ['nullable', 'string', 'max:160'],
             'logo' => ['nullable', 'file', 'mimes:svg,png', 'max:2048'],
             'business_type' => ['nullable', 'string', 'max:40'],
             'currency' => ['nullable', 'string', 'max:10'],

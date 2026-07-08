@@ -1268,7 +1268,9 @@ test('pengguna dapat membuka halaman pengaturan toko', function () {
         ->assertSee('Pengaturan Dasar')
         ->assertSee('Pengaturan Produk')
         ->assertSee('Nama Bisnis')
-        ->assertSee('SVG atau PNG')
+        ->assertSee('Tagline')
+        ->assertSee('Nama Akun Instagram')
+        ->assertDontSee('Tampilkan Logo')
         ->assertSee('Tipe Bisnis')
         ->assertSee('Mata Uang')
         ->assertSee('Mava Mart')
@@ -1308,6 +1310,7 @@ test('pengguna dapat update identitas toko dan tersimpan ke database', function 
     $this->actingAs($user)
         ->patch('/settings', [
             'store_name' => 'Mava Mart Pusat',
+            'tagline' => 'Belanja hemat setiap hari',
             'business_type' => 'retail',
             'currency' => 'IDR',
             'legal_name' => 'PT Mava Retail Indonesia',
@@ -1329,6 +1332,7 @@ test('pengguna dapat update identitas toko dan tersimpan ke database', function 
 
     $this->assertDatabaseHas('store_settings', [
         'store_name' => 'Mava Mart Pusat',
+        'tagline' => 'Belanja hemat setiap hari',
         'business_type' => 'retail',
         'currency' => 'IDR',
         'legal_name' => 'PT Mava Retail Indonesia',
@@ -1349,6 +1353,7 @@ test('pengguna dapat update identitas toko dan tersimpan ke database', function 
         ->get('/settings')
         ->assertOk()
         ->assertSee('Mava Mart Pusat')
+        ->assertSee('Belanja hemat setiap hari')
         ->assertSee('@mavamart');
 });
 
@@ -1477,6 +1482,8 @@ test('payload checkout membawa pengaturan struk dan printer toko', function () {
     $user = User::factory()->create(['role' => 'owner']);
 
     StoreSetting::current()->update([
+        'tagline' => 'Cepat, rapi, dan hemat',
+        'instagram' => '@mavapos',
         'receipt_footer_note' => 'Barang yang sudah dibeli tidak dapat dikembalikan.',
         'receipt_paper_width' => '80',
         'receipt_show_logo' => false,
@@ -1503,6 +1510,8 @@ test('payload checkout membawa pengaturan struk dan printer toko', function () {
             'paid_amount' => 18000,
         ])
         ->assertOk()
+        ->assertJsonPath('sale.store.tagline', 'Cepat, rapi, dan hemat')
+        ->assertJsonPath('sale.store.instagram', '@mavapos')
         ->assertJsonPath('sale.receipt.footer_note', 'Barang yang sudah dibeli tidak dapat dikembalikan.')
         ->assertJsonPath('sale.receipt.paper_width', '80')
         ->assertJsonPath('sale.receipt.show_logo', false)
@@ -1524,8 +1533,14 @@ test('template print nota memakai typography kecil dan item rata kiri kanan', fu
         ->and($script)->toContain('class="item-name"')
         ->and($script)->toContain('class="item-total"')
         ->and($script)->toContain('receiptLineItem')
-        ->and($script)->toContain('store.logo_url')
-        ->and($script)->toContain('Promise.all');
+        ->and($script)->toContain('store.tagline')
+        ->and($script)->toContain('store.instagram')
+        ->and($script)->not->toContain('store.logo_url')
+        ->and($script)->toContain('Promise.all')
+        ->and($script)->toContain('sendIminColumns')
+        ->and($script)->toContain('colAlign')
+        ->and($script)->toContain("['', 6, 0]")
+        ->and($script)->not->toContain("['', 4, 0]");
 });
 
 test('layout tidak merender directive pwa sebagai teks', function () {
