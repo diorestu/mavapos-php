@@ -20,6 +20,7 @@
     <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
     <link rel="shortcut icon" type="image/png" href="{{ asset('favicon.png') }}">
     <link rel="apple-touch-icon" href="{{ asset('favicon.png') }}">
+    @PwaHead
 
     <!-- Scripts -->
     @vite(['resources/css/app.css', 'resources/js/app.js'])
@@ -157,6 +158,7 @@
         </script>
     @endif
 
+    @RegisterServiceWorkerScript
 </body>
 
 @stack('scripts')

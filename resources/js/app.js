@@ -357,6 +357,155 @@ Alpine.data('bluetoothPrinterTest', () => ({
     },
 }));
 
+Alpine.data('iminPrinterTest', () => ({
+    host: '127.0.0.1',
+    port: 8081,
+    socket: null,
+    isBusy: false,
+    logs: [],
+    receiptText: [
+        'MAVAPOS',
+        'TEST PRINT IMIN INNERPRINTER',
+        'Tanggal : ' + new Date().toLocaleString('id-ID'),
+        'Kasir   : Test User',
+        '------------------------------',
+        'Kopi Susu Aren      Rp18.000',
+        'Roti Bakar          Rp15.000',
+        '------------------------------',
+        'TOTAL               Rp33.000',
+        '',
+        'Terima kasih',
+    ].join('\n'),
+
+    get endpoint() {
+        return `ws://${this.host || '127.0.0.1'}:${Number(this.port) || 8081}/websocket`;
+    },
+
+    get isConnected() {
+        return this.socket?.readyState === WebSocket.OPEN;
+    },
+
+    get connectionLabel() {
+        return this.isConnected ? 'Terhubung' : 'Belum terhubung';
+    },
+
+    log(message) {
+        const time = new Date().toLocaleTimeString('id-ID', {
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+        });
+        this.logs.unshift(`[${time}] ${message}`);
+        this.logs = this.logs.slice(0, 80);
+    },
+
+    async connect() {
+        this.isBusy = true;
+
+        try {
+            this.disconnect(false);
+            this.log(`Menghubungkan ke ${this.endpoint}...`);
+            this.socket = await this.openSocket();
+            this.socket.onclose = () => this.log('Koneksi IMIN terputus.');
+            this.socket.onerror = () => this.log('Koneksi IMIN error.');
+            this.sendCommand('SPI', 1);
+            this.log('IMIN InnerPrinter siap menerima test print.');
+            notify('IMIN InnerPrinter terhubung.');
+        } catch (error) {
+            this.socket = null;
+            this.log(`Gagal konek IMIN: ${error.message || error}`);
+            notify(error.message || 'Gagal menghubungkan IMIN InnerPrinter.', 'error');
+        } finally {
+            this.isBusy = false;
+        }
+    },
+
+    openSocket() {
+        return new Promise((resolve, reject) => {
+            const SocketClass = window.WebSocket || window.MozWebSocket;
+
+            if (!SocketClass) {
+                reject(new Error('Browser tidak mendukung WebSocket.'));
+                return;
+            }
+
+            const socket = new SocketClass(this.endpoint);
+            const timeout = setTimeout(() => {
+                socket.close();
+                reject(new Error('Print service IMIN tidak merespons di 127.0.0.1:8081.'));
+            }, 5000);
+
+            socket.onopen = () => {
+                clearTimeout(timeout);
+                resolve(socket);
+            };
+            socket.onerror = () => {
+                clearTimeout(timeout);
+                reject(new Error('Print service IMIN tidak tersedia. Pastikan halaman dibuka dari tablet IMIN.'));
+            };
+        });
+    },
+
+    disconnect(showLog = true) {
+        if (this.socket) {
+            this.socket.close();
+        }
+
+        this.socket = null;
+
+        if (showLog) {
+            this.log('Koneksi IMIN diputuskan.');
+        }
+    },
+
+    async printSample() {
+        if (!this.isConnected) {
+            notify('Hubungkan IMIN InnerPrinter terlebih dahulu.', 'error');
+            return;
+        }
+
+        this.isBusy = true;
+
+        try {
+            this.sendCommand('', 6, 1);
+            this.sendCommand('', 7, 28);
+            this.sendCommand('', 9, 1);
+            this.sendCommand('MAVAPOS\n', 12);
+            this.sendCommand('', 6, 0);
+            this.sendCommand('', 7, 24);
+            this.sendCommand('', 9, 0);
+            this.receiptText.split('\n').forEach((line) => {
+                this.sendCommand(`${line}\n`, 12);
+            });
+            this.sendCommand('', 4, 120);
+            this.sendCommand('', 5);
+            this.log('Test print IMIN dikirim.');
+            notify('Test print IMIN dikirim.');
+        } catch (error) {
+            this.log(`Print IMIN gagal: ${error.message || error}`);
+            notify(error.message || 'Test print IMIN gagal.', 'error');
+        } finally {
+            this.isBusy = false;
+        }
+    },
+
+    sendCommand(text = '', type = 0, value = -1, extra = {}) {
+        if (!this.isConnected) {
+            throw new Error('WebSocket IMIN belum terhubung.');
+        }
+
+        this.socket.send(JSON.stringify({
+            data: {
+                text,
+                value,
+                labelData: {},
+                ...extra,
+            },
+            type,
+        }));
+    },
+}));
+
 Alpine.data('productManager', (initialProducts = [], initialCategories = [], initialFilters = {}) => ({
     createProductModal: false,
     editProductModal: false,
@@ -1679,7 +1828,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         localStorage.setItem('mava_pos_print_preferences', JSON.stringify(this.printPreferences));
     },
 
-    printReceipt() {
+    async printReceipt() {
         if (!this.lastReceipt) {
             return;
         }
@@ -1687,6 +1836,22 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         const receipt = this.lastReceipt;
         const receiptOptions = receipt.receipt || {};
         const printerOptions = receipt.printer || {};
+
+        if (printerOptions.connection_mode === 'imin_inner_printer') {
+            try {
+                await this.printIminReceipt(receipt);
+                notify('Struk berhasil dikirim ke IMIN InnerPrinter.');
+
+                if (this.effectivePrintPreference('closeAfterPrint', printerOptions.close_after_print)) {
+                    this.closeReceiptModal();
+                }
+            } catch (error) {
+                notify(error.message || 'Gagal mencetak ke IMIN InnerPrinter.', 'error');
+            }
+
+            return;
+        }
+
         const paperWidth = receiptOptions.paper_width === '80' ? '80mm' : '58mm';
         const showLogo = receiptOptions.show_logo !== false;
         const showStoreAddress = receiptOptions.show_store_address !== false;
@@ -1796,6 +1961,156 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         if (this.effectivePrintPreference('closeAfterPrint', printerOptions.close_after_print)) {
             this.closeReceiptModal();
         }
+    },
+
+    async printIminReceipt(receipt) {
+        const socket = await this.connectIminPrinter();
+        const receiptOptions = receipt.receipt || {};
+        const store = receipt.store || {};
+        const paperCharacters = receiptOptions.paper_width === '80' ? 48 : 32;
+        const storeName = store.name || 'MavaPOS';
+        const storeAddress = store.address || '';
+        const storePhone = store.phone || '';
+        const footerNote = receiptOptions.footer_note || 'Terima kasih atas kunjungan Anda.';
+
+        try {
+            this.sendIminCommand(socket, 'SPI', 1);
+            this.sendIminCommand(socket, '', 6, 1);
+            this.sendIminCommand(socket, '', 7, 28);
+            this.sendIminCommand(socket, '', 9, 1);
+            this.sendIminCommand(socket, `${storeName}\n`, 12);
+
+            this.sendIminCommand(socket, '', 7, 24);
+            this.sendIminCommand(socket, '', 9, 0);
+
+            if (receiptOptions.show_store_address !== false) {
+                [storeAddress, storePhone ? `Telp. ${storePhone}` : '']
+                    .filter(Boolean)
+                    .forEach((line) => this.sendIminCommand(socket, `${line}\n`, 12));
+            }
+
+            this.sendIminCommand(socket, 'Nota Penjualan\n', 12);
+            this.sendIminCommand(socket, '', 6, 0);
+            this.sendIminCommand(socket, `${this.receiptDivider(paperCharacters)}\n`, 12);
+            this.sendIminCommand(socket, `No Nota: ${receipt.invoice_number || '-'}\n`, 12);
+            this.sendIminCommand(socket, `Tanggal : ${receipt.sold_at || '-'}\n`, 12);
+
+            if (receiptOptions.show_cashier !== false) {
+                this.sendIminCommand(socket, `Kasir   : ${receipt.cashier || '-'}\n`, 12);
+            }
+
+            this.sendIminCommand(socket, `Bayar   : ${this.paymentLabel(receipt.payment_method)}\n`, 12);
+            this.sendIminCommand(socket, `${this.receiptDivider(paperCharacters)}\n`, 12);
+
+            (receipt.items || []).forEach((item) => {
+                this.wrapReceiptText(item.name || '-', paperCharacters).forEach((line) => {
+                    this.sendIminCommand(socket, `${line}\n`, 12);
+                });
+                this.sendIminCommand(socket, `${Number(item.quantity || 0)} x ${this.formatRupiah(item.unit_price)}\n`, 12);
+                this.sendIminCommand(socket, `${this.rightAlignReceiptText(this.formatRupiah(item.line_total), paperCharacters)}\n`, 12);
+            });
+
+            this.sendIminCommand(socket, `${this.receiptDivider(paperCharacters)}\n`, 12);
+            this.sendIminCommand(socket, `${this.receiptKeyValue('Subtotal', this.formatRupiah(receipt.subtotal), paperCharacters)}\n`, 12);
+            this.sendIminCommand(socket, `${this.receiptKeyValue('Diskon', this.formatRupiah(receipt.discount), paperCharacters)}\n`, 12);
+            this.sendIminCommand(socket, '', 9, 1);
+            this.sendIminCommand(socket, `${this.receiptKeyValue('Total', this.formatRupiah(receipt.total), paperCharacters)}\n`, 12);
+            this.sendIminCommand(socket, '', 9, 0);
+            this.sendIminCommand(socket, `${this.receiptKeyValue('Dibayar', this.formatRupiah(receipt.paid_amount), paperCharacters)}\n`, 12);
+            this.sendIminCommand(socket, `${this.receiptKeyValue('Kembali', this.formatRupiah(receipt.change_amount), paperCharacters)}\n`, 12);
+            this.sendIminCommand(socket, `${this.receiptDivider(paperCharacters)}\n`, 12);
+            this.sendIminCommand(socket, '', 6, 1);
+            this.wrapReceiptText(footerNote, paperCharacters).forEach((line) => {
+                this.sendIminCommand(socket, `${line}\n`, 12);
+            });
+            this.sendIminCommand(socket, '', 4, 120);
+            this.sendIminCommand(socket, '', 5);
+        } finally {
+            setTimeout(() => socket.close(), 250);
+        }
+    },
+
+    connectIminPrinter() {
+        return new Promise((resolve, reject) => {
+            const SocketClass = window.WebSocket || window.MozWebSocket;
+
+            if (!SocketClass) {
+                reject(new Error('Browser tidak mendukung WebSocket untuk IMIN InnerPrinter.'));
+                return;
+            }
+
+            const socket = new SocketClass('ws://127.0.0.1:8081/websocket');
+            const timeout = setTimeout(() => {
+                socket.close();
+                reject(new Error('Tidak bisa terhubung ke print service IMIN di 127.0.0.1:8081.'));
+            }, 5000);
+
+            socket.onopen = () => {
+                clearTimeout(timeout);
+                resolve(socket);
+            };
+            socket.onerror = () => {
+                clearTimeout(timeout);
+                reject(new Error('Print service IMIN tidak tersedia. Pastikan dibuka dari tablet IMIN.'));
+            };
+        });
+    },
+
+    sendIminCommand(socket, text = '', type = 0, value = -1, extra = {}) {
+        socket.send(JSON.stringify({
+            data: {
+                text,
+                value,
+                labelData: {},
+                ...extra,
+            },
+            type,
+        }));
+    },
+
+    receiptDivider(length) {
+        return '-'.repeat(length);
+    },
+
+    receiptKeyValue(key, value, length) {
+        const left = String(key || '');
+        const right = String(value || '');
+        const spaceLength = Math.max(1, length - left.length - right.length);
+
+        return `${left}${' '.repeat(spaceLength)}${right}`;
+    },
+
+    rightAlignReceiptText(text, length) {
+        const value = String(text || '');
+
+        return `${' '.repeat(Math.max(0, length - value.length))}${value}`;
+    },
+
+    wrapReceiptText(text, length) {
+        const words = String(text || '').split(/\s+/).filter(Boolean);
+        const lines = [];
+        let line = '';
+
+        words.forEach((word) => {
+            if (!line) {
+                line = word;
+                return;
+            }
+
+            if ((line.length + word.length + 1) <= length) {
+                line = `${line} ${word}`;
+                return;
+            }
+
+            lines.push(line);
+            line = word;
+        });
+
+        if (line) {
+            lines.push(line);
+        }
+
+        return lines.length ? lines : [''];
     },
 
     effectivePrintPreference(key, fallback = false) {

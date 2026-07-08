@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('content')
-    <div x-data="bluetoothPrinterTest()" class="space-y-4">
+    <div class="space-y-4">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
                 <nav aria-label="Breadcrumb">
@@ -16,24 +16,85 @@
                     </ol>
                 </nav>
                 <h1 class="mt-1 text-xl font-semibold text-gray-800 dark:text-white/90">Test Printing</h1>
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Uji koneksi printer thermal Bluetooth BLE dan kirim sample ESC/POS.</p>
-            </div>
-
-            <div class="flex flex-wrap gap-2">
-                <button type="button" @click="connect()" :disabled="isBusy"
-                    class="inline-flex h-9 items-center justify-center rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white shadow-theme-xs transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60">
-                    <span x-text="device ? 'Ganti Printer' : 'Hubungkan Printer'"></span>
-                </button>
-                <button type="button" @click="disconnect()" :disabled="!device || isBusy"
-                    class="inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.04]">
-                    Putuskan
-                </button>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Uji koneksi printer thermal Web Bluetooth dan IMIN InnerPrinter dari browser kasir.</p>
             </div>
         </div>
 
-        <section class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <section x-data="iminPrinterTest()" class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+            <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                <div>
+                    <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">IMIN InnerPrinter</h2>
+                    <p class="mt-1 max-w-2xl text-xs text-gray-500 dark:text-gray-400">Mode tablet IMIN memakai print service lokal <span class="font-mono">127.0.0.1:8081</span>. Jalankan dari browser tablet IMIN agar WebSocket <span class="font-mono">ws://127.0.0.1:8081/websocket</span> tersedia.</p>
+                </div>
+                <div class="flex flex-wrap gap-2">
+                    <button type="button" @click="connect()" :disabled="isBusy || isConnected"
+                        class="inline-flex h-9 items-center justify-center rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white shadow-theme-xs transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60">
+                        Connect IMIN
+                    </button>
+                    <button type="button" @click="printSample()" :disabled="!isConnected || isBusy"
+                        class="inline-flex h-9 items-center justify-center rounded-lg bg-gray-900 px-3 text-xs font-semibold text-white shadow-theme-xs transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-gray-900">
+                        Print Test IMIN
+                    </button>
+                    <button type="button" @click="disconnect()" :disabled="!isConnected || isBusy"
+                        class="inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.04]">
+                        Putuskan
+                    </button>
+                </div>
+            </div>
+
+            <div class="mt-4 grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+                <div class="grid gap-3 md:grid-cols-2">
+                    <label class="block">
+                        <span class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Host</span>
+                        <input x-model="host" type="text" autocomplete="off"
+                            class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                    </label>
+                    <label class="block">
+                        <span class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Port</span>
+                        <input x-model.number="port" type="number" min="1" max="65535"
+                            class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                    </label>
+                    <label class="block md:col-span-2">
+                        <span class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Konten Test IMIN</span>
+                        <textarea x-model="receiptText" rows="8"
+                            class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2.5 font-mono text-xs text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"></textarea>
+                    </label>
+                </div>
+
+                <div class="rounded-lg bg-gray-950 p-3 font-mono text-[11px] leading-relaxed text-gray-100">
+                    <div class="mb-2 flex items-center justify-between gap-2">
+                        <span>Status</span>
+                        <span :class="isConnected ? 'text-success-400' : 'text-gray-400'" x-text="connectionLabel"></span>
+                    </div>
+                    <div class="h-[190px] overflow-y-auto">
+                        <template x-for="(entry, index) in logs" :key="index">
+                            <p x-text="entry"></p>
+                        </template>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section x-data="bluetoothPrinterTest()" class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
             <div class="space-y-4">
                 <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+                    <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div>
+                            <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Web Bluetooth</h2>
+                            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Uji printer thermal BLE dengan payload ESC/POS.</p>
+                        </div>
+                        <div class="flex flex-wrap gap-2">
+                            <button type="button" @click="connect()" :disabled="isBusy"
+                                class="inline-flex h-9 items-center justify-center rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white shadow-theme-xs transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60">
+                                <span x-text="device ? 'Ganti Printer' : 'Hubungkan Printer'"></span>
+                            </button>
+                            <button type="button" @click="disconnect()" :disabled="!device || isBusy"
+                                class="inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-700 transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.04]">
+                                Putuskan
+                            </button>
+                        </div>
+                    </div>
+
                     <div class="grid gap-3 md:grid-cols-2">
                         <label class="block">
                             <span class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Service UUID</span>

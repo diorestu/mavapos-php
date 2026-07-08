@@ -49,7 +49,7 @@ class SettingController extends Controller
             'size_options' => ['nullable', 'string', 'max:500'],
             'receipt_footer_note' => ['nullable', 'string', 'max:500'],
             'receipt_paper_width' => ['nullable', 'in:58,80'],
-            'printer_connection_mode' => ['nullable', 'in:browser,bluetooth'],
+            'printer_connection_mode' => ['nullable', 'in:browser,bluetooth,imin_inner_printer'],
             'printer_bluetooth_service_uuid' => ['nullable', 'string', 'max:120'],
             'printer_bluetooth_characteristic_uuid' => ['nullable', 'string', 'max:120'],
         ]);

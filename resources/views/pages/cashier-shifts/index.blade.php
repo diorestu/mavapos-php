@@ -2,6 +2,7 @@
 
 @php
     $rupiah = fn ($value) => 'Rp'.number_format((int) $value, 0, ',', '.');
+    $canForceCloseShift = auth()->user()?->hasRole(['owner', 'admin']);
 @endphp
 
 @section('content')
@@ -59,6 +60,18 @@
                         </div>
                     </div>
                 </div>
+                @if ($canForceCloseShift)
+                    <form method="POST" action="{{ route('cashier-shifts.force-close', $activeShift) }}" class="mt-4 rounded-lg border border-success-200 bg-white/70 p-3 dark:border-success-500/20 dark:bg-white/[0.04]" onsubmit="return confirm(@js('Tutup paksa shift '.($activeShift->user?->name ?? 'Kasir').'?'));">
+                        @csrf
+                        <label for="active-force-close-note" class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">Catatan tutup paksa</label>
+                        <div class="flex flex-col gap-2 md:flex-row">
+                            <input id="active-force-close-note" name="closing_note" type="text" maxlength="1000" value="Ditutup paksa oleh {{ auth()->user()->name }} karena kasir lupa tutup shift." class="h-10 flex-1 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-800 outline-hidden transition focus:border-brand-300 focus:ring-3 focus:ring-brand-500/10 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90" />
+                            <button type="submit" class="inline-flex h-10 items-center justify-center rounded-lg bg-warning-500 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-warning-600">
+                                Tutup Paksa
+                            </button>
+                        </div>
+                    </form>
+                @endif
             </section>
         @endif
 
@@ -67,7 +80,7 @@
                 <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Riwayat Shift</h2>
             </div>
             <div class="max-w-full overflow-x-auto custom-scrollbar">
-                <table class="w-full min-w-[940px]">
+                <table class="w-full min-w-[1040px]">
                     <thead>
                         <tr class="bg-gray-50 text-left dark:bg-gray-900/40">
                             <th class="px-4 py-2 text-[11px] font-semibold uppercase text-gray-500">Kasir</th>
@@ -80,6 +93,9 @@
                             <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">QRIS</th>
                             <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Kartu</th>
                             <th class="px-4 py-2 text-center text-[11px] font-semibold uppercase text-gray-500">Status</th>
+                            @if ($canForceCloseShift)
+                                <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Aksi</th>
+                            @endif
                         </tr>
                     </thead>
                     <tbody>
@@ -104,9 +120,24 @@
                                         <span class="rounded-full bg-success-50 px-2 py-1 text-[11px] font-semibold text-success-700 dark:bg-success-500/15 dark:text-success-400">Aktif</span>
                                     @endif
                                 </td>
+                                @if ($canForceCloseShift)
+                                    <td class="px-4 py-3 text-right">
+                                        @if (! $shift->closed_at)
+                                            <form method="POST" action="{{ route('cashier-shifts.force-close', $shift) }}" onsubmit="return confirm(@js('Tutup paksa shift '.($shift->user?->name ?? 'Kasir').'?'));">
+                                                @csrf
+                                                <input type="hidden" name="closing_note" value="Ditutup paksa oleh {{ auth()->user()->name }} karena kasir lupa tutup shift.">
+                                                <button type="submit" class="inline-flex h-8 items-center justify-center rounded-lg border border-warning-200 px-3 text-xs font-semibold text-warning-700 transition hover:bg-warning-50 dark:border-warning-500/20 dark:text-warning-300 dark:hover:bg-warning-500/10">
+                                                    Tutup Paksa
+                                                </button>
+                                            </form>
+                                        @else
+                                            <span class="text-xs text-gray-400">-</span>
+                                        @endif
+                                    </td>
+                                @endif
                             </tr>
                         @empty
-                            <tr><td colspan="10" class="px-4 py-8 text-center text-sm text-gray-500">Belum ada shift kasir.</td></tr>
+                            <tr><td colspan="{{ $canForceCloseShift ? 11 : 10 }}" class="px-4 py-8 text-center text-sm text-gray-500">Belum ada shift kasir.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

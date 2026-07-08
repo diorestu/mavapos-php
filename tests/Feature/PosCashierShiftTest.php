@@ -118,6 +118,111 @@ test('shift kasir aktif harus ditutup sebelum kasir lain memulai pekerjaan', fun
         ->assertJsonPath('message', 'Kasir Kasir Pertama masih aktif. Tutup kasir tersebut sebelum memulai shift baru.');
 });
 
+test('owner dapat menutup paksa shift kasir aktif', function () {
+    $cashier = User::factory()->create([
+        'name' => 'Kasir Lupa Tutup',
+        'role' => 'kasir',
+    ]);
+    $owner = User::factory()->create([
+        'name' => 'Owner Shift',
+        'role' => 'owner',
+    ]);
+
+    $this->actingAs($cashier)
+        ->postJson(route('pos.shift.start'), [
+            'opening_cash_amount' => 75000,
+        ])
+        ->assertOk();
+
+    $shift = CashierShift::query()
+        ->where('user_id', $cashier->id)
+        ->whereNull('closed_at')
+        ->firstOrFail();
+
+    PosSale::query()->create([
+        'cashier_shift_id' => $shift->id,
+        'branch_id' => $shift->branch_id,
+        'user_id' => $cashier->id,
+        'invoice_number' => 'POS-FORCE-CLOSE',
+        'payment_method' => 'cash',
+        'subtotal' => 25000,
+        'discount' => 2000,
+        'total' => 23000,
+        'paid_amount' => 25000,
+        'change_amount' => 2000,
+        'sold_at' => now(),
+    ]);
+
+    $this->actingAs($owner)
+        ->post(route('cashier-shifts.force-close', $shift), [
+            'closing_note' => 'Ditutup paksa oleh owner karena kasir lupa.',
+        ])
+        ->assertRedirect(route('cashier-shifts'))
+        ->assertSessionHas('success', 'Shift Kasir Lupa Tutup ditutup paksa.');
+
+    $shift->refresh();
+
+    expect($shift->closed_at)->not->toBeNull()
+        ->and($shift->sales_count)->toBe(1)
+        ->and($shift->gross_sales)->toBe(25000)
+        ->and($shift->discount_total)->toBe(2000)
+        ->and($shift->net_sales)->toBe(23000)
+        ->and($shift->cash_total)->toBe(23000)
+        ->and($shift->closing_note)->toBe('Ditutup paksa oleh owner karena kasir lupa.');
+});
+
+test('kasir tidak dapat menutup paksa shift dari halaman admin', function () {
+    $firstCashier = User::factory()->create([
+        'name' => 'Kasir Aktif',
+        'role' => 'kasir',
+    ]);
+    $secondCashier = User::factory()->create([
+        'name' => 'Kasir Lain',
+        'role' => 'kasir',
+    ]);
+
+    $this->actingAs($firstCashier)
+        ->postJson(route('pos.shift.start'))
+        ->assertOk();
+
+    $shift = CashierShift::query()
+        ->where('user_id', $firstCashier->id)
+        ->whereNull('closed_at')
+        ->firstOrFail();
+
+    $this->actingAs($secondCashier)
+        ->post(route('cashier-shifts.force-close', $shift), [
+            'closing_note' => 'Tidak boleh.',
+        ])
+        ->assertForbidden();
+
+    expect($shift->fresh()->closed_at)->toBeNull();
+});
+
+test('pilihan tutup paksa hanya tampil untuk owner dan admin', function () {
+    $cashier = User::factory()->create([
+        'name' => 'Kasir UI',
+        'role' => 'kasir',
+    ]);
+    $owner = User::factory()->create([
+        'role' => 'owner',
+    ]);
+
+    $this->actingAs($cashier)
+        ->postJson(route('pos.shift.start'))
+        ->assertOk();
+
+    $this->actingAs($owner)
+        ->get(route('cashier-shifts'))
+        ->assertOk()
+        ->assertSee('Tutup Paksa');
+
+    $this->actingAs($cashier)
+        ->get(route('cashier-shifts'))
+        ->assertOk()
+        ->assertDontSee('Tutup Paksa');
+});
+
 test('halaman penjualan menampilkan transaksi pos dan filter invoice', function () {
     $cashier = User::factory()->create([
         'name' => 'Kasir Sales',

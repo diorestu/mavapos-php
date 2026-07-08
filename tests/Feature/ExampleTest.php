@@ -612,7 +612,9 @@ test('pengguna dapat membuka halaman test printing', function () {
         ->get('/print-test')
         ->assertOk()
         ->assertSee('Test Printing')
-        ->assertSee('Service UUID');
+        ->assertSee('Service UUID')
+        ->assertSee('IMIN InnerPrinter')
+        ->assertSee('127.0.0.1:8081');
 });
 
 test('role membatasi akses halaman sesuai tugas user', function () {
@@ -1412,6 +1414,31 @@ test('pengguna dapat update pengaturan struk dan printer', function () {
     ]);
 });
 
+test('pengguna dapat memilih mode printer imin inner printer', function () {
+    $user = User::factory()->create(['role' => 'owner']);
+
+    $this->actingAs($user)
+        ->get('/settings')
+        ->assertOk()
+        ->assertSee('IMIN InnerPrinter');
+
+    $this->actingAs($user)
+        ->patch('/settings', [
+            'store_name' => 'Mava Mart',
+            'business_type' => 'retail',
+            'currency' => 'IDR',
+            'receipt_paper_width' => '58',
+            'printer_connection_mode' => 'imin_inner_printer',
+        ])
+        ->assertRedirect('/settings')
+        ->assertSessionHas('status', 'Pengaturan toko berhasil disimpan.');
+
+    $this->assertDatabaseHas('store_settings', [
+        'store_name' => 'Mava Mart',
+        'printer_connection_mode' => 'imin_inner_printer',
+    ]);
+});
+
 test('payload checkout membawa pengaturan struk dan printer toko', function () {
     $user = User::factory()->create(['role' => 'owner']);
 
@@ -1423,7 +1450,7 @@ test('payload checkout membawa pengaturan struk dan printer toko', function () {
         'receipt_show_cashier' => true,
         'printer_auto_print' => true,
         'printer_close_after_print' => true,
-        'printer_connection_mode' => 'bluetooth',
+        'printer_connection_mode' => 'imin_inner_printer',
         'printer_bluetooth_service_uuid' => 'service-test',
         'printer_bluetooth_characteristic_uuid' => 'char-test',
     ]);
@@ -1449,7 +1476,7 @@ test('payload checkout membawa pengaturan struk dan printer toko', function () {
         ->assertJsonPath('sale.receipt.show_cashier', true)
         ->assertJsonPath('sale.printer.auto_print', true)
         ->assertJsonPath('sale.printer.close_after_print', true)
-        ->assertJsonPath('sale.printer.connection_mode', 'bluetooth')
+        ->assertJsonPath('sale.printer.connection_mode', 'imin_inner_printer')
         ->assertJsonPath('sale.printer.bluetooth_service_uuid', 'service-test')
         ->assertJsonPath('sale.printer.bluetooth_characteristic_uuid', 'char-test');
 });

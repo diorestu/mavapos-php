@@ -111,6 +111,7 @@ Route::middleware('auth')->group(function () {
         });
 
         Route::middleware('role:owner,admin')->group(function () {
+            Route::post('/cashier-shifts/{cashierShift}/force-close', [CashierShiftController::class, 'forceClose'])->name('cashier-shifts.force-close');
             Route::get('/customers', [CustomerController::class, 'index'])->name('customers');
             Route::post('/customers', [CustomerController::class, 'store'])->name('customers.store');
             Route::patch('/customers/{code}', [CustomerController::class, 'update'])->name('customers.update');

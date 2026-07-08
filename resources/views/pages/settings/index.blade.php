@@ -330,6 +330,7 @@
                                     class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 pr-9 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                                     <option value="browser" @selected(old('printer_connection_mode', $setting->printer_connection_mode) === 'browser')>Browser Print</option>
                                     <option value="bluetooth" @selected(old('printer_connection_mode', $setting->printer_connection_mode) === 'bluetooth')>Web Bluetooth</option>
+                                    <option value="imin_inner_printer" @selected(old('printer_connection_mode', $setting->printer_connection_mode) === 'imin_inner_printer')>IMIN InnerPrinter</option>
                                 </select>
                             </label>
 
