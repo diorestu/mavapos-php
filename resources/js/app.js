@@ -2278,12 +2278,9 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                     [0, 2],
                     textSize,
                 ));
-                commands.push(this.iminColumnsCommand(
-                    ['', `${Number(item.quantity || 0)} x ${this.formatRupiah(item.unit_price)}`],
-                    [0.3, 0.7],
-                    [0, 2],
-                    textSize,
-                ));
+                commands.push(['', 6, 2]);
+                commands.push([`${Number(item.quantity || 0)} x ${this.formatRupiah(item.unit_price)}\n`, 12]);
+                commands.push(['', 6, 0]);
             });
 
             commands.push(
