@@ -1979,8 +1979,10 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         const storeName = store.name || 'MavaPOS';
         const storeAddress = store.address || '';
         const storePhone = store.phone || '';
-        const logoHtml = showLogo && store.logo_url
-            ? `<img class="logo" src="${this.escapeHtml(store.logo_url)}" alt="${this.escapeHtml(storeName)}">`
+        const logoUrl = showLogo && store.logo_url ? this.receiptAssetUrl(store.logo_url) : '';
+        const typography = this.receiptTypography();
+        const logoHtml = logoUrl
+            ? `<div class="receipt-logo-wrap"><img class="logo" src="${this.escapeHtml(logoUrl)}" alt="${this.escapeHtml(storeName)}"></div>`
             : '';
         const storeMetaHtml = showStoreAddress ? [
             storeAddress,
@@ -2023,31 +2025,37 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                             padding: 10mm 6mm;
                             color: #111827;
                             font-family: Arial, Helvetica, sans-serif;
-                            font-size: 10.8px;
-                            line-height: 1.32;
+                            font-size: ${typography.body}px;
+                            line-height: 1.36;
                         }
-                        h1 { margin: 0; font-size: 14.4px; line-height: 1.2; text-align: center; }
+                        h1 { margin: 0; font-size: ${typography.heading}px; line-height: 1.2; text-align: center; }
+                        .receipt-logo-wrap {
+                            display: flex;
+                            justify-content: center;
+                            margin-bottom: 7px;
+                        }
                         .logo {
                             display: block;
-                            max-width: 38mm;
-                            max-height: 16mm;
+                            max-width: 42mm;
+                            max-height: 18mm;
                             object-fit: contain;
-                            margin: 0 auto 5px;
                         }
                         .muted { color: #6b7280; }
                         .center { text-align: center; }
-                        .store-line { margin: 1px 0 0; font-size: 9.9px; }
-                        .meta, .totals { margin-top: 8px; border-top: 1px dashed #9ca3af; padding-top: 6px; }
+                        .store-line { margin: 2px 0 0; font-size: ${typography.small}px; }
+                        .meta, .totals { margin-top: 9px; border-top: 1px dashed #9ca3af; padding-top: 7px; }
                         .row, .totals div { display: flex; justify-content: space-between; gap: 8px; }
-                        .items { margin-top: 8px; border-top: 1px dashed #9ca3af; }
-                        .item-row { padding: 5px 0; border-bottom: 1px dashed #d1d5db; }
+                        .row span:last-child, .row strong:last-child, .totals span:last-child { text-align: right; }
+                        .items { margin-top: 9px; border-top: 1px dashed #9ca3af; }
+                        .item-row { padding: 6px 0; border-bottom: 1px dashed #d1d5db; }
                         .item-main { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
-                        .item-name { min-width: 0; text-align: left; overflow-wrap: anywhere; }
+                        .item-name { min-width: 0; flex: 1 1 auto; text-align: left; overflow-wrap: anywhere; }
                         .item-total { flex: 0 0 auto; text-align: right; white-space: nowrap; }
-                        .item-meta { margin-top: 2px; display: flex; justify-content: space-between; gap: 8px; color: #6b7280; font-size: 9.9px; }
+                        .item-meta { margin-top: 3px; display: flex; justify-content: space-between; gap: 8px; color: #6b7280; font-size: ${typography.small}px; }
+                        .item-meta span:last-child { text-align: right; }
                         strong, span { display: block; }
-                        .grand { margin-top: 5px; font-size: 12.6px; font-weight: 700; }
-                        .footer { margin-top: 10px; border-top: 1px dashed #9ca3af; padding-top: 6px; text-align: center; }
+                        .grand { margin-top: 6px; font-size: ${typography.total}px; font-weight: 700; }
+                        .footer { margin-top: 11px; border-top: 1px dashed #9ca3af; padding-top: 7px; text-align: center; }
                         @page { margin: 0; size: ${paperWidth} auto; }
                     </style>
                 </head>
@@ -2073,8 +2081,22 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                     <p class="footer muted">${this.escapeHtml(footerNote)}</p>
                     <script>
                         window.addEventListener('load', () => {
-                            window.focus();
-                            setTimeout(() => window.print(), 150);
+                            const images = Array.from(document.images);
+                            const imageLoads = images.map((image) => {
+                                if (image.complete) {
+                                    return Promise.resolve();
+                                }
+
+                                return new Promise((resolve) => {
+                                    image.addEventListener('load', resolve, { once: true });
+                                    image.addEventListener('error', resolve, { once: true });
+                                });
+                            });
+
+                            Promise.all(imageLoads).finally(() => {
+                                window.focus();
+                                setTimeout(() => window.print(), 250);
+                            });
                         });
                     <\/script>
                 </body>
@@ -2433,7 +2455,30 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     },
 
     receiptTextSize() {
-        return 11;
+        return 12;
+    },
+
+    receiptTypography() {
+        return {
+            body: 12.5,
+            heading: 16,
+            small: 11.25,
+            total: 14.5,
+        };
+    },
+
+    receiptAssetUrl(url) {
+        const value = String(url || '');
+
+        if (!value) {
+            return '';
+        }
+
+        try {
+            return new URL(value, window.location.origin).toString();
+        } catch (error) {
+            return value;
+        }
     },
 
     receiptLineItem(item, length) {

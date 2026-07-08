@@ -1518,12 +1518,31 @@ test('payload checkout membawa pengaturan struk dan printer toko', function () {
 test('template print nota memakai typography kecil dan item rata kiri kanan', function () {
     $script = file_get_contents(resource_path('js/app.js'));
 
-    expect($script)->toContain('font-size: 10.8px')
-        ->and($script)->toContain('font-size: 14.4px')
+    expect($script)->toContain('receiptTypography()')
+        ->and($script)->toContain('font-size: ${typography.body}px')
+        ->and($script)->toContain('font-size: ${typography.heading}px')
         ->and($script)->toContain('class="item-name"')
         ->and($script)->toContain('class="item-total"')
         ->and($script)->toContain('receiptLineItem')
-        ->and($script)->toContain('store.logo_url');
+        ->and($script)->toContain('store.logo_url')
+        ->and($script)->toContain('Promise.all');
+});
+
+test('layout tidak merender directive pwa sebagai teks', function () {
+    $user = User::factory()->create();
+    $appLayout = file_get_contents(resource_path('views/layouts/app.blade.php'));
+    $fullscreenLayout = file_get_contents(resource_path('views/layouts/fullscreen-layout.blade.php'));
+
+    expect($appLayout.$fullscreenLayout)->not->toContain('@PwaHead')
+        ->and($appLayout.$fullscreenLayout)->not->toContain('@RegisterServiceWorkerScript');
+
+    $this->actingAs($user)
+        ->get('/')
+        ->assertOk()
+        ->assertDontSee('@PwaHead')
+        ->assertDontSee('@RegisterServiceWorkerScript')
+        ->assertSee('/manifest.json', false)
+        ->assertSee('/sw.js', false);
 });
 
 test('owner dapat mengelola user dan role staf', function () {
