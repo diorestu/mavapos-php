@@ -2053,7 +2053,6 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                 <body>
                     <h1>${this.escapeHtml(storeName)}</h1>
                     ${storeMetaHtml}
-                    <p class="section-title">Nota Penjualan</p>
                     <div class="meta">
                         <div class="row"><span>No Nota</span><strong>${this.escapeHtml(receipt.invoice_number)}</strong></div>
                         <div class="row"><span>Tanggal</span><span>${this.escapeHtml(receipt.sold_at || '-')}</span></div>
@@ -2062,8 +2061,6 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                     </div>
                     <div class="items">${itemRows}</div>
                     <div class="totals">
-                        <div><span>Subtotal</span><span>${this.formatRupiah(receipt.subtotal)}</span></div>
-                        <div><span>Diskon</span><span>${this.formatRupiah(receipt.discount)}</span></div>
                         <div class="grand"><span>Total</span><span>${this.formatRupiah(receipt.total)}</span></div>
                         <div><span>Dibayar</span><span>${this.formatRupiah(receipt.paid_amount)}</span></div>
                         <div><span>Kembali</span><span>${this.formatRupiah(receipt.change_amount)}</span></div>
@@ -2140,7 +2137,6 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             .forEach((line) => lines.push(this.centerReceiptText(line, width)));
 
         lines.push('');
-        lines.push(this.centerReceiptText('Nota Penjualan', width));
         lines.push(this.receiptDivider(width, 'double'));
         lines.push(`No Nota: ${receipt.invoice_number || '-'}`);
         lines.push(`Tanggal : ${receipt.sold_at || '-'}`);
@@ -2150,23 +2146,19 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         }
 
         lines.push(`Bayar   : ${this.paymentLabel(receipt.payment_method)}`);
-        lines.push(this.receiptDivider(width, 'dotted'));
+        lines.push(this.receiptDivider(width, 'double'));
 
         (receipt.items || []).forEach((item) => {
             this.receiptLineItem(item, width).forEach((line) => lines.push(line));
         });
 
-        lines.push('');
         lines.push(this.receiptDivider(width, 'double'));
-        lines.push(this.receiptKeyValue('Subtotal', this.formatRupiah(receipt.subtotal), width));
-        lines.push(this.receiptKeyValue('Diskon', this.formatRupiah(receipt.discount), width));
         lines.push('');
         lines.push(this.centerReceiptText(this.receiptKeyValue('TOTAL', this.formatRupiah(receipt.total), width), width));
         lines.push('');
         lines.push(this.receiptKeyValue('Dibayar', this.formatRupiah(receipt.paid_amount), width));
         lines.push(this.receiptKeyValue('Kembali', this.formatRupiah(receipt.change_amount), width));
         lines.push('');
-        lines.push(this.receiptDivider(width, 'double'));
         this.wrapReceiptText(receiptOptions.footer_note || 'Terima kasih atas kunjungan Anda.', width)
             .forEach((line) => lines.push(this.centerReceiptText(line, width)));
 
@@ -2225,21 +2217,17 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                 [`${storeName}\n`, 12],
                 ['', 7, 24],
                 ['', 9, 0],
-                ['\n', 12],
             ];
 
             [storeTagline, receiptOptions.show_store_address !== false ? storeAddress : '', storeInstagram]
                 .filter(Boolean)
                 .forEach((line) => commands.push([`${line}\n`, 12]));
-            commands.push(['\n', 12]);
 
             commands.push(
-                ['', 6, 1],
-                ['Nota Penjualan\n', 12],
-                ['', 6, 0],
-                ['', 7, textSize],
                 ['\n', 12],
                 [`${this.receiptDivider(paperCharacters, 'double')}\n`, 12],
+                ['', 7, textSize],
+                ['', 6, 0],
                 [`No Nota: ${receipt.invoice_number || '-'}\n`, 12],
                 [`Tanggal : ${receipt.sold_at || '-'}\n`, 12],
             );
@@ -2250,7 +2238,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
             commands.push(
                 [`Bayar   : ${this.paymentLabel(receipt.payment_method)}\n`, 12],
-                [`${this.receiptDivider(paperCharacters, 'dotted')}\n`, 12],
+                [`${this.receiptDivider(paperCharacters, 'double')}\n`, 12],
             );
 
             (receipt.items || []).forEach((item) => {
@@ -2267,10 +2255,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             });
 
             commands.push(
-                ['\n', 12],
                 [`${this.receiptDivider(paperCharacters, 'double')}\n`, 12],
-                this.iminColumnsCommand(['Subtotal', this.formatRupiah(receipt.subtotal)], [0.55, 0.45], [0, 2], textSize),
-                this.iminColumnsCommand(['Diskon', this.formatRupiah(receipt.discount)], [0.55, 0.45], [0, 2], textSize),
                 ['\n', 12],
                 ['', 9, 1],
                 ['', 6, 1],
@@ -2283,13 +2268,9 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                 this.iminColumnsCommand(['Dibayar', this.formatRupiah(receipt.paid_amount)], [0.55, 0.45], [0, 2], textSize),
                 this.iminColumnsCommand(['Kembali', this.formatRupiah(receipt.change_amount)], [0.55, 0.45], [0, 2], textSize),
                 ['\n', 12],
-                [`${this.receiptDivider(paperCharacters, 'double')}\n`, 12],
                 ['', 9, 1],
                 ['', 6, 1],
             );
-
-            commands.push(['\n', 12]);
-            commands.push([`${this.receiptDivider(paperCharacters, 'single')}\n`, 12]);
 
             this.wrapReceiptText(footerNote, paperCharacters).forEach((line) => {
                 commands.push([`${line}\n`, 12]);
