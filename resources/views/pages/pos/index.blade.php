@@ -14,6 +14,7 @@
             closeShift: @js(route('pos.shift.close')),
             checkout: @js(route('pos.checkout')),
             displayPush: @js(route('display.push')),
+            displayStand: @js(route('display.stand')),
         }
     )" class="space-y-4">
         <div class="hidden">
@@ -72,6 +73,11 @@
                 </template>
             </div>
             <div class="flex items-center gap-2">
+                <button type="button" @click="openCustomerDisplay()"
+                    class="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.04]">
+                    <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="4" width="16" height="10" rx="1.5"/><path d="M6 17h8" stroke-linecap="round"/></svg>
+                    Display
+                </button>
                 <button type="button" @click="sopModal = true"
                     class="inline-flex h-10 items-center justify-center rounded-lg border border-gray-200 px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.04]">
                     SOP Kasir

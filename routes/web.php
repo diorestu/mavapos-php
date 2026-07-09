@@ -132,21 +132,24 @@ Route::middleware('auth')->group(function () {
     });
 
     Route::prefix('display')->name('display.')->group(function () {
-        Route::get('/stand', [CustomerDisplayController::class, 'show'])->name('stand');
-        Route::get('/state', [CustomerDisplayController::class, 'state'])->name('state');
         Route::middleware('role:owner,admin,kasir')->group(function () {
             Route::post('/state', [CustomerDisplayController::class, 'push'])->name('push');
         });
     });
-
-    Route::get('/profile', function () {
-        $setting = StoreSetting::current();
-
-        return view('pages.profile', [
-            'title' => 'Profil',
-            'user' => auth()->user(),
-            'setting' => $setting,
-            'logoUrl' => $setting->logo_path ? Storage::url($setting->logo_path) : asset('/images/user/owner.jpg'),
-        ]);
-    })->name('profile');
 });
+
+Route::prefix('display')->name('display.')->group(function () {
+    Route::get('/stand', [CustomerDisplayController::class, 'show'])->name('stand');
+    Route::get('/state', [CustomerDisplayController::class, 'state'])->name('state');
+});
+
+Route::get('/profile', function () {
+    $setting = StoreSetting::current();
+
+    return view('pages.profile', [
+        'title' => 'Profil',
+        'user' => auth()->user(),
+        'setting' => $setting,
+        'logoUrl' => $setting->logo_path ? Storage::url($setting->logo_path) : asset('/images/user/owner.jpg'),
+    ]);
+})->name('profile');

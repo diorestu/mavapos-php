@@ -1799,6 +1799,43 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         this.$watch('discountValue', () => this.pushDisplayState('cart'));
         this.$watch('paidAmount', () => this.pushDisplayState('cart'));
         this.$watch('paymentMethod', () => this.pushDisplayState('cart'));
+        this.maybeOpenCustomerDisplay();
+    },
+
+    get customerDisplayUrl() {
+        return this.endpoints?.displayStand || '/display/stand';
+    },
+
+    maybeOpenCustomerDisplay() {
+        try {
+            const params = new URLSearchParams(window.location.search);
+            const wantsAuto = params.get('openDisplay') === '1'
+                || localStorage.getItem('mava_pos_auto_open_display') === '1';
+
+            if (!wantsAuto || localStorage.getItem('mava_pos_display_opened') === '1') {
+                return;
+            }
+
+            this.openCustomerDisplay();
+        } catch (error) {
+            // ignore storage errors
+        }
+    },
+
+    openCustomerDisplay() {
+        const url = `${this.customerDisplayUrl}?window=1`;
+        const popup = window.open(url, 'mavapos_customer_display', 'width=360,height=520,popup=yes');
+
+        if (!popup) {
+            notify('Izinkan popup untuk membuka display pelanggan.', 'error');
+            return;
+        }
+
+        try {
+            localStorage.setItem('mava_pos_display_opened', '1');
+        } catch (error) {
+            // ignore
+        }
     },
 
     get filteredItems() {
