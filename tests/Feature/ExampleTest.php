@@ -1786,3 +1786,54 @@ test('checkout kasir dengan varian menghitung harga varian sebagai add-on', func
         ->assertJsonPath('sale.total', 19000)
         ->assertJsonPath('sale.items.0.name', 'Kopi Susu · Varian Extra Shot');
 });
+
+test('pengguna dapat mengelola developer token dan mengakses api', function () {
+    $user = User::factory()->create([
+        'role' => 'owner',
+        'trial_ends_at' => now()->addDays(14),
+    ]);
+    
+    // 1. Generate Token
+    $response = $this->actingAs($user)
+        ->postJson(route('settings.tokens.store'), [
+            'name' => 'Test Token',
+        ])
+        ->assertOk();
+    
+    $plainToken = $response->json('token');
+    expect($plainToken)->not->toBeEmpty();
+    
+    // 2. List Tokens
+    $this->actingAs($user)
+        ->getJson(route('settings.tokens.index'))
+        ->assertOk()
+        ->assertJsonCount(1)
+        ->assertJsonPath('0.name', 'Test Token');
+        
+    // Log out of the session so we test pure token auth in the next step
+    $this->flushSession();
+    auth()->forgetUser();
+        
+    // 3. Access API with Token
+    $this->withHeader('Authorization', 'Bearer ' . $plainToken)
+        ->getJson(route('pos'))
+        ->assertOk()
+        ->assertJsonStructure(['categories', 'items']);
+        
+    // Log back in to revoke the token
+    $this->actingAs($user);
+        
+    // 4. Revoke Token
+    $tokenId = $user->tokens()->first()->id;
+    $this->deleteJson(route('settings.tokens.destroy', ['id' => $tokenId]))
+        ->assertOk();
+        
+    // Log out of the session again
+    $this->flushSession();
+    auth()->forgetUser();
+        
+    // 5. Verify Revoked Token access is blocked
+    $this->withHeader('Authorization', 'Bearer ' . $plainToken)
+        ->getJson(route('pos'))
+        ->assertStatus(401);
+});

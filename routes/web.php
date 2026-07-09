@@ -54,7 +54,7 @@ Route::view('/terms-of-service', 'pages.terms-of-service', [
     'title' => 'Syarat dan Ketentuan Layanan',
 ])->name('terms-of-service');
 
-Route::middleware('auth')->group(function () {
+Route::middleware('auth:web,sanctum')->group(function () {
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     Route::get('/global-search', GlobalSearchController::class)->name('global-search');
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications');
@@ -67,6 +67,9 @@ Route::middleware('auth')->group(function () {
         Route::post('/billings/{billing}/refresh', [BillingController::class, 'refresh'])->name('billings.refresh');
         Route::get('/settings', [SettingController::class, 'index'])->name('settings');
         Route::patch('/settings', [SettingController::class, 'update'])->name('settings.update');
+        Route::get('/settings/tokens', [\App\Http\Controllers\DeveloperApiController::class, 'getTokens'])->name('settings.tokens.index');
+        Route::post('/settings/tokens', [\App\Http\Controllers\DeveloperApiController::class, 'createToken'])->name('settings.tokens.store');
+        Route::delete('/settings/tokens/{id}', [\App\Http\Controllers\DeveloperApiController::class, 'revokeToken'])->name('settings.tokens.destroy');
         Route::get('/branches', [BranchController::class, 'index'])->name('branches.index');
         Route::post('/branches', [BranchController::class, 'store'])->name('branches.store');
         Route::patch('/branches/{branch}', [BranchController::class, 'update'])->name('branches.update');

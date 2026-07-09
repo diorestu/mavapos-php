@@ -104,6 +104,23 @@
                     </span>
                 </button>
 
+                <button type="button" @click="activeTab = 'api'"
+                    class="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition"
+                    :class="activeTab === 'api' ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/[0.04]'">
+                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-current shadow-theme-xs dark:bg-gray-900">
+                        <svg class="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="2" y="2" width="20" height="8" rx="2" ry="2" />
+                            <rect x="2" y="14" width="20" height="8" rx="2" ry="2" />
+                            <line x1="6" y1="6" x2="6.01" y2="6" />
+                            <line x1="6" y1="18" x2="6.01" y2="18" />
+                        </svg>
+                    </span>
+                    <span>
+                        Integrasi API
+                        <span class="block text-[11px] font-normal opacity-75">Kunci akses developer</span>
+                    </span>
+                </button>
+
                 <a href="{{ route('billings') }}"
                     class="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium text-gray-600 transition hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/[0.04]">
                     <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-current shadow-theme-xs dark:bg-gray-900">
@@ -363,6 +380,122 @@
                                         class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                                 </label>
                             </div>
+                        </div>
+                    </div>
+                </section>
+
+                <section x-show="activeTab === 'api'" x-cloak
+                    class="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]"
+                    x-data="{
+                        tokens: [],
+                        newTokenName: '',
+                        createdToken: '',
+                        isLoading: false,
+                        fetchTokens() {
+                            fetch('{{ route('settings.tokens.index') }}')
+                                .then(res => res.json())
+                                .then(data => this.tokens = data);
+                        },
+                        generateToken() {
+                            if (!this.newTokenName.trim()) return;
+                            this.isLoading = true;
+                            fetch('{{ route('settings.tokens.store') }}', {
+                                method: 'POST',
+                                headers: {
+                                    'Content-Type': 'application/json',
+                                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                                },
+                                body: JSON.stringify({ name: this.newTokenName })
+                            })
+                            .then(res => res.json())
+                            .then(data => {
+                                this.createdToken = data.token;
+                                this.newTokenName = '';
+                                this.fetchTokens();
+                            })
+                            .finally(() => this.isLoading = false);
+                        },
+                        revokeToken(id) {
+                            if (!confirm('Apakah Anda yakin ingin mematikan kunci API ini? Aplikasi pihak ketiga yang menggunakannya akan kehilangan akses.')) return;
+                            fetch(`/settings/tokens/${id}`, {
+                                method: 'DELETE',
+                                headers: {
+                                    'X-CSRF-TOKEN': '{{ csrf_token() }}'
+                                }
+                            })
+                            .then(() => this.fetchTokens());
+                        }
+                    }"
+                    x-init="fetchTokens()">
+                    <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+                        <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Integrasi API Pihak Ketiga</h2>
+                        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Buat dan kelola token API untuk mengizinkan aplikasi eksternal terhubung secara aman dengan toko Anda.</p>
+                    </div>
+
+                    <div class="space-y-4 p-4">
+                        <div class="rounded-lg bg-gray-50 p-4 dark:bg-gray-900/40">
+                            <h3 class="text-xs font-semibold text-gray-800 dark:text-white/90">Buat API Key Baru</h3>
+                            <div class="mt-2.5 flex flex-col gap-2 sm:flex-row">
+                                <input type="text" x-model="newTokenName" placeholder="Contoh: Integrasi WooCommerce"
+                                    class="h-10 flex-1 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                                <button type="button" @click="generateToken()" :disabled="isLoading || !newTokenName.trim()"
+                                    class="inline-flex h-10 items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">
+                                    <span x-show="!isLoading">Generate Key</span>
+                                    <span x-show="isLoading">Loading...</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <template x-if="createdToken">
+                            <div class="rounded-lg border border-success-200 bg-success-50 p-4 dark:border-success-500/30 dark:bg-success-500/10">
+                                <h4 class="text-xs font-bold text-success-800 dark:text-success-400">Kunci API Berhasil Dibuat!</h4>
+                                <p class="mt-1 text-xs text-success-700 dark:text-success-400/90">
+                                    Salin kunci API di bawah ini sekarang. Demi keamanan, Anda tidak akan bisa melihat kunci ini lagi setelah meninggalkan halaman ini.
+                                </p>
+                                <div class="mt-2.5 flex items-center gap-2">
+                                    <input type="text" readonly :value="createdToken"
+                                        class="h-10 flex-1 rounded-lg border border-success-300 bg-white px-3 font-mono text-xs text-gray-800 dark:border-success-800/40 dark:bg-gray-950 dark:text-white/95" />
+                                    <button type="button" @click="navigator.clipboard.writeText(createdToken); alert('API Key disalin ke clipboard.')"
+                                        class="inline-flex h-10 items-center justify-center rounded-lg bg-success-600 px-3 text-xs font-semibold text-white hover:bg-success-700">
+                                        Salin
+                                    </button>
+                                </div>
+                            </div>
+                        </template>
+
+                        <div class="overflow-hidden rounded-lg border border-gray-200 dark:border-gray-800">
+                            <table class="w-full text-left text-xs text-gray-700 dark:text-gray-300">
+                                <thead class="bg-gray-50 text-[10px] uppercase tracking-wider text-gray-500 dark:bg-gray-900/60 dark:text-gray-400">
+                                    <tr>
+                                        <th class="px-4 py-3 font-semibold">Nama API Key</th>
+                                        <th class="px-4 py-3 font-semibold">Dibuat</th>
+                                        <th class="px-4 py-3 font-semibold">Penggunaan Terakhir</th>
+                                        <th class="px-4 py-3 font-semibold text-right">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-gray-100 dark:divide-gray-800">
+                                    <template x-for="token in tokens" :key="token.id">
+                                        <tr class="hover:bg-gray-50/50 dark:hover:bg-white/[0.01]">
+                                            <td class="px-4 py-3 font-semibold text-gray-800 dark:text-white/90" x-text="token.name"></td>
+                                            <td class="px-4 py-3 text-gray-500 dark:text-gray-400" x-text="token.created_at"></td>
+                                            <td class="px-4 py-3 text-gray-500 dark:text-gray-400" x-text="token.last_used_at"></td>
+                                            <td class="px-4 py-3 text-right">
+                                                <button type="button" @click="revokeToken(token.id)"
+                                                    class="text-error-600 hover:text-error-700 font-semibold">
+                                                    Hapus
+                                                </button>
+                                            </td>
+                                        </tr>
+                                    </template>
+                                    <template x-if="tokens.length === 0">
+                                        <tr>
+                                            <td colspan="4" class="px-4 py-6 text-center text-gray-500 dark:text-gray-400">
+                                                Belum ada kunci API aktif.
+                                            </td>
+                                        </tr>
+                                    </template>
+                                </tbody>
+                            </table>
                         </div>
                     </div>
                 </section>
