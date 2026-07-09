@@ -2338,9 +2338,11 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             const commands = [
                 ['', 6, 1],
                 ['', 7, 28],
+                ['', 8, 1], // Typeface Monospace
                 ['', 9, 1],
                 [`${storeName}\n`, 12],
                 ['', 7, 24],
+                ['', 8, 1], // Typeface Monospace
                 ['', 9, 0],
             ];
 
@@ -2350,6 +2352,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
             commands.push(
                 [`${this.receiptDivider(paperCharacters, 'double')}\n`, 12],
+                ['', 8, 1], // Typeface Monospace
                 ['', 7, textSize],
                 ['', 6, 0],
                 [`No Nota: ${receipt.invoice_number || '-'}\n`, 12],
@@ -2373,6 +2376,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
             commands.push(
                 [`${this.receiptDivider(paperCharacters, 'single')}\n`, 12],
+                ['', 8, 1], // Typeface Monospace
                 [`${this.receiptKeyValue('Subtotal', this.formatRupiah(receipt.subtotal), paperCharacters)}\n`, 12]
             );
 
@@ -2384,6 +2388,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
             commands.push(
                 [`${this.receiptDivider(paperCharacters, 'double')}\n`, 12],
+                ['', 8, 1], // Typeface Monospace
                 ['', 9, 1],
                 [`${this.receiptKeyValue('TOTAL BAYAR', this.formatRupiah(receipt.total), paperCharacters)}\n`, 12],
                 ['', 9, 0],
