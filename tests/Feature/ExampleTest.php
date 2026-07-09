@@ -537,7 +537,7 @@ test('pengguna dapat menambah stok bahan baku yang sudah ada', function () {
     $material->refresh();
 
     expect((float) $material->stock)->toBe(425.5)
-        ->and($material->cost_per_unit)->toBe(90)
+        ->and((float) $material->cost_per_unit)->toBe(90.0)
         ->and($material->note)->toBe('Belanja bahan pagi');
 });
 

@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @php
-    $rupiah = fn ($value) => 'Rp'.number_format((int) $value, 0, ',', '.');
+    $rupiah = fn ($value) => 'Rp'.number_format((float) $value, (floor($value) == $value) ? 0 : 2, ',', '.');
     $decimal = fn ($value) => rtrim(rtrim(number_format((float) $value, 3, '.', ''), '0'), '.');
 @endphp
 
@@ -201,7 +201,7 @@
 
                     <div>
                         <label for="cost_per_unit" class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Harga Per Satuan</label>
-                        <input id="cost_per_unit" name="cost_per_unit" value="{{ old('cost_per_unit') }}" type="number" min="0" placeholder="0"
+                        <input id="cost_per_unit" name="cost_per_unit" value="{{ old('cost_per_unit') }}" type="number" min="0" step="0.01" placeholder="0.00"
                             class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-right text-sm tabular-nums text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                     </div>
 
@@ -283,7 +283,7 @@
 
                     <div>
                         <label for="stock_cost_per_unit" class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Harga Per Satuan Baru</label>
-                        <input id="stock_cost_per_unit" name="cost_per_unit" type="number" min="0" placeholder="Opsional"
+                        <input id="stock_cost_per_unit" name="cost_per_unit" type="number" min="0" step="0.01" placeholder="Opsional"
                             class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-right text-sm tabular-nums text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                     </div>
 

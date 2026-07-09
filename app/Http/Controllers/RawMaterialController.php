@@ -34,7 +34,7 @@ class RawMaterialController extends Controller
             'units' => self::UNITS,
             'summary' => [
                 'count' => $materials->count(),
-                'stock_value' => $materials->sum(fn (RawMaterial $material): int => (int) ((float) $material->stock * $material->cost_per_unit)),
+                'stock_value' => $materials->sum(fn (RawMaterial $material): float => (float) ((float) $material->stock * (float) $material->cost_per_unit)),
                 'low_stock' => $materials
                     ->filter(fn (RawMaterial $material): bool => (float) $material->stock <= 0 || ((float) $material->min_stock > 0 && (float) $material->stock <= (float) $material->min_stock))
                     ->count(),
@@ -51,7 +51,7 @@ class RawMaterialController extends Controller
             'unit' => ['required', 'string', 'max:30'],
             'stock' => ['nullable', 'numeric', 'min:0'],
             'min_stock' => ['nullable', 'numeric', 'min:0'],
-            'cost_per_unit' => ['nullable', 'integer', 'min:0'],
+            'cost_per_unit' => ['nullable', 'numeric', 'min:0'],
             'note' => ['nullable', 'string', 'max:500'],
         ]);
 
@@ -73,7 +73,7 @@ class RawMaterialController extends Controller
     {
         $validated = $request->validate([
             'quantity' => ['required', 'numeric', 'gt:0'],
-            'cost_per_unit' => ['nullable', 'integer', 'min:0'],
+            'cost_per_unit' => ['nullable', 'numeric', 'min:0'],
             'note' => ['nullable', 'string', 'max:500'],
         ]);
 

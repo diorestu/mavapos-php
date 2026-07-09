@@ -28,7 +28,7 @@ class RawMaterial extends Model
         return [
             'stock' => 'decimal:3',
             'min_stock' => 'decimal:3',
-            'cost_per_unit' => 'integer',
+            'cost_per_unit' => 'decimal:2',
         ];
     }
 
