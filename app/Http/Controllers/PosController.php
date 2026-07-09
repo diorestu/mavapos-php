@@ -22,7 +22,7 @@ use Illuminate\View\View;
 
 class PosController extends Controller
 {
-    public function index(): View
+    public function index(Request $request)
     {
         $branchId = app(BranchContext::class)->activeId();
         $products = Product::query()
@@ -38,30 +38,44 @@ class PosController extends Controller
         $activeShift = $openShift?->user_id === auth()->id() ? $openShift : null;
         $blockingShift = $openShift && $openShift->user_id !== auth()->id() ? $openShift : null;
 
+        $activeShiftPayload = $activeShift ? $this->shiftPayload($activeShift) : null;
+        $blockingShiftPayload = $blockingShift ? $this->shiftPayload($blockingShift) : null;
+        $categoriesPayload = ProductCategory::query()
+            ->where('status', 'aktif')
+            ->orderBy('name')
+            ->get()
+            ->map(fn (ProductCategory $category): array => [
+                'code' => $category->code,
+                'name' => $category->name,
+            ])
+            ->values();
+        $itemsPayload = $products
+            ->map(function (Product $product) use ($branchId): array {
+                $payload = $this->productPayload($product, $branchId);
+                $payload['variants'] = $product->variants
+                    ->where('is_active', true)
+                    ->map(fn (ProductVariant $variant): array => $this->variantPayload($product, $variant, $branchId))
+                    ->values()
+                    ->all();
+                return $payload;
+            })
+            ->values();
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'activeShift' => $activeShiftPayload,
+                'blockingShift' => $blockingShiftPayload,
+                'categories' => $categoriesPayload,
+                'items' => $itemsPayload,
+            ]);
+        }
+
         return view('pages.pos.index', [
             'title' => 'Kasir',
-            'activeShift' => $activeShift ? $this->shiftPayload($activeShift) : null,
-            'blockingShift' => $blockingShift ? $this->shiftPayload($blockingShift) : null,
-            'categories' => ProductCategory::query()
-                ->where('status', 'aktif')
-                ->orderBy('name')
-                ->get()
-                ->map(fn (ProductCategory $category): array => [
-                    'code' => $category->code,
-                    'name' => $category->name,
-                ])
-                ->values(),
-            'items' => $products
-                ->map(function (Product $product) use ($branchId): array {
-                    $payload = $this->productPayload($product, $branchId);
-                    $payload['variants'] = $product->variants
-                        ->where('is_active', true)
-                        ->map(fn (ProductVariant $variant): array => $this->variantPayload($product, $variant, $branchId))
-                        ->values()
-                        ->all();
-                    return $payload;
-                })
-                ->values(),
+            'activeShift' => $activeShiftPayload,
+            'blockingShift' => $blockingShiftPayload,
+            'categories' => $categoriesPayload,
+            'items' => $itemsPayload,
         ]);
     }
 

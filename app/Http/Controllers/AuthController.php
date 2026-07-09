@@ -18,7 +18,7 @@ class AuthController extends Controller
         return view('pages.auth.signin', ['title' => 'Masuk']);
     }
 
-    public function signIn(Request $request): RedirectResponse
+    public function signIn(Request $request)
     {
         $credentials = $request->validate([
             'email' => ['required', 'email'],
@@ -30,6 +30,15 @@ class AuthController extends Controller
         ]);
 
         if (! Auth::attempt($credentials, $request->boolean('remember'))) {
+            if ($request->wantsJson()) {
+                return response()->json([
+                    'message' => 'Email atau kata sandi tidak sesuai.',
+                    'errors' => [
+                        'email' => ['Email atau kata sandi tidak sesuai.']
+                    ]
+                ], 422);
+            }
+
             return back()
                 ->withInput($request->only('email', 'remember'))
                 ->withErrors([
@@ -38,6 +47,13 @@ class AuthController extends Controller
         }
 
         $request->session()->regenerate();
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message' => 'Berhasil masuk.',
+                'user' => auth()->user(),
+            ]);
+        }
 
         return redirect()->intended(route('dashboard'));
     }
@@ -118,15 +134,28 @@ class AuthController extends Controller
         Auth::login($user);
         $request->session()->regenerate();
 
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message' => 'Registrasi berhasil.',
+                'user' => $user,
+            ], 201);
+        }
+
         return redirect()->route('dashboard');
     }
 
-    public function logout(Request $request): RedirectResponse
+    public function logout(Request $request)
     {
         Auth::logout();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message' => 'Berhasil keluar.',
+            ]);
+        }
 
         return redirect()->route('signin');
     }

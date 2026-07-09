@@ -83,13 +83,20 @@ class BranchController extends Controller
         return redirect()->route('branches.index')->with('success', 'Cabang berhasil diperbarui.');
     }
 
-    public function switch(Request $request, BranchContext $branchContext): RedirectResponse
+    public function switch(Request $request, BranchContext $branchContext)
     {
         $validated = $request->validate([
             'branch_id' => ['required', 'integer', 'exists:branches,id'],
         ]);
 
         $branchContext->setActive((int) $validated['branch_id']);
+
+        if ($request->wantsJson()) {
+            return response()->json([
+                'message' => 'Cabang aktif diganti.',
+                'branch_id' => (int) $validated['branch_id'],
+            ]);
+        }
 
         return back()->with('status', 'Cabang aktif diganti.');
     }
