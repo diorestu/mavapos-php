@@ -2366,41 +2366,29 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             );
 
             (receipt.items || []).forEach((item) => {
-                commands.push(this.iminColumnsCommand(
-                    [item.name || '-', this.formatRupiah(item.line_total)],
-                    [0.62, 0.38],
-                    [0, 2],
-                    textSize,
-                ));
-                commands.push(['', 6, 2]);
-                commands.push([`${Number(item.quantity || 0)} x ${this.formatRupiah(item.unit_price)}\n`, 12]);
-                commands.push(['', 6, 0]);
+                this.receiptLineItem(item, paperCharacters).forEach((line) => {
+                    commands.push([`${line}\n`, 12]);
+                });
             });
 
             commands.push(
                 [`${this.receiptDivider(paperCharacters, 'single')}\n`, 12],
-                this.iminColumnsCommand(['Subtotal', this.formatRupiah(receipt.subtotal)], [0.55, 0.45], [0, 2], textSize)
+                [`${this.receiptKeyValue('Subtotal', this.formatRupiah(receipt.subtotal), paperCharacters)}\n`, 12]
             );
 
             if (Number(receipt.discount || 0) > 0) {
                 commands.push(
-                    this.iminColumnsCommand(['Diskon', `-${this.formatRupiah(receipt.discount)}`], [0.55, 0.45], [0, 2], textSize)
+                    [`${this.receiptKeyValue('Diskon', `-${this.formatRupiah(receipt.discount)}`, paperCharacters)}\n`, 12]
                 );
             }
 
             commands.push(
                 [`${this.receiptDivider(paperCharacters, 'double')}\n`, 12],
                 ['', 9, 1],
-                ['', 6, 1],
-                ['', 7, 32],
-                this.iminColumnsCommand(['TOTAL BAYAR', this.formatRupiah(receipt.total)], [0.55, 0.45], [0, 2], textSize),
-                ['', 7, 24],
-                ['', 6, 0],
+                [`${this.receiptKeyValue('TOTAL BAYAR', this.formatRupiah(receipt.total), paperCharacters)}\n`, 12],
                 ['', 9, 0],
-                this.iminColumnsCommand(['Dibayar', this.formatRupiah(receipt.paid_amount)], [0.55, 0.45], [0, 2], textSize),
-                this.iminColumnsCommand(['Kembali', this.formatRupiah(receipt.change_amount)], [0.55, 0.45], [0, 2], textSize),
-                ['', 9, 1],
-                ['', 6, 1],
+                [`${this.receiptKeyValue('Dibayar', this.formatRupiah(receipt.paid_amount), paperCharacters)}\n`, 12],
+                [`${this.receiptKeyValue('Kembali', this.formatRupiah(receipt.change_amount), paperCharacters)}\n`, 12],
             );
 
             this.wrapReceiptText(footerNote, paperCharacters).forEach((line) => {
