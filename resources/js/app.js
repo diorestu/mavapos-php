@@ -1795,6 +1795,10 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
     init() {
         this.loadPrintPreferences();
+        this.$watch('cart', () => this.pushDisplayState('cart'), { deep: true });
+        this.$watch('discountValue', () => this.pushDisplayState('cart'));
+        this.$watch('paidAmount', () => this.pushDisplayState('cart'));
+        this.$watch('paymentMethod', () => this.pushDisplayState('cart'));
     },
 
     get filteredItems() {
@@ -2023,6 +2027,40 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         this.cart = [];
         this.discount = '';
         this.paidAmount = '';
+        this.pushDisplayState('cart');
+    },
+
+    pushDisplayState(mode = 'cart') {
+        if (!this.endpoints?.displayPush) {
+            return;
+        }
+
+        const payload = {
+            mode,
+            cart: this.cart.map((item) => ({
+                name: item.name,
+                quantity: Number(item.quantity),
+                line_total: Number(item.price) * Number(item.quantity),
+            })),
+            subtotal: this.subtotal,
+            discount: this.discountValue,
+            total: this.total,
+            payment_method: this.paymentMethod,
+            paid_amount: this.paymentMethod === 'cash' ? this.paid : this.total,
+            change_amount: this.change,
+            invoice_number: mode === 'checkout' ? (this.lastReceipt?.invoice_number || null) : null,
+        };
+
+        fetch(this.endpoints.displayPush, {
+            method: 'POST',
+            headers: {
+                Accept: 'application/json',
+                'Content-Type': 'application/json',
+                'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+            },
+            body: JSON.stringify(payload),
+            keepalive: true,
+        }).catch(() => {});
     },
 
     closeReceiptModal() {
@@ -2780,6 +2818,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             this.lastReceipt = payload.sale || null;
             this.syncPrintPreferencesFromReceipt(this.lastReceipt);
             this.clearCart();
+            this.pushDisplayState('checkout');
             this.receiptModal = Boolean(this.lastReceipt);
             if (this.lastReceipt && this.effectivePrintPreference('autoPrint', this.lastReceipt.printer?.auto_print)) {
                 setTimeout(() => this.printReceipt(), 150);

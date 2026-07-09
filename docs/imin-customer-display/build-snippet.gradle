@@ -1,0 +1,32 @@
+// app/build.gradle (Module: app) — snippet untuk CustomerDisplay APK
+// File lengkap ini hanya cuplikan; project Android asli perlu dibuat terpisah
+// lewat Android Studio (Empty Activity template), package com.mavapos.customerdisplay.
+
+android {
+    namespace 'com.mavapos.customerdisplay'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId 'com.mavapos.customerdisplay'
+        minSdk 24
+        targetSdk 34
+        versionCode 1
+        versionName '1.0'
+
+        // URL state server POS; sesuaikan dengan domain Anda.
+        // Contoh: https://pos.tokosaya.test/display/state
+        buildConfigField 'String', 'POS_DISPLAY_STATE_URL', '"https://your-pos.test/display/state"'
+    }
+
+    buildFeatures {
+        buildConfig true
+    }
+}
+
+dependencies {
+    // IMIN SDK — unduh AAR dari partner portal IMIN, taruh di app/libs/
+    implementation files('libs/iminsdk.aar')
+
+    // Coroutines untuk polling
+    implementation 'org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3'
+}
