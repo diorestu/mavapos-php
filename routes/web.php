@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BillingController;
+use App\Http\Controllers\CustomerDisplayController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\CashierShiftController;
 use App\Http\Controllers\CustomerController;
@@ -128,6 +129,14 @@ Route::middleware('auth')->group(function () {
         Route::get('/print-test', function () {
             return view('pages.print-test', ['title' => 'Test Printing']);
         })->name('print-test');
+    });
+
+    Route::prefix('display')->name('display.')->group(function () {
+        Route::get('/stand', [CustomerDisplayController::class, 'show'])->name('stand');
+        Route::get('/state', [CustomerDisplayController::class, 'state'])->name('state');
+        Route::middleware('role:owner,admin,kasir')->group(function () {
+            Route::post('/state', [CustomerDisplayController::class, 'push'])->name('push');
+        });
     });
 
     Route::get('/profile', function () {

@@ -2551,7 +2551,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     },
 
     receiptTextSize() {
-        return 16;
+        return 24;
     },
 
     receiptTypography() {

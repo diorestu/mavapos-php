@@ -13,6 +13,7 @@
             startShift: @js(route('pos.shift.start')),
             closeShift: @js(route('pos.shift.close')),
             checkout: @js(route('pos.checkout')),
+            displayPush: @js(route('display.push')),
         }
     )" class="space-y-4">
         <div class="hidden">
