@@ -2412,6 +2412,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             }
 
             const commands = [
+                ['', 16], // Open cash drawer (type 16)
                 ['', 6, 1],
                 ['', 7, 28],
                 ['', 8, 1], // Typeface Monospace
