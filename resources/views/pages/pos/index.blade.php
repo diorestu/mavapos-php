@@ -15,7 +15,7 @@
             checkout: @js(route('pos.checkout')),
         }
     )" class="space-y-4">
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+        <div class="hidden xl:flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div class="min-w-0">
                 <nav aria-label="Breadcrumb">
                     <ol class="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
