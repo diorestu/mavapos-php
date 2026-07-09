@@ -118,8 +118,27 @@
         </div>
 
         <!-- Tambah Bahan Baku Modal -->
-        <div x-cloak x-show="showAddModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/60 p-4 animate-fadeIn">
-            <div @click.outside="showAddModal = false" class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
+        <div x-cloak x-show="showAddModal" class="fixed inset-0 z-99999 flex items-center justify-center p-4">
+            <!-- Backdrop -->
+            <div x-show="showAddModal"
+                 x-transition:enter="ease-out duration-300"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="ease-in duration-200"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 @click="showAddModal = false"
+                 class="fixed inset-0 bg-gray-950/60 backdrop-blur-xs transition-opacity"></div>
+
+            <!-- Modal Panel -->
+            <div x-show="showAddModal"
+                 x-transition:enter="ease-out duration-300"
+                 x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave="ease-in duration-200"
+                 x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 class="relative w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900 transition-all">
                 <div class="flex items-center justify-between border-b border-gray-100 pb-3 dark:border-gray-800">
                     <h3 class="text-base font-bold text-gray-900 dark:text-white">Tambah Bahan Baku</h3>
                     <button type="button" @click="showAddModal = false" class="text-gray-400 hover:text-gray-500">
@@ -205,8 +224,27 @@
         </div>
 
         <!-- Tambah Stok Bahan Baku Modal -->
-        <div x-cloak x-show="showStockModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/60 p-4 animate-fadeIn">
-            <div @click.outside="showStockModal = false" class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
+        <div x-cloak x-show="showStockModal" class="fixed inset-0 z-99999 flex items-center justify-center p-4">
+            <!-- Backdrop -->
+            <div x-show="showStockModal"
+                 x-transition:enter="ease-out duration-300"
+                 x-transition:enter-start="opacity-0"
+                 x-transition:enter-end="opacity-100"
+                 x-transition:leave="ease-in duration-200"
+                 x-transition:leave-start="opacity-100"
+                 x-transition:leave-end="opacity-0"
+                 @click="showStockModal = false"
+                 class="fixed inset-0 bg-gray-950/60 backdrop-blur-xs transition-opacity"></div>
+
+            <!-- Modal Panel -->
+            <div x-show="showStockModal"
+                 x-transition:enter="ease-out duration-300"
+                 x-transition:enter-start="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 x-transition:enter-end="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave="ease-in duration-200"
+                 x-transition:leave-start="opacity-100 translate-y-0 sm:scale-100"
+                 x-transition:leave-end="opacity-0 translate-y-4 sm:translate-y-0 sm:scale-95"
+                 class="relative w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900 transition-all">
                 <div class="flex items-center justify-between border-b border-gray-100 pb-3 dark:border-gray-800">
                     <h3 class="text-base font-bold text-gray-900 dark:text-white">Tambah Stok Bahan Baku</h3>
                     <button type="button" @click="showStockModal = false" class="text-gray-400 hover:text-gray-500">
