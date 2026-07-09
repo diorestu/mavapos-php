@@ -197,6 +197,8 @@
                                             <span x-text="item.sku"></span>
                                             <span class="mx-1">·</span>
                                             <span x-text="formatRupiah(item.price)"></span>
+                                            <span class="mx-1">·</span>
+                                            <span class="font-semibold text-gray-700 dark:text-gray-300" x-text="`Subtotal: ${formatRupiah(item.price * item.quantity)}`"></span>
                                         </p>
                                     </div>
                                     <div class="inline-flex shrink-0 items-center rounded-lg border border-gray-200 dark:border-gray-800">
@@ -531,7 +533,7 @@
                                 <span class="block text-xs font-semibold text-gray-800 dark:text-white/90" x-text="v.variant_name || (v.name.includes(' · ') ? v.name.split(' · ').slice(1).join(' · ') : v.name)"></span>
                                 <span class="mt-0.5 block text-[10px]" :class="Number(v.stock || 0) <= 0 ? 'text-error-500 font-medium' : 'text-gray-500 dark:text-gray-400'" x-text="Number(v.stock || 0) <= 0 ? 'Habis' : `Stok: ${v.stock}`"></span>
                             </div>
-                            <span class="text-xs font-bold" :class="Number(v.stock || 0) <= 0 ? 'text-gray-400 dark:text-gray-600 line-through font-normal' : 'text-brand-600 dark:text-brand-400'" x-text="formatRupiah(Number(variantProduct?.price || 0) + Number(v.price || 0))"></span>
+                            <span class="text-xs font-bold" :class="Number(v.stock || 0) <= 0 ? 'text-gray-400 dark:text-gray-600 line-through font-normal' : 'text-brand-600 dark:text-brand-400'" x-text="formatRupiah(v.price)"></span>
                         </button>
                     </template>
                 </div>
