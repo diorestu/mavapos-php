@@ -2164,7 +2164,8 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                         .item-row { padding: 4px 0; border-bottom: 1px dotted #e5e7eb; clear: both; overflow: hidden; }
                         .item-main { clear: both; overflow: hidden; font-size: ${typography.item}px; line-height: 1.28; display: block; }
                         .item-name { float: left; width: 68%; text-align: left; overflow-wrap: anywhere; font-weight: 700; }
-                        .item-total { float: right; width: 30%; text-align: right; white-space: nowrap; font-weight: 700; }
+                        .num { font-family: "SFMono-Regular", "Menlo", "Consolas", "Courier New", monospace; }
+                        .item-total { float: right; width: 30%; text-align: right; white-space: nowrap; font-weight: 700; font-family: "SFMono-Regular", "Menlo", "Consolas", "Courier New", monospace; }
                         .item-meta { margin-top: 2px; clear: both; overflow: hidden; color: #4b5563; font-size: ${typography.meta}px; line-height: 1.25; display: block; }
                         .item-meta span { float: right; text-align: right; }
                         .totals { margin-top: 6px; border-top: 1px solid #111827; border-bottom: 1px solid #111827; padding: 4px 0; }
@@ -2392,7 +2393,9 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                 ['', 9, 1],
                 [`${this.receiptKeyValue('TOTAL BAYAR', this.formatRupiah(receipt.total), paperCharacters)}\n`, 12],
                 ['', 9, 0],
+                ['', 8, 1], // Typeface Monospace
                 [`${this.receiptKeyValue('Dibayar', this.formatRupiah(receipt.paid_amount), paperCharacters)}\n`, 12],
+                ['', 8, 1], // Typeface Monospace
                 [`${this.receiptKeyValue('Kembali', this.formatRupiah(receipt.change_amount), paperCharacters)}\n`, 12],
             );
 
