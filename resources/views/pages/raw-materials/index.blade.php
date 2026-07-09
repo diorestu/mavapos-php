@@ -118,7 +118,7 @@
         </div>
 
         <!-- Tambah Bahan Baku Modal -->
-        <div x-cloak x-show="showAddModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/60 p-4 animate-fadeIn">
+        <div x-cloak x-show="showAddModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/60 p-4 animate-fadeIn">
             <div @click.outside="showAddModal = false" class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
                 <div class="flex items-center justify-between border-b border-gray-100 pb-3 dark:border-gray-800">
                     <h3 class="text-base font-bold text-gray-900 dark:text-white">Tambah Bahan Baku</h3>
@@ -205,7 +205,7 @@
         </div>
 
         <!-- Tambah Stok Bahan Baku Modal -->
-        <div x-cloak x-show="showStockModal" class="fixed inset-0 z-50 flex items-center justify-center bg-gray-950/60 p-4 animate-fadeIn">
+        <div x-cloak x-show="showStockModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/60 p-4 animate-fadeIn">
             <div @click.outside="showStockModal = false" class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
                 <div class="flex items-center justify-between border-b border-gray-100 pb-3 dark:border-gray-800">
                     <h3 class="text-base font-bold text-gray-900 dark:text-white">Tambah Stok Bahan Baku</h3>
