@@ -412,7 +412,7 @@ class PosController extends Controller
                 'variant_id' => $variant->id,
                 'name' => $variant->product->name.' · '.$variant->name,
                 'sku' => $variant->sku ?? $variant->product->sku.'-'.$variant->id,
-                'price' => (int) $variant->sell_price,
+                'price' => (int) $variant->product->sell_price + (int) $variant->sell_price,
             ];
         }
 

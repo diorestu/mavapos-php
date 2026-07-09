@@ -1974,11 +1974,15 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             return;
         }
 
+        const basePrice = Number(this.variantProduct?.price || 0);
+        const addonPrice = Number(variant.price || 0);
+        const finalPrice = basePrice + addonPrice;
+
         this.cart.push({
             id: variant.id,
             name: variant.name,
             sku: variant.sku,
-            price: Number(variant.price),
+            price: finalPrice,
             stock: Number(variant.stock),
             quantity: 1,
         });

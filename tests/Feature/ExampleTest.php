@@ -1724,3 +1724,65 @@ test('dashboard menampilkan status trial dan subscription expired', function () 
         ->assertSee('Langganan berakhir')
         ->assertSee('Perpanjang sekarang');
 });
+
+test('checkout kasir dengan varian menghitung harga varian sebagai add-on', function () {
+    $user = User::factory()->create([
+        'role' => 'owner',
+        'trial_ends_at' => now()->addDays(99),
+    ]);
+    $this->actingAs($user);
+
+    $branchId = app(\App\Support\BranchContext::class)->activeId();
+    
+    // Create product
+    $product = Product::query()->create([
+        'user_id' => $user->id,
+        'name' => 'Kopi Susu',
+        'sku' => 'KOPI-001',
+        'sell_price' => 18000,
+        'buy_price' => 10000,
+        'stock' => 0,
+        'min_stock' => 1,
+    ]);
+
+    // Create variant
+    $variant = \App\Models\ProductVariant::query()->create([
+        'product_id' => $product->id,
+        'name' => 'Varian Extra Shot',
+        'sku' => 'KOPI-001-EX',
+        'sell_price' => 1000,
+        'buy_price' => 500,
+        'stock' => 0,
+        'min_stock' => 1,
+    ]);
+
+    // Initialize inventory
+    app(\App\Support\BranchInventoryManager::class)->initializeBranch($branchId);
+    
+    // Add stock to variant
+    $inventory = app(\App\Support\BranchInventoryManager::class)->forVariant($branchId, $variant);
+    $inventory->update(['stock' => 10]);
+
+    // Start Shift
+    $shift = \App\Models\CashierShift::query()->create([
+        'user_id' => $user->id,
+        'branch_id' => $branchId,
+        'opening_cash_amount' => 50000,
+        'opened_at' => now(),
+    ]);
+
+    $this->postJson(route('pos.checkout'), [
+            'items' => [
+                [
+                    'id' => 'variant-' . $variant->id,
+                    'quantity' => 1,
+                ]
+            ],
+            'payment_method' => 'cash',
+            'discount' => 0,
+            'paid_amount' => 19000,
+        ])
+        ->assertOk()
+        ->assertJsonPath('sale.total', 19000)
+        ->assertJsonPath('sale.items.0.name', 'Kopi Susu · Varian Extra Shot');
+});
