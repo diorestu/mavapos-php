@@ -514,6 +514,33 @@ test('pengguna dapat mencatat bahan baku inventory', function () {
     ]);
 });
 
+test('pengguna dapat menambah stok bahan baku yang sudah ada', function () {
+    $user = User::factory()->create();
+    $this->actingAs($user);
+    $material = RawMaterial::query()->create([
+        'code' => 'BB-RESTOCK',
+        'name' => 'Gula aren restock',
+        'category' => 'Bahan minuman',
+        'unit' => 'ml',
+        'stock' => 300,
+        'min_stock' => 100,
+        'cost_per_unit' => 80,
+    ]);
+
+    $this->post(route('raw-materials.stock-in', $material), [
+        'quantity' => 125.5,
+        'cost_per_unit' => 90,
+        'note' => 'Belanja bahan pagi',
+    ])
+        ->assertRedirect('/raw-materials');
+
+    $material->refresh();
+
+    expect((float) $material->stock)->toBe(425.5)
+        ->and($material->cost_per_unit)->toBe(90)
+        ->and($material->note)->toBe('Belanja bahan pagi');
+});
+
 test('pengguna dapat menyimpan standar bahan resep produk', function () {
     $user = User::factory()->create();
     $product = Product::query()->where('sku', 'SKU-001')->firstOrFail();

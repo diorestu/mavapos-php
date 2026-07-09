@@ -40,77 +40,126 @@
             </div>
         </section>
 
+        @if (session('success'))
+            <div class="rounded-lg border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-700 dark:border-success-500/20 dark:bg-success-500/10 dark:text-success-300">
+                {{ session('success') }}
+            </div>
+        @endif
+
         <section class="grid gap-4 xl:grid-cols-[360px_minmax(0,1fr)]">
-            <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-                <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Tambah Bahan Baku</h2>
+            <div class="space-y-4">
+                <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+                    <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Tambah Bahan Baku</h2>
 
-                @if ($errors->any())
-                    <div class="mt-3 rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-700 dark:border-error-500/20 dark:bg-error-500/10 dark:text-error-300">
-                        {{ $errors->first() }}
-                    </div>
-                @endif
+                    @if ($errors->any())
+                        <div class="mt-3 rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-700 dark:border-error-500/20 dark:bg-error-500/10 dark:text-error-300">
+                            {{ $errors->first() }}
+                        </div>
+                    @endif
 
-                <form method="POST" action="{{ route('raw-materials.store') }}" class="mt-4 space-y-3">
-                    @csrf
+                    <form method="POST" action="{{ route('raw-materials.store') }}" class="mt-4 space-y-3">
+                        @csrf
 
-                    <div>
-                        <label for="name" class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Nama Bahan<span class="text-error-500">*</span></label>
-                        <input id="name" name="name" value="{{ old('name') }}" type="text" placeholder="Contoh: Gula aren"
-                            class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
-                    </div>
-
-                    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
                         <div>
-                            <label for="code" class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Kode</label>
-                            <input id="code" name="code" value="{{ old('code') }}" type="text" placeholder="Auto jika kosong"
+                            <label for="name" class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Nama Bahan<span class="text-error-500">*</span></label>
+                            <input id="name" name="name" value="{{ old('name') }}" type="text" placeholder="Contoh: Gula aren"
                                 class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                         </div>
-                        <div>
-                            <label for="category" class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Kategori</label>
-                            <input id="category" name="category" value="{{ old('category') }}" type="text" placeholder="Bahan minuman"
-                                class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+
+                        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                            <div>
+                                <label for="code" class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Kode</label>
+                                <input id="code" name="code" value="{{ old('code') }}" type="text" placeholder="Auto jika kosong"
+                                    class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                            </div>
+                            <div>
+                                <label for="category" class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Kategori</label>
+                                <input id="category" name="category" value="{{ old('category') }}" type="text" placeholder="Bahan minuman"
+                                    class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                            </div>
                         </div>
-                    </div>
 
-                    <div>
-                        <label for="unit" class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Satuan<span class="text-error-500">*</span></label>
-                        <select id="unit" name="unit"
-                            class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                            @foreach ($units as $unit)
-                                <option value="{{ $unit }}" @selected(old('unit') === $unit)>{{ $unit }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-
-                    <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
                         <div>
-                            <label for="stock" class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Stok Awal</label>
-                            <input id="stock" name="stock" value="{{ old('stock') }}" type="number" min="0" step="0.001" placeholder="0"
+                            <label for="unit" class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Satuan<span class="text-error-500">*</span></label>
+                            <select id="unit" name="unit"
+                                class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                                @foreach ($units as $unit)
+                                    <option value="{{ $unit }}" @selected(old('unit') === $unit)>{{ $unit }}</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-1">
+                            <div>
+                                <label for="stock" class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Stok Awal</label>
+                                <input id="stock" name="stock" value="{{ old('stock') }}" type="number" min="0" step="0.001" placeholder="0"
+                                    class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-right text-sm tabular-nums text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                            </div>
+                            <div>
+                                <label for="min_stock" class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Stok Minimum</label>
+                                <input id="min_stock" name="min_stock" value="{{ old('min_stock') }}" type="number" min="0" step="0.001" placeholder="0"
+                                    class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-right text-sm tabular-nums text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="cost_per_unit" class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Harga Per Satuan</label>
+                            <input id="cost_per_unit" name="cost_per_unit" value="{{ old('cost_per_unit') }}" type="number" min="0" placeholder="0"
                                 class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-right text-sm tabular-nums text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                         </div>
+
                         <div>
-                            <label for="min_stock" class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Stok Minimum</label>
-                            <input id="min_stock" name="min_stock" value="{{ old('min_stock') }}" type="number" min="0" step="0.001" placeholder="0"
+                            <label for="note" class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Catatan</label>
+                            <textarea id="note" name="note" rows="3" placeholder="Catatan bahan baku"
+                                class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">{{ old('note') }}</textarea>
+                        </div>
+
+                        <button type="submit" class="inline-flex h-10 w-full items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30">
+                            Simpan Bahan Baku
+                        </button>
+                    </form>
+                </div>
+
+                <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+                    <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Tambah Stok Bahan Baku</h2>
+                    <form method="POST" class="mt-4 space-y-3" x-data="{ action: '' }" :action="action">
+                        @csrf
+
+                        <div>
+                            <label for="stock_material_id" class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Bahan<span class="text-error-500">*</span></label>
+                            <select id="stock_material_id" required
+                                x-on:change="action = $event.target.selectedOptions[0]?.dataset.action || ''"
+                                class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                                <option value="">Pilih bahan</option>
+                                @foreach ($materials as $material)
+                                    <option value="{{ $material->id }}" data-action="{{ route('raw-materials.stock-in', $material) }}">{{ $material->name }} ({{ $decimal($material->stock) }} {{ $material->unit }})</option>
+                                @endforeach
+                            </select>
+                        </div>
+
+                        <div>
+                            <label for="stock_quantity" class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Jumlah Masuk<span class="text-error-500">*</span></label>
+                            <input id="stock_quantity" name="quantity" type="number" min="0.001" step="0.001" placeholder="0"
                                 class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-right text-sm tabular-nums text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                         </div>
-                    </div>
 
-                    <div>
-                        <label for="cost_per_unit" class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Harga Per Satuan</label>
-                        <input id="cost_per_unit" name="cost_per_unit" value="{{ old('cost_per_unit') }}" type="number" min="0" placeholder="0"
-                            class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-right text-sm tabular-nums text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
-                    </div>
+                        <div>
+                            <label for="stock_cost_per_unit" class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Harga Per Satuan Baru</label>
+                            <input id="stock_cost_per_unit" name="cost_per_unit" type="number" min="0" placeholder="Opsional"
+                                class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-right text-sm tabular-nums text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                        </div>
 
-                    <div>
-                        <label for="note" class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Catatan</label>
-                        <textarea id="note" name="note" rows="3" placeholder="Catatan bahan baku"
-                            class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">{{ old('note') }}</textarea>
-                    </div>
+                        <div>
+                            <label for="stock_note" class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Catatan</label>
+                            <textarea id="stock_note" name="note" rows="2" placeholder="Catatan stok masuk"
+                                class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"></textarea>
+                        </div>
 
-                    <button type="submit" class="inline-flex h-10 w-full items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30">
-                        Simpan Bahan Baku
-                    </button>
-                </form>
+                        <button type="submit" :disabled="!action" class="inline-flex h-10 w-full items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30 disabled:cursor-not-allowed disabled:bg-gray-300 disabled:text-gray-500 dark:disabled:bg-gray-700 dark:disabled:text-gray-400">
+                            Tambah Stok
+                        </button>
+                    </form>
+                </div>
             </div>
 
             <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">

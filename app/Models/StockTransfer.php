@@ -12,6 +12,7 @@ class StockTransfer extends Model
         'from_branch_id',
         'to_branch_id',
         'product_id',
+        'raw_material_id',
         'user_id',
         'quantity',
         'from_stock_before',
@@ -28,6 +29,7 @@ class StockTransfer extends Model
             'from_branch_id' => 'integer',
             'to_branch_id' => 'integer',
             'product_id' => 'integer',
+            'raw_material_id' => 'integer',
             'user_id' => 'integer',
             'quantity' => 'integer',
             'from_stock_before' => 'integer',
@@ -51,6 +53,11 @@ class StockTransfer extends Model
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
+    }
+
+    public function rawMaterial(): BelongsTo
+    {
+        return $this->belongsTo(RawMaterial::class);
     }
 
     public function user(): BelongsTo

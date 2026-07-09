@@ -17,7 +17,7 @@
                 </nav>
 
                 <h1 class="mt-1 text-xl font-semibold text-gray-800 dark:text-white/90">Transfer Stok</h1>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Pindahkan stok produk antar cabang dan catat mutasi otomatis.</p>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Pindahkan stok produk atau bahan baku antar cabang dan catat mutasi otomatis.</p>
             </div>
         </div>
 
@@ -61,14 +61,23 @@
                     </div>
 
                     <div>
-                        <label class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Produk</label>
-                        <select name="product_id" class="h-10 w-full rounded-lg border border-gray-200 bg-transparent px-3 text-sm text-gray-800 outline-none focus:border-brand-500 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90">
-                            <option value="">Pilih produk</option>
-                            @foreach ($products as $product)
-                                <option value="{{ $product->id }}" @selected(old('product_id') == $product->id)>
-                                    {{ $product->name }} · {{ $product->sku }}
-                                </option>
-                            @endforeach
+                        <label class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Produk / Bahan Baku</label>
+                        <select name="stock_item" class="h-10 w-full rounded-lg border border-gray-200 bg-transparent px-3 text-sm text-gray-800 outline-none focus:border-brand-500 dark:border-gray-800 dark:bg-gray-900 dark:text-white/90">
+                            <option value="">Pilih produk atau bahan baku</option>
+                            <optgroup label="Produk">
+                                @foreach ($products as $product)
+                                    <option value="product-{{ $product->id }}" @selected(old('stock_item', old('product_id') ? 'product-'.old('product_id') : '') === 'product-'.$product->id)>
+                                        {{ $product->name }} · {{ $product->sku }}
+                                    </option>
+                                @endforeach
+                            </optgroup>
+                            <optgroup label="Bahan baku">
+                                @foreach ($rawMaterials as $material)
+                                    <option value="raw-material-{{ $material->id }}" @selected(old('stock_item') === 'raw-material-'.$material->id)>
+                                        {{ $material->name }} · {{ $material->code }} · Bahan baku
+                                    </option>
+                                @endforeach
+                            </optgroup>
                         </select>
                     </div>
 
@@ -102,7 +111,7 @@
                             <tr class="border-b border-gray-100 bg-gray-50 dark:border-gray-800 dark:bg-gray-900/40">
                                 <th class="px-4 py-2.5 text-left"><p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Waktu</p></th>
                                 <th class="px-4 py-2.5 text-left"><p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Nomor</p></th>
-                                <th class="px-4 py-2.5 text-left"><p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Produk</p></th>
+                                <th class="px-4 py-2.5 text-left"><p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Item</p></th>
                                 <th class="px-4 py-2.5 text-left"><p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Cabang</p></th>
                                 <th class="px-4 py-2.5 text-right"><p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Qty</p></th>
                                 <th class="px-4 py-2.5 text-left"><p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">PIC</p></th>
@@ -114,8 +123,13 @@
                                     <td class="px-4 py-2 text-xs text-gray-500 dark:text-gray-400">{{ $transfer->transferred_at?->format('d M Y H:i') }}</td>
                                     <td class="px-4 py-2 text-xs font-semibold text-gray-800 dark:text-white/90">{{ $transfer->transfer_number }}</td>
                                     <td class="px-4 py-2">
-                                        <p class="text-xs font-semibold text-gray-800 dark:text-white/90">{{ $transfer->product?->name }}</p>
-                                        <p class="text-[11px] text-gray-500 dark:text-gray-400">{{ $transfer->product?->sku }}</p>
+                                        <p class="text-xs font-semibold text-gray-800 dark:text-white/90">{{ $transfer->product?->name ?? $transfer->rawMaterial?->name }}</p>
+                                        <p class="text-[11px] text-gray-500 dark:text-gray-400">
+                                            {{ $transfer->product?->sku ?? $transfer->rawMaterial?->code }}
+                                            @if ($transfer->raw_material_id)
+                                                · Bahan baku
+                                            @endif
+                                        </p>
                                     </td>
                                     <td class="px-4 py-2 text-xs text-gray-500 dark:text-gray-400">
                                         <span class="font-medium text-gray-700 dark:text-gray-300">{{ $transfer->fromBranch?->name }}</span>

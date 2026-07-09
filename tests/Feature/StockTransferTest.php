@@ -3,9 +3,11 @@
 use App\Models\Branch;
 use App\Models\BranchInventory;
 use App\Models\Product;
+use App\Models\RawMaterial;
 use App\Models\StockMovement;
 use App\Models\StockTransfer;
 use App\Models\User;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -95,6 +97,74 @@ test('transfer stok ditolak jika stok cabang asal tidak cukup', function () {
         ->assertSessionHasErrors('quantity');
 
     expect(StockTransfer::query()->count())->toBe(0);
+});
+
+test('owner dapat memilih dan transfer stok bahan baku antar cabang', function () {
+    $user = User::factory()->create();
+    $fromBranch = Branch::query()->firstOrFail();
+    $toBranch = Branch::query()->create([
+        'name' => 'Cabang Bahan Baku',
+        'code' => 'cabang-bahan-baku',
+        'is_active' => true,
+    ]);
+    $material = RawMaterial::query()->create([
+        'code' => 'BB-GULA-TRANSFER',
+        'name' => 'Gula aren transfer',
+        'category' => 'Bahan minuman',
+        'unit' => 'ml',
+        'stock' => 1000,
+        'min_stock' => 100,
+        'cost_per_unit' => 75,
+    ]);
+
+    DB::table('branch_raw_material_inventories')->insert([
+        [
+            'branch_id' => $fromBranch->id,
+            'raw_material_id' => $material->id,
+            'stock' => 1000,
+            'min_stock' => 100,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ],
+        [
+            'branch_id' => $toBranch->id,
+            'raw_material_id' => $material->id,
+            'stock' => 25,
+            'min_stock' => 100,
+            'created_at' => now(),
+            'updated_at' => now(),
+        ],
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('stock-transfers.index'))
+        ->assertOk()
+        ->assertSee('Gula aren transfer')
+        ->assertSee('Bahan baku');
+
+    $this->actingAs($user)
+        ->post(route('stock-transfers.store'), [
+            'from_branch_id' => $fromBranch->id,
+            'to_branch_id' => $toBranch->id,
+            'stock_item' => 'raw-material-'.$material->id,
+            'quantity' => 125,
+            'note' => 'Transfer gula ke cabang',
+        ])
+        ->assertRedirect(route('stock-transfers.index'))
+        ->assertSessionHas('success');
+
+    expect((float) DB::table('branch_raw_material_inventories')
+        ->where('branch_id', $fromBranch->id)
+        ->where('raw_material_id', $material->id)
+        ->value('stock'))->toBe(875.0);
+    expect((float) DB::table('branch_raw_material_inventories')
+        ->where('branch_id', $toBranch->id)
+        ->where('raw_material_id', $material->id)
+        ->value('stock'))->toBe(150.0);
+
+    $transfer = StockTransfer::query()->firstOrFail();
+    expect($transfer->raw_material_id)->toBe($material->id)
+        ->and($transfer->product_id)->toBeNull();
 });
 
 test('route demo template tidak lagi terbuka di area aplikasi', function () {

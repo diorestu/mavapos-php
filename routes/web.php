@@ -93,6 +93,7 @@ Route::middleware('auth:web,sanctum')->group(function () {
             Route::delete('/product-categories/{code}', [ProductCategoryController::class, 'destroy'])->name('product-categories.destroy');
             Route::get('/raw-materials', [RawMaterialController::class, 'index'])->name('raw-materials');
             Route::post('/raw-materials', [RawMaterialController::class, 'store'])->name('raw-materials.store');
+            Route::post('/raw-materials/{rawMaterial}/stock-in', [RawMaterialController::class, 'stockIn'])->name('raw-materials.stock-in');
             Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory');
             Route::post('/inventory/{sku}/in', [InventoryController::class, 'storeIn'])->name('inventory.in');
             Route::post('/inventory/{sku}/out', [InventoryController::class, 'storeOut'])->name('inventory.out');

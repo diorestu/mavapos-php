@@ -1769,6 +1769,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     blockingShift,
     endpoints,
     sopModal: false,
+    showMobileCart: false,
     startModal: !initialShift && !blockingShift,
     closeModal: false,
     openingCashAmount: '',
@@ -2857,6 +2858,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             this.syncPrintPreferencesFromReceipt(this.lastReceipt);
             this.clearCart();
             this.pushDisplayState('checkout');
+            this.showMobileCart = false;
             this.receiptModal = Boolean(this.lastReceipt);
             if (this.lastReceipt && this.effectivePrintPreference('autoPrint', this.lastReceipt.printer?.auto_print)) {
                 setTimeout(() => this.printReceipt(), 150);

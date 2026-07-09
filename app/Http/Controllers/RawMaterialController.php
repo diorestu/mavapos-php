@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\RawMaterial;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -66,6 +67,30 @@ class RawMaterialController extends Controller
         ]);
 
         return redirect()->route('raw-materials')->with('success', 'Bahan baku berhasil dicatat.');
+    }
+
+    public function stockIn(Request $request, RawMaterial $rawMaterial): RedirectResponse
+    {
+        $validated = $request->validate([
+            'quantity' => ['required', 'numeric', 'gt:0'],
+            'cost_per_unit' => ['nullable', 'integer', 'min:0'],
+            'note' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        DB::transaction(function () use ($rawMaterial, $validated): void {
+            $material = RawMaterial::query()
+                ->whereKey($rawMaterial->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $material->update([
+                'stock' => (float) $material->stock + (float) $validated['quantity'],
+                'cost_per_unit' => $validated['cost_per_unit'] ?? $material->cost_per_unit,
+                'note' => $validated['note'] ?? $material->note,
+            ]);
+        });
+
+        return redirect()->route('raw-materials')->with('success', 'Stok bahan baku berhasil ditambahkan.');
     }
 
     private function nextCode(): string

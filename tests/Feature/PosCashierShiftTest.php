@@ -5,6 +5,8 @@ use App\Models\BranchInventory;
 use App\Models\CashierShift;
 use App\Models\PosSale;
 use App\Models\Product;
+use App\Models\ProductRecipeItem;
+use App\Models\RawMaterial;
 use App\Models\User;
 use App\Support\BranchInventoryManager;
 use Database\Seeders\DatabaseSeeder;
@@ -369,6 +371,47 @@ test('stok produk berbeda per cabang dan checkout hanya mengurangi cabang aktif'
 
     expect($defaultInventory->fresh()->stock)->toBe(40);
     expect($secondInventory->fresh()->stock)->toBe(2);
+});
+
+test('checkout mengurangi stok bahan baku sesuai resep produk', function () {
+    $cashier = User::factory()->create([
+        'name' => 'Kasir Bahan Baku',
+        'email' => 'kasir-bahan-baku@example.com',
+    ]);
+    $product = Product::query()->where('sku', 'SKU-001')->firstOrFail();
+    $material = RawMaterial::query()->create([
+        'code' => 'BB-KOPI-CHECKOUT',
+        'name' => 'Kopi bubuk checkout',
+        'category' => 'Bahan minuman',
+        'unit' => 'gram',
+        'stock' => 250,
+        'min_stock' => 50,
+        'cost_per_unit' => 120,
+    ]);
+    ProductRecipeItem::query()->create([
+        'product_id' => $product->id,
+        'raw_material_id' => $material->id,
+        'item_name' => $material->name,
+        'quantity' => 18.5,
+        'unit' => $material->unit,
+    ]);
+
+    $this->actingAs($cashier)
+        ->postJson(route('pos.shift.start'))
+        ->assertOk();
+
+    $this->actingAs($cashier)
+        ->postJson(route('pos.checkout'), [
+            'items' => [
+                ['id' => 'product-SKU-001', 'quantity' => 2],
+            ],
+            'payment_method' => 'cash',
+            'discount' => 0,
+            'paid_amount' => 40000,
+        ])
+        ->assertOk();
+
+    expect((float) $material->fresh()->stock)->toBe(213.0);
 });
 
 test('laporan nilai stok mengikuti stok cabang aktif', function () {
