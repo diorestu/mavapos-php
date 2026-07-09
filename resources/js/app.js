@@ -2389,10 +2389,10 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
             commands.push(
                 [`${this.receiptDivider(paperCharacters, 'double')}\n`, 12],
+                ['', 9, 1], // Bold on
                 ['', 8, 1], // Typeface Monospace
-                ['', 9, 1],
                 [`${this.receiptKeyValue('TOTAL BAYAR', this.formatRupiah(receipt.total), paperCharacters)}\n`, 12],
-                ['', 9, 0],
+                ['', 9, 0], // Bold off
                 ['', 8, 1], // Typeface Monospace
                 [`${this.receiptKeyValue('Dibayar', this.formatRupiah(receipt.paid_amount), paperCharacters)}\n`, 12],
                 ['', 8, 1], // Typeface Monospace
