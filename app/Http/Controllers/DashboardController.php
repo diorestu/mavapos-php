@@ -24,7 +24,7 @@ class DashboardController extends Controller
         $todayEnd = $now->copy()->endOfDay();
         $branchId = app(BranchContext::class)->activeId();
 
-        $yearSales = PosSale::query()
+        $yearSales = PosSale::query()->active()
             ->where('branch_id', $branchId)
             ->whereBetween('sold_at', [$yearStart, $yearEnd])
             ->get(['id', 'total', 'sold_at']);
@@ -40,7 +40,7 @@ class DashboardController extends Controller
 
         $monthItems = PosSaleItem::query()
             ->with(['product.category', 'productVariant'])
-            ->whereHas('sale', fn ($query) => $query
+            ->whereHas('sale', fn ($query) => $query->active()
                 ->where('branch_id', $branchId)
                 ->whereBetween('sold_at', [$monthStart, $monthEnd]))
             ->get();
@@ -57,13 +57,13 @@ class DashboardController extends Controller
                 ],
                 [
                     'label' => 'Penjualan Hari Ini',
-                    'value' => number_format(PosSale::query()->where('branch_id', $branchId)->whereBetween('sold_at', [$todayStart, $todayEnd])->count(), 0, ',', '.'),
+                    'value' => number_format(PosSale::query()->active()->where('branch_id', $branchId)->whereBetween('sold_at', [$todayStart, $todayEnd])->count(), 0, ',', '.'),
                     'note' => 'Transaksi selesai',
                     'tone' => 'text-success-600 bg-success-50 dark:bg-success-500/15',
                 ],
                 [
                     'label' => 'Pendapatan Bulan Ini',
-                    'value' => $this->formatCompactRupiah(PosSale::query()->where('branch_id', $branchId)->whereBetween('sold_at', [$monthStart, $monthEnd])->sum('total')),
+                    'value' => $this->formatCompactRupiah(PosSale::query()->active()->where('branch_id', $branchId)->whereBetween('sold_at', [$monthStart, $monthEnd])->sum('total')),
                     'note' => 'Omzet berjalan',
                     'tone' => 'text-warning-700 bg-warning-50 dark:bg-warning-500/15',
                 ],
@@ -155,7 +155,7 @@ class DashboardController extends Controller
     {
         $items = PosSaleItem::query()
             ->with(['sale', 'product', 'productVariant'])
-            ->whereHas('sale', fn ($query) => $query
+            ->whereHas('sale', fn ($query) => $query->active()
                 ->where('branch_id', $branchId)
                 ->whereBetween('sold_at', [$from, $to]))
             ->get();

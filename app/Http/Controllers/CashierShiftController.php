@@ -3,8 +3,9 @@
 namespace App\Http\Controllers;
 
 use App\Models\CashierShift;
-use App\Models\PosSale;
+use App\Services\CashierShiftSummaryService;
 use App\Support\BranchContext;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -35,7 +36,7 @@ class CashierShiftController extends Controller
         ]);
     }
 
-    public function forceClose(Request $request, CashierShift $cashierShift): RedirectResponse
+    public function forceClose(Request $request, CashierShift $cashierShift): JsonResponse|RedirectResponse
     {
         $validated = $request->validate([
             'closing_note' => ['nullable', 'string', 'max:1000'],
@@ -54,39 +55,28 @@ class CashierShiftController extends Controller
                 return $shift;
             }
 
-            $this->closeShift($shift, $validated['closing_note'] ?? null);
+            $shift->update([
+                'closed_at' => now(),
+                'closing_note' => $validated['closing_note'] ?? null,
+            ]);
+
+            app(CashierShiftSummaryService::class)->refresh($shift);
 
             return $shift->refresh()->load('user');
         });
 
+        $recap = app(CashierShiftSummaryService::class)->recap($shift);
+
+        if ($request->expectsJson()) {
+            return response()->json([
+                'message' => 'Shift '.($shift->user?->name ?? 'Kasir').' ditutup paksa.',
+                'recap' => $recap,
+            ]);
+        }
+
         return redirect()
             ->route('cashier-shifts')
-            ->with('success', 'Shift '.($shift->user?->name ?? 'Kasir').' ditutup paksa.');
-    }
-
-    private function closeShift(CashierShift $shift, ?string $closingNote): void
-    {
-        $totals = PosSale::query()
-            ->where('cashier_shift_id', $shift->id)
-            ->selectRaw('COUNT(*) as sales_count')
-            ->selectRaw('COALESCE(SUM(subtotal), 0) as gross_sales')
-            ->selectRaw('COALESCE(SUM(discount), 0) as discount_total')
-            ->selectRaw('COALESCE(SUM(total), 0) as net_sales')
-            ->selectRaw("COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN total ELSE 0 END), 0) as cash_total")
-            ->selectRaw("COALESCE(SUM(CASE WHEN payment_method = 'qris' THEN total ELSE 0 END), 0) as qris_total")
-            ->selectRaw("COALESCE(SUM(CASE WHEN payment_method = 'card' THEN total ELSE 0 END), 0) as card_total")
-            ->first();
-
-        $shift->update([
-            'closed_at' => now(),
-            'sales_count' => (int) $totals->sales_count,
-            'gross_sales' => (int) $totals->gross_sales,
-            'discount_total' => (int) $totals->discount_total,
-            'net_sales' => (int) $totals->net_sales,
-            'cash_total' => (int) $totals->cash_total,
-            'qris_total' => (int) $totals->qris_total,
-            'card_total' => (int) $totals->card_total,
-            'closing_note' => $closingNote,
-        ]);
+            ->with('success', 'Shift '.($shift->user?->name ?? 'Kasir').' ditutup paksa.')
+            ->with('shiftRecap', $recap);
     }
 }

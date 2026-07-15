@@ -71,7 +71,7 @@ class ReportController extends Controller
                 return $product;
             });
         $billingQuery = Billing::query()->whereBetween('created_at', [$from, $to]);
-        $posSaleQuery = PosSale::query()
+        $posSaleQuery = PosSale::query()->active()
             ->where('branch_id', $activeBranch->id)
             ->whereBetween('sold_at', [$from, $to]);
         $expenseQuery = Expense::query()

@@ -94,7 +94,7 @@ class GlobalSearchController extends Controller
 
     private function saleResults(string $keyword): array
     {
-        return PosSale::query()
+        return PosSale::query()->active()
             ->with(['user', 'items'])
             ->where(function ($query) use ($keyword): void {
                 $query->where('invoice_number', 'like', "%{$keyword}%")

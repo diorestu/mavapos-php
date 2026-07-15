@@ -1784,6 +1784,25 @@ Alpine.data('cashierStockInManager', (initialItems = [], endpoint = '') => ({
     },
 }));
 
+Alpine.data('salesVoidManager', (endpointTemplate = '') => ({
+    voidModal: false, selectedSale: null, voidReason: '', voidError: '', voidLoading: false,
+    openVoid(sale) { this.selectedSale = sale; this.voidReason = ''; this.voidError = ''; this.voidModal = true; },
+    closeVoid() { if (!this.voidLoading) { this.voidModal = false; this.selectedSale = null; } },
+    async submitVoid() {
+        if (!this.selectedSale || !this.voidReason.trim()) { this.voidError = 'Alasan pembatalan wajib diisi.'; return; }
+        this.voidLoading = true; this.voidError = '';
+        try {
+            const response = await fetch(endpointTemplate.replace('__SALE__', this.selectedSale.id), {
+                method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' },
+                body: JSON.stringify({ reason: this.voidReason.trim() }),
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) { this.voidError = payload.message || 'Transaksi gagal dibatalkan.'; return; }
+            notify(payload.message || 'Transaksi berhasil dibatalkan.'); window.location.reload();
+        } finally { this.voidLoading = false; }
+    },
+}));
+
 Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShift = null, blockingShift = null, endpoints = {}) => ({
     items: initialItems,
     categories: initialCategories,
@@ -1802,6 +1821,9 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     shiftLoading: false,
     checkoutLoading: false,
     receiptModal: false,
+    shiftRecap: null,
+    shiftRecapError: '',
+    shiftRecapPrinting: false,
     variantModal: false,
     variantProduct: null,
     lastReceipt: null,
@@ -2826,9 +2848,10 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                 return;
             }
 
+            this.shiftRecap = payload.recap || null;
             this.shift = null;
             this.closeModal = false;
-            this.startModal = true;
+            this.startModal = !this.shiftRecap;
             this.sopModal = false;
             this.closingNote = '';
             this.clearCart();
@@ -2837,6 +2860,16 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             this.shiftLoading = false;
         }
     },
+
+    shiftRecapRupiah(value) { return window.shiftRecapPrinter.rupiah(value); },
+    async printShiftRecap() {
+        if (!this.shiftRecap) return;
+        this.shiftRecapPrinting = true; this.shiftRecapError = '';
+        try { await window.shiftRecapPrinter.print(this.shiftRecap); notify('Rekap penjualan dikirim ke printer.'); }
+        catch (error) { this.shiftRecapError = error.message || 'Rekap gagal dicetak.'; notify(this.shiftRecapError, 'error'); }
+        finally { this.shiftRecapPrinting = false; }
+    },
+    dismissShiftRecap() { this.shiftRecap = null; this.startModal = true; },
 
     async checkout() {
         if (!this.canCheckout) {
@@ -2957,6 +2990,95 @@ Alpine.data('productRecipeManager', (initialProducts = [], rawMaterials = []) =>
     syncItemUnit(item) {
         item.unit = this.rawMaterialUnit(item.raw_material_id);
     },
+}));
+
+const shiftRecapPrinter = {
+    rupiah(value) {
+        return `Rp${Number(value || 0).toLocaleString('id-ID')}`;
+    },
+    text(recap) {
+        const lines = [
+            recap.store?.name || 'MavaPOS',
+            'REKAP TUTUP KASIR',
+            '--------------------------------',
+            `Kasir       : ${recap.cashier || '-'}`,
+            `Cabang      : ${recap.branch || '-'}`,
+            `Mulai       : ${recap.openedAt || '-'}`,
+            `Tutup       : ${recap.closedAt || '-'}`,
+            `Transaksi   : ${recap.salesCount || 0}`,
+            '--------------------------------',
+            `Penjualan   : ${this.rupiah(recap.netSales)}`,
+            `Tunai       : ${this.rupiah(recap.cashTotal)}`,
+            `QRIS        : ${this.rupiah(recap.qrisTotal)}`,
+            `Kartu       : ${this.rupiah(recap.cardTotal)}`,
+            `Kas awal    : ${this.rupiah(recap.openingCashAmount)}`,
+            '================================',
+            `TOTAL LACI  : ${this.rupiah(recap.expectedCashInDrawer)}`,
+        ];
+        if (recap.closingNote) lines.push(`Catatan: ${recap.closingNote}`);
+        if (recap.receipt?.footer_note) lines.push('', recap.receipt.footer_note);
+        return `${lines.join('\n')}\n`;
+    },
+    async print(recap) {
+        const mode = recap.printer?.connection_mode || 'browser';
+        if (mode === 'bluetooth') return this.bluetooth(recap);
+        if (mode === 'imin_inner_printer') return this.imin(recap);
+        return this.browser(recap);
+    },
+    browser(recap) {
+        const popup = window.open('', '_blank', 'width=420,height=720');
+        if (!popup) throw new Error('Popup print diblokir browser. Izinkan popup lalu coba lagi.');
+        const content = document.createElement('div');
+        content.textContent = this.text(recap);
+        popup.document.write(`<html><head><title>Rekap Kasir</title><style>@page{size:${recap.receipt?.paper_width === '80' ? '80mm' : '58mm'} auto;margin:4mm}body{font:12px monospace;white-space:pre-wrap;margin:0}</style></head><body>${content.innerHTML}</body></html>`);
+        popup.document.close(); popup.focus(); popup.print();
+    },
+    async bluetooth(recap) {
+        if (!navigator.bluetooth) throw new Error('Web Bluetooth tidak didukung browser ini.');
+        const serviceUuid = recap.printer?.bluetooth_service_uuid;
+        const characteristicUuid = recap.printer?.bluetooth_characteristic_uuid;
+        if (!serviceUuid || !characteristicUuid) throw new Error('UUID printer Bluetooth belum diatur.');
+        const device = await navigator.bluetooth.requestDevice({ filters: [{ services: [serviceUuid] }], optionalServices: [serviceUuid] });
+        const server = await device.gatt.connect();
+        try {
+            const service = await server.getPrimaryService(serviceUuid);
+            const characteristic = await service.getCharacteristic(characteristicUuid);
+            const body = Array.from(new TextEncoder().encode(this.text(recap)));
+            const payload = new Uint8Array([0x1b, 0x40, ...body, 0x0a, 0x0a, 0x0a, 0x1d, 0x56, 0x42, 0x00]);
+            for (let offset = 0; offset < payload.length; offset += 120) {
+                const chunk = payload.slice(offset, offset + 120);
+                if (typeof characteristic.writeValueWithoutResponse === 'function') await characteristic.writeValueWithoutResponse(chunk);
+                else await characteristic.writeValue(chunk);
+            }
+        } finally { server.disconnect(); }
+    },
+    async imin(recap) {
+        const socket = await new Promise((resolve, reject) => {
+            const instance = new WebSocket('ws://127.0.0.1:8081/websocket');
+            const timeout = setTimeout(() => { instance.close(); reject(new Error('Print service IMIN tidak tersedia.')); }, 5000);
+            instance.onopen = () => { clearTimeout(timeout); resolve(instance); };
+            instance.onerror = () => { clearTimeout(timeout); reject(new Error('Gagal terhubung ke IMIN InnerPrinter.')); };
+        });
+        try {
+            const send = (text = '', type = 0, value = -1) => socket.send(JSON.stringify({ data: { text, value, labelData: {} }, type }));
+            send('', 6, 1); send('', 8, 1); send('', 9, 1); send(`${this.text(recap)}\n`, 12); send('', 9, 0); send('', 4, 80); send('', 5);
+            await new Promise((resolve) => setTimeout(resolve, 600));
+        } finally { socket.close(); }
+    },
+};
+
+window.shiftRecapPrinter = shiftRecapPrinter;
+Alpine.data('shiftRecapManager', (initialRecap = null) => ({
+    shiftRecap: initialRecap, shiftRecapError: '', shiftRecapPrinting: false,
+    shiftRecapRupiah(value) { return shiftRecapPrinter.rupiah(value); },
+    async printShiftRecap() {
+        if (!this.shiftRecap) return;
+        this.shiftRecapPrinting = true; this.shiftRecapError = '';
+        try { await shiftRecapPrinter.print(this.shiftRecap); notify('Rekap penjualan dikirim ke printer.'); }
+        catch (error) { this.shiftRecapError = error.message || 'Rekap gagal dicetak.'; notify(this.shiftRecapError, 'error'); }
+        finally { this.shiftRecapPrinting = false; }
+    },
+    dismissShiftRecap() { this.shiftRecap = null; },
 }));
 
 Alpine.start();

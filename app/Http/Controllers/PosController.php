@@ -11,6 +11,7 @@ use App\Models\ProductVariant;
 use App\Models\RawMaterial;
 use App\Models\StockMovement;
 use App\Models\StoreSetting;
+use App\Services\CashierShiftSummaryService;
 use App\Support\BranchContext;
 use App\Support\BranchInventoryManager;
 use Illuminate\Http\JsonResponse;
@@ -18,7 +19,6 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Illuminate\View\View;
 
 class PosController extends Controller
 {
@@ -57,6 +57,7 @@ class PosController extends Controller
                     ->map(fn (ProductVariant $variant): array => $this->variantPayload($product, $variant, $branchId))
                     ->values()
                     ->all();
+
                 return $payload;
             })
             ->values();
@@ -137,35 +138,18 @@ class PosController extends Controller
                 abort(422, 'Tidak ada shift kasir aktif untuk ditutup.');
             }
 
-            $totals = PosSale::query()
-                ->where('cashier_shift_id', $shift->id)
-                ->selectRaw('COUNT(*) as sales_count')
-                ->selectRaw('COALESCE(SUM(subtotal), 0) as gross_sales')
-                ->selectRaw('COALESCE(SUM(discount), 0) as discount_total')
-                ->selectRaw('COALESCE(SUM(total), 0) as net_sales')
-                ->selectRaw("COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN total ELSE 0 END), 0) as cash_total")
-                ->selectRaw("COALESCE(SUM(CASE WHEN payment_method = 'qris' THEN total ELSE 0 END), 0) as qris_total")
-                ->selectRaw("COALESCE(SUM(CASE WHEN payment_method = 'card' THEN total ELSE 0 END), 0) as card_total")
-                ->first();
-
             $shift->update([
                 'closed_at' => now(),
-                'sales_count' => (int) $totals->sales_count,
-                'gross_sales' => (int) $totals->gross_sales,
-                'discount_total' => (int) $totals->discount_total,
-                'net_sales' => (int) $totals->net_sales,
-                'cash_total' => (int) $totals->cash_total,
-                'qris_total' => (int) $totals->qris_total,
-                'card_total' => (int) $totals->card_total,
                 'closing_note' => $validated['closing_note'] ?? null,
             ]);
 
-            return $shift->load(['user', 'branch']);
+            return app(CashierShiftSummaryService::class)->refresh($shift)->load(['user', 'branch']);
         });
 
         return response()->json([
             'message' => 'Shift kasir ditutup.',
             'shift' => $this->shiftPayload($shift),
+            'recap' => app(CashierShiftSummaryService::class)->recap($shift),
         ]);
     }
 
@@ -271,10 +255,10 @@ class PosController extends Controller
                     'occurred_at' => $sale->sold_at,
                 ]);
 
-                $this->consumeRawMaterials($sellable['product_id'], $quantity);
+                $this->consumeRawMaterials($sale, $sellable['product_id'], $quantity);
             }
 
-            $this->refreshShiftTotals($shift);
+            app(CashierShiftSummaryService::class)->refresh($shift);
 
             return $sale->load('items', 'shift.user');
         });
@@ -385,6 +369,7 @@ class PosController extends Controller
                     ->map(fn (ProductVariant $variant): array => $this->variantPayload($product, $variant, $branchId))
                     ->values()
                     ->all();
+
                 return $payload;
             })
             ->values();
@@ -433,14 +418,14 @@ class PosController extends Controller
         abort(422, 'Item transaksi tidak valid.');
     }
 
-    private function consumeRawMaterials(int $productId, int $soldQuantity): void
+    private function consumeRawMaterials(PosSale $sale, int $productId, int $soldQuantity): void
     {
         ProductRecipeItem::query()
             ->with('rawMaterial')
             ->where('product_id', $productId)
             ->whereNotNull('raw_material_id')
             ->get()
-            ->each(function (ProductRecipeItem $recipeItem) use ($soldQuantity): void {
+            ->each(function (ProductRecipeItem $recipeItem) use ($sale, $soldQuantity): void {
                 $rawMaterial = RawMaterial::query()
                     ->whereKey($recipeItem->raw_material_id)
                     ->lockForUpdate()
@@ -454,31 +439,18 @@ class PosController extends Controller
                 $rawMaterial->update([
                     'stock' => max(0, (float) $rawMaterial->stock - $used),
                 ]);
+                $usage = $sale->rawMaterialUsages()->firstOrNew(['raw_material_id' => $rawMaterial->id]);
+                $usage->fill([
+                    'quantity' => (float) ($usage->quantity ?? 0) + $used,
+                    'unit' => $recipeItem->unit,
+                    'is_legacy_fallback' => false,
+                ])->save();
             });
     }
 
     private function refreshShiftTotals(CashierShift $shift): void
     {
-        $totals = PosSale::query()
-            ->where('cashier_shift_id', $shift->id)
-            ->selectRaw('COUNT(*) as sales_count')
-            ->selectRaw('COALESCE(SUM(subtotal), 0) as gross_sales')
-            ->selectRaw('COALESCE(SUM(discount), 0) as discount_total')
-            ->selectRaw('COALESCE(SUM(total), 0) as net_sales')
-            ->selectRaw("COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN total ELSE 0 END), 0) as cash_total")
-            ->selectRaw("COALESCE(SUM(CASE WHEN payment_method = 'qris' THEN total ELSE 0 END), 0) as qris_total")
-            ->selectRaw("COALESCE(SUM(CASE WHEN payment_method = 'card' THEN total ELSE 0 END), 0) as card_total")
-            ->first();
-
-        $shift->update([
-            'sales_count' => (int) $totals->sales_count,
-            'gross_sales' => (int) $totals->gross_sales,
-            'discount_total' => (int) $totals->discount_total,
-            'net_sales' => (int) $totals->net_sales,
-            'cash_total' => (int) $totals->cash_total,
-            'qris_total' => (int) $totals->qris_total,
-            'card_total' => (int) $totals->card_total,
-        ]);
+        app(CashierShiftSummaryService::class)->refresh($shift);
     }
 
     private function nextInvoiceNumber(): string

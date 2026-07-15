@@ -123,6 +123,7 @@ Route::middleware('auth:web,sanctum')->group(function () {
         });
 
         Route::middleware('role:owner,admin')->group(function () {
+            Route::post('/sales/{sale}/void', [SaleController::class, 'void'])->name('sales.void');
             Route::post('/cashier-shifts/{cashierShift}/force-close', [CashierShiftController::class, 'forceClose'])->name('cashier-shifts.force-close');
             Route::get('/customers', [CustomerController::class, 'index'])->name('customers');
             Route::post('/customers', [CustomerController::class, 'store'])->name('customers.store');

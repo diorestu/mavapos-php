@@ -2,6 +2,7 @@
 
 @php
     $rupiah = fn ($value) => 'Rp'.number_format((int) $value, 0, ',', '.');
+    $canVoidSale = auth()->user()?->hasRole(['owner', 'admin']);
     $methodLabel = [
         'cash' => 'Tunai',
         'qris' => 'QRIS',
@@ -10,7 +11,7 @@
 @endphp
 
 @section('content')
-    <div class="space-y-4">
+    <div x-data="salesVoidManager(@js(url('/sales/__SALE__/void')))" class="space-y-4">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
                 <nav aria-label="Breadcrumb">
@@ -154,6 +155,10 @@
                                     <details>
                                         <summary class="cursor-pointer list-none">
                                             <span class="text-[13px] font-semibold text-brand-600 dark:text-brand-400">{{ $sale->invoice_number }}</span>
+                                            @if ($sale->voided_at)
+                                                <span class="ml-1 rounded-full bg-error-50 px-2 py-0.5 text-[10px] font-semibold text-error-700 dark:bg-error-500/15 dark:text-error-300">Dibatalkan</span>
+                                                <span class="mt-1 block text-[11px] text-error-600">{{ $sale->void_reason }} · {{ $sale->voidedBy?->name ?? 'User dihapus' }}</span>
+                                            @endif
                                             <span class="mt-1 block text-[11px] text-gray-500 dark:text-gray-400">Shift #{{ $sale->cashier_shift_id }}</span>
                                         </summary>
                                         <div class="mt-3 w-[520px] max-w-[calc(100vw-4rem)] rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-gray-900/60">
@@ -191,6 +196,9 @@
                                     <span class="rounded-full bg-gray-100 px-2 py-1 text-[11px] font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">
                                         {{ $methodLabel[$sale->payment_method] ?? strtoupper($sale->payment_method) }}
                                     </span>
+                                    @if ($canVoidSale && ! $sale->voided_at)
+                                        <button type="button" @click="openVoid(@js(['id' => $sale->id, 'invoice' => $sale->invoice_number, 'total' => $sale->total]))" class="mt-2 block w-full text-[11px] font-semibold text-error-600 hover:text-error-700">Batalkan Transaksi</button>
+                                    @endif
                                 </td>
                             </tr>
                         @empty
@@ -203,5 +211,21 @@
                 {{ $sales->links() }}
             </div>
         </section>
+
+        <div x-cloak x-show="voidModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/50 p-4">
+            <div @click.outside="closeVoid()" class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
+                <h2 class="text-base font-semibold text-gray-900 dark:text-white">Batalkan transaksi?</h2>
+                <p class="mt-1 text-sm text-gray-500">Invoice <strong x-text="selectedSale?.invoice"></strong> akan di-void. Stok dikembalikan dan transaksi tetap tersimpan sebagai audit.</p>
+                <label class="mt-4 block">
+                    <span class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">Alasan pembatalan</span>
+                    <textarea x-model="voidReason" rows="3" maxlength="1000" placeholder="Contoh: Salah input produk" class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm dark:border-gray-700 dark:text-white"></textarea>
+                </label>
+                <p x-show="voidError" class="mt-3 rounded-lg border border-error-200 bg-error-50 px-3 py-2 text-xs text-error-700" x-text="voidError"></p>
+                <div class="mt-5 grid grid-cols-2 gap-2">
+                    <button type="button" @click="submitVoid()" :disabled="voidLoading || !voidReason.trim()" class="h-10 rounded-lg bg-error-600 px-4 text-sm font-semibold text-white disabled:opacity-60"><span x-text="voidLoading ? 'Memproses...' : 'Ya, void transaksi'"></span></button>
+                    <button type="button" @click="closeVoid()" class="h-10 rounded-lg border border-gray-200 px-4 text-sm font-semibold text-gray-700 dark:border-gray-800 dark:text-gray-300">Batal</button>
+                </div>
+            </div>
+        </div>
     </div>
 @endsection

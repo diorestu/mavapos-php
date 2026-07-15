@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -20,6 +21,9 @@ class PosSale extends Model
         'paid_amount',
         'change_amount',
         'sold_at',
+        'voided_at',
+        'voided_by_user_id',
+        'void_reason',
     ];
 
     protected function casts(): array
@@ -32,6 +36,8 @@ class PosSale extends Model
             'paid_amount' => 'integer',
             'change_amount' => 'integer',
             'sold_at' => 'datetime',
+            'voided_at' => 'datetime',
+            'voided_by_user_id' => 'integer',
         ];
     }
 
@@ -53,5 +59,20 @@ class PosSale extends Model
     public function items(): HasMany
     {
         return $this->hasMany(PosSaleItem::class);
+    }
+
+    public function rawMaterialUsages(): HasMany
+    {
+        return $this->hasMany(PosSaleRawMaterialUsage::class);
+    }
+
+    public function voidedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'voided_by_user_id');
+    }
+
+    public function scopeActive(Builder $query): Builder
+    {
+        return $query->whereNull('voided_at');
     }
 }

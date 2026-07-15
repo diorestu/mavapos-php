@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\PosSale;
 use App\Models\User;
+use App\Services\TransactionVoidService;
 use App\Support\BranchContext;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
@@ -30,7 +32,7 @@ class SaleController extends Controller
         $branchId = app(BranchContext::class)->activeId();
 
         $baseQuery = PosSale::query()
-            ->with(['user', 'branch', 'shift.user', 'items'])
+            ->with(['user', 'branch', 'shift.user', 'items', 'voidedBy'])
             ->where('branch_id', $branchId)
             ->whereBetween('sold_at', [$from, $to])
             ->when($validated['cashier_id'] ?? null, fn ($query, $cashierId) => $query->where('user_id', $cashierId))
@@ -44,7 +46,7 @@ class SaleController extends Controller
                 });
             });
 
-        $summaryQuery = clone $baseQuery;
+        $summaryQuery = (clone $baseQuery)->active();
         $summary = $summaryQuery
             ->selectRaw('COUNT(*) as sales_count')
             ->selectRaw('COALESCE(SUM(subtotal), 0) as gross_sales')
@@ -83,6 +85,17 @@ class SaleController extends Controller
                 'qris_total' => (int) $summary->qris_total,
                 'card_total' => (int) $summary->card_total,
             ],
+        ]);
+    }
+
+    public function void(Request $request, PosSale $sale, TransactionVoidService $service): JsonResponse
+    {
+        $validated = $request->validate(['reason' => ['required', 'string', 'max:500']]);
+        $sale = $service->void($sale, app(BranchContext::class)->activeId(), $request->user(), $validated['reason']);
+
+        return response()->json([
+            'message' => 'Transaksi '.$sale->invoice_number.' berhasil dibatalkan.',
+            'sale' => ['id' => $sale->id, 'status' => 'voided', 'voidReason' => $sale->void_reason],
         ]);
     }
 }

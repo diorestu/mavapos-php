@@ -75,7 +75,7 @@ class ActivityNotificationService
             ->limit($limit)
             ->get();
 
-        $saleActivities = PosSale::query()
+        $saleActivities = PosSale::query()->active()
             ->with('user')
             ->latest('sold_at')
             ->limit($limit)

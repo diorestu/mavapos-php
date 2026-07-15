@@ -6,7 +6,7 @@
 @endphp
 
 @section('content')
-    <div class="space-y-4">
+    <div x-data="shiftRecapManager(@js(session('shiftRecap')))" class="space-y-4">
         <div class="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
             <div>
                 <nav aria-label="Breadcrumb">
@@ -146,5 +146,7 @@
                 {{ $shifts->links() }}
             </div>
         </section>
+
+        <x-shift-recap-modal />
     </div>
 @endsection

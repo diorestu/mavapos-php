@@ -443,6 +443,8 @@
             </div>
         </div>
 
+        <x-shift-recap-modal />
+
         <!-- Variant Selection Modal -->
         <div x-cloak x-show="variantModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/50 p-4">
             <div @click.outside="variantModal = false; variantProduct = null" class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">

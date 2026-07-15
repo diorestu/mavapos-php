@@ -160,7 +160,9 @@ test('owner dapat menutup paksa shift kasir aktif', function () {
             'closing_note' => 'Ditutup paksa oleh owner karena kasir lupa.',
         ])
         ->assertRedirect(route('cashier-shifts'))
-        ->assertSessionHas('success', 'Shift Kasir Lupa Tutup ditutup paksa.');
+        ->assertSessionHas('success', 'Shift Kasir Lupa Tutup ditutup paksa.')
+        ->assertSessionHas('shiftRecap', fn (array $recap): bool => $recap['cashier'] === 'Kasir Lupa Tutup'
+            && $recap['expectedCashInDrawer'] === 98000);
 
     $shift->refresh();
 
@@ -171,6 +173,40 @@ test('owner dapat menutup paksa shift kasir aktif', function () {
         ->and($shift->net_sales)->toBe(23000)
         ->and($shift->cash_total)->toBe(23000)
         ->and($shift->closing_note)->toBe('Ditutup paksa oleh owner karena kasir lupa.');
+});
+
+test('tutup kasir normal mengembalikan rekap penjualan dan total uang', function () {
+    $cashier = User::factory()->create(['name' => 'Kasir Rekap', 'role' => 'kasir']);
+    $this->actingAs($cashier)->postJson(route('pos.shift.start'), ['opening_cash_amount' => 75000])->assertOk();
+    $this->actingAs($cashier)->postJson(route('pos.checkout'), [
+        'items' => [['id' => 'product-SKU-001', 'quantity' => 1]],
+        'payment_method' => 'cash', 'discount' => 0, 'paid_amount' => 20000,
+    ])->assertOk();
+
+    $this->actingAs($cashier)->postJson(route('pos.shift.close'), ['closing_note' => 'Selesai.'])
+        ->assertOk()
+        ->assertJsonPath('recap.cashier', 'Kasir Rekap')
+        ->assertJsonPath('recap.salesCount', 1)
+        ->assertJsonPath('recap.cashTotal', 18000)
+        ->assertJsonPath('recap.openingCashAmount', 75000)
+        ->assertJsonPath('recap.expectedCashInDrawer', 93000)
+        ->assertJsonPath('recap.closingNote', 'Selesai.')
+        ->assertJsonPath('recap.printer.connection_mode', 'imin_inner_printer');
+});
+
+test('tutup kasir paksa json mengembalikan kontrak rekap yang sama', function () {
+    $cashier = User::factory()->create(['name' => 'Kasir Rekap Paksa', 'role' => 'kasir']);
+    $owner = User::factory()->create(['role' => 'owner']);
+    $this->actingAs($cashier)->postJson(route('pos.shift.start'), ['opening_cash_amount' => 50000])->assertOk();
+    $shift = CashierShift::query()->where('user_id', $cashier->id)->firstOrFail();
+
+    $this->actingAs($owner)->postJson(route('cashier-shifts.force-close', $shift), ['closing_note' => 'Paksa.'])
+        ->assertOk()
+        ->assertJsonPath('recap.cashier', 'Kasir Rekap Paksa')
+        ->assertJsonPath('recap.salesCount', 0)
+        ->assertJsonPath('recap.expectedCashInDrawer', 50000)
+        ->assertJsonPath('recap.closingNote', 'Paksa.')
+        ->assertJsonStructure(['recap' => ['store', 'receipt', 'printer', 'grossSales', 'discountTotal', 'netSales', 'cashTotal', 'qrisTotal', 'cardTotal']]);
 });
 
 test('kasir tidak dapat menutup paksa shift dari halaman admin', function () {
