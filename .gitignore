@@ -84,6 +84,7 @@ Thumbs.db
 
 # Local tool/cache folders
 .commandcode/
+.worktrees/
 .hallmark/
 .vite/
 .cache/
