@@ -19,6 +19,11 @@ class TransactionVoidService
         return DB::transaction(function () use ($sale, $branchId, $actor, $reason): PosSale {
             $sale = PosSale::query()->with(['items.product', 'items.productVariant', 'rawMaterialUsages.rawMaterial', 'shift'])
                 ->whereKey($sale->id)->where('branch_id', $branchId)->lockForUpdate()->firstOrFail();
+
+            if ($actor->hasRole('kasir')) {
+                abort_unless($sale->user_id === $actor->id && $sale->shift?->closed_at === null, 403);
+            }
+
             abort_if($sale->voided_at, 409, 'Transaksi sudah dibatalkan sebelumnya.');
 
             foreach ($sale->items as $item) {

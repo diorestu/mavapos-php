@@ -86,7 +86,7 @@ test('checkout snapshots raw material usage and owner void restores inventory ex
     expect($data['inventory']->fresh()->stock)->toBe($data['initialProductStock']);
 });
 
-test('only owner and admin can void and reason is required', function () {
+test('unrelated cashier and warehouse cannot void while admin reason is required', function () {
     $data = completedSaleWithRecipe($this);
     $cashier = User::factory()->create(['role' => 'kasir']);
     $warehouse = User::factory()->create(['role' => 'gudang']);
@@ -95,6 +95,44 @@ test('only owner and admin can void and reason is required', function () {
     $this->actingAs($cashier)->postJson(route('sales.void', $data['sale']), ['reason' => 'Tidak boleh'])->assertForbidden();
     $this->actingAs($warehouse)->postJson(route('sales.void', $data['sale']), ['reason' => 'Tidak boleh'])->assertForbidden();
     $this->actingAs($admin)->postJson(route('sales.void', $data['sale']), [])->assertUnprocessable()->assertJsonValidationErrors('reason');
+});
+
+test('cashier can void own sale while its shift is active', function () {
+    $data = completedSaleWithRecipe($this);
+
+    $this->actingAs($data['cashier'])
+        ->postJson(route('sales.void', $data['sale']), ['reason' => 'Salah input sendiri'])
+        ->assertOk()
+        ->assertJsonPath('sale.status', 'voided');
+
+    expect($data['sale']->fresh()->voided_by_user_id)->toBe($data['cashier']->id)
+        ->and($data['inventory']->fresh()->stock)->toBe($data['initialProductStock']);
+});
+
+test('cashier cannot void another cashier sale', function () {
+    $data = completedSaleWithRecipe($this);
+    $otherCashier = User::factory()->create(['role' => 'kasir']);
+    $stockBefore = $data['inventory']->fresh()->stock;
+
+    $this->actingAs($otherCashier)
+        ->postJson(route('sales.void', $data['sale']), ['reason' => 'Bukan transaksi saya'])
+        ->assertForbidden();
+
+    expect($data['sale']->fresh()->voided_at)->toBeNull()
+        ->and($data['inventory']->fresh()->stock)->toBe($stockBefore);
+});
+
+test('cashier cannot void own sale after its shift is closed', function () {
+    $data = completedSaleWithRecipe($this);
+    $stockBefore = $data['inventory']->fresh()->stock;
+
+    $this->actingAs($data['cashier'])->postJson(route('pos.shift.close'))->assertOk();
+    $this->actingAs($data['cashier'])
+        ->postJson(route('sales.void', $data['sale']), ['reason' => 'Shift sudah tutup'])
+        ->assertForbidden();
+
+    expect($data['sale']->fresh()->voided_at)->toBeNull()
+        ->and($data['inventory']->fresh()->stock)->toBe($stockBefore);
 });
 
 test('sale in another active branch is not exposed to void', function () {
