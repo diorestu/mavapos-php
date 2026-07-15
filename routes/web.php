@@ -2,11 +2,13 @@
 
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\BillingController;
-use App\Http\Controllers\CustomerDisplayController;
 use App\Http\Controllers\BranchController;
 use App\Http\Controllers\CashierShiftController;
+use App\Http\Controllers\CashierStockInController;
 use App\Http\Controllers\CustomerController;
+use App\Http\Controllers\CustomerDisplayController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DeveloperApiController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\InventoryController;
@@ -67,9 +69,9 @@ Route::middleware('auth:web,sanctum')->group(function () {
         Route::post('/billings/{billing}/refresh', [BillingController::class, 'refresh'])->name('billings.refresh');
         Route::get('/settings', [SettingController::class, 'index'])->name('settings');
         Route::patch('/settings', [SettingController::class, 'update'])->name('settings.update');
-        Route::get('/settings/tokens', [\App\Http\Controllers\DeveloperApiController::class, 'getTokens'])->name('settings.tokens.index');
-        Route::post('/settings/tokens', [\App\Http\Controllers\DeveloperApiController::class, 'createToken'])->name('settings.tokens.store');
-        Route::delete('/settings/tokens/{id}', [\App\Http\Controllers\DeveloperApiController::class, 'revokeToken'])->name('settings.tokens.destroy');
+        Route::get('/settings/tokens', [DeveloperApiController::class, 'getTokens'])->name('settings.tokens.index');
+        Route::post('/settings/tokens', [DeveloperApiController::class, 'createToken'])->name('settings.tokens.store');
+        Route::delete('/settings/tokens/{id}', [DeveloperApiController::class, 'revokeToken'])->name('settings.tokens.destroy');
         Route::get('/branches', [BranchController::class, 'index'])->name('branches.index');
         Route::post('/branches', [BranchController::class, 'store'])->name('branches.store');
         Route::patch('/branches/{branch}', [BranchController::class, 'update'])->name('branches.update');
@@ -113,6 +115,11 @@ Route::middleware('auth:web,sanctum')->group(function () {
             Route::post('/pos/checkout', [PosController::class, 'checkout'])->name('pos.checkout');
             Route::get('/cashier-shifts', [CashierShiftController::class, 'index'])->name('cashier-shifts');
             Route::get('/sales', [SaleController::class, 'index'])->name('sales');
+        });
+
+        Route::middleware('role:kasir')->group(function () {
+            Route::get('/stock-in', [CashierStockInController::class, 'index'])->name('cashier-stock-in.index');
+            Route::post('/stock-in', [CashierStockInController::class, 'store'])->name('cashier-stock-in.store');
         });
 
         Route::middleware('role:owner,admin')->group(function () {

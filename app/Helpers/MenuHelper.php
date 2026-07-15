@@ -48,6 +48,12 @@ class MenuHelper
                         'path' => '/sales',
                         'roles' => ['owner', 'admin', 'kasir'],
                     ],
+                    [
+                        'icon' => 'inventory',
+                        'name' => 'Stok Masuk',
+                        'path' => '/stock-in',
+                        'roles' => ['kasir'],
+                    ],
                 ],
             ],
             [

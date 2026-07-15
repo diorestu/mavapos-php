@@ -9,6 +9,7 @@ class StockMovement extends Model
 {
     protected $fillable = [
         'branch_id',
+        'created_by_user_id',
         'product_id',
         'product_variant_id',
         'type',
@@ -25,6 +26,7 @@ class StockMovement extends Model
         return [
             'quantity' => 'integer',
             'branch_id' => 'integer',
+            'created_by_user_id' => 'integer',
             'product_variant_id' => 'integer',
             'stock_before' => 'integer',
             'stock_after' => 'integer',

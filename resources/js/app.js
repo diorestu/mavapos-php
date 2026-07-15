@@ -1762,6 +1762,28 @@ Alpine.data('inventoryManager', (initialItems = [], initialMovements = [], initi
     },
 }));
 
+Alpine.data('cashierStockInManager', (initialItems = [], endpoint = '') => ({
+    items: initialItems, endpoint, query: '', selected: null, quantity: '', reference: '', note: '', loading: false, error: '', result: null,
+    get filteredItems() {
+        const query = this.query.toLowerCase().trim();
+        return query ? this.items.filter((item) => [item.name, item.sku, item.barcode, item.category].some((value) => String(value || '').toLowerCase().includes(query))) : this.items;
+    },
+    select(item) { this.selected = item; this.result = null; this.error = ''; },
+    async submit() {
+        if (!this.selected || Number(this.quantity) < 1) { this.error = 'Pilih produk dan isi jumlah minimal 1.'; return; }
+        this.loading = true; this.error = '';
+        try {
+            const response = await fetch(this.endpoint, { method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' }, body: JSON.stringify({ sku: this.selected.sku, quantity: Number(this.quantity), reference: this.reference, note: this.note }) });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) { this.error = payload.message || 'Stok masuk gagal dicatat.'; return; }
+            const index = this.items.findIndex((item) => item.sku === this.selected.sku);
+            if (index !== -1) this.items[index].stock = payload.stockAfter;
+            this.selected.stock = payload.stockAfter; this.result = payload; this.quantity = ''; this.reference = ''; this.note = '';
+            this.$nextTick(() => this.$refs.search?.focus());
+        } finally { this.loading = false; }
+    },
+}));
+
 Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShift = null, blockingShift = null, endpoints = {}) => ({
     items: initialItems,
     categories: initialCategories,
