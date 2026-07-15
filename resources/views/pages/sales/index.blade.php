@@ -2,7 +2,7 @@
 
 @php
     $rupiah = fn ($value) => 'Rp'.number_format((int) $value, 0, ',', '.');
-    $canVoidSale = auth()->user()?->hasRole(['owner', 'admin']);
+    $currentUser = auth()->user();
     $methodLabel = [
         'cash' => 'Tunai',
         'qris' => 'QRIS',
@@ -150,6 +150,14 @@
                     </thead>
                     <tbody>
                         @forelse ($sales as $sale)
+                            @php
+                                $canVoidSale = ! $sale->voided_at && (
+                                    $currentUser?->hasRole(['owner', 'admin'])
+                                    || ($currentUser?->hasRole('kasir')
+                                        && $sale->user_id === $currentUser->id
+                                        && $sale->shift?->closed_at === null)
+                                );
+                            @endphp
                             <tr class="border-t border-gray-100 align-top dark:border-gray-800">
                                 <td class="px-4 py-3">
                                     <details>
@@ -196,7 +204,7 @@
                                     <span class="rounded-full bg-gray-100 px-2 py-1 text-[11px] font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">
                                         {{ $methodLabel[$sale->payment_method] ?? strtoupper($sale->payment_method) }}
                                     </span>
-                                    @if ($canVoidSale && ! $sale->voided_at)
+                                    @if ($canVoidSale)
                                         <button type="button" @click="openVoid(@js(['id' => $sale->id, 'invoice' => $sale->invoice_number, 'total' => $sale->total]))" class="mt-2 block w-full text-[11px] font-semibold text-error-600 hover:text-error-700">Batalkan Transaksi</button>
                                     @endif
                                 </td>

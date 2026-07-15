@@ -138,9 +138,10 @@ test('cashier cannot void own sale after its shift is closed', function () {
 test('sale in another active branch is not exposed to void', function () {
     $data = completedSaleWithRecipe($this);
     $owner = User::factory()->create(['role' => 'owner']);
+    $this->actingAs($owner);
     $otherBranch = Branch::query()->create(['name' => 'Cabang Aman', 'code' => 'cabang-aman', 'is_active' => true]);
 
-    $this->actingAs($owner)->post(route('branches.switch'), ['branch_id' => $otherBranch->id])->assertRedirect();
+    $this->post(route('branches.switch'), ['branch_id' => $otherBranch->id])->assertRedirect();
     $this->actingAs($owner)->postJson(route('sales.void', $data['sale']), ['reason' => 'Cabang salah'])->assertNotFound();
     expect($data['sale']->fresh()->voided_at)->toBeNull();
 });
@@ -158,12 +159,41 @@ test('sales history keeps voided sale but excludes it from active summary', func
         ->assertSee('Rp0');
 });
 
-test('void action is rendered only for owner and admin', function () {
+test('void action is rendered for cashier own active-shift sale and remains available to owner and admin', function () {
     $data = completedSaleWithRecipe($this);
+    $otherCashier = User::factory()->create(['name' => 'Kasir Lain', 'role' => 'kasir']);
+    $otherShift = CashierShift::query()->create([
+        'user_id' => $otherCashier->id,
+        'branch_id' => $data['branch']->id,
+        'opened_at' => now(),
+    ]);
+    $otherSale = PosSale::query()->create([
+        'cashier_shift_id' => $otherShift->id,
+        'branch_id' => $data['branch']->id,
+        'user_id' => $otherCashier->id,
+        'invoice_number' => 'POS-OTHER-CASHIER',
+        'payment_method' => 'cash',
+        'subtotal' => 10000,
+        'discount' => 0,
+        'total' => 10000,
+        'paid_amount' => 10000,
+        'change_amount' => 0,
+        'sold_at' => now(),
+    ]);
     $owner = User::factory()->create(['role' => 'owner']);
     $admin = User::factory()->create(['role' => 'admin']);
 
-    $this->actingAs($data['cashier'])->get(route('sales'))->assertOk()->assertDontSee('Batalkan Transaksi');
-    $this->actingAs($owner)->get(route('sales'))->assertOk()->assertSee('Batalkan Transaksi');
-    $this->actingAs($admin)->get(route('sales'))->assertOk()->assertSee('Batalkan Transaksi');
+    $cashierResponse = $this->actingAs($data['cashier'])->get(route('sales'))->assertOk()
+        ->assertSee($data['sale']->invoice_number)
+        ->assertSee($otherSale->invoice_number);
+    expect(substr_count($cashierResponse->getContent(), 'Batalkan Transaksi'))->toBe(1);
+
+    $data['sale']->shift->update(['closed_at' => now()]);
+    $closedShiftResponse = $this->actingAs($data['cashier'])->get(route('sales'))->assertOk();
+    expect(substr_count($closedShiftResponse->getContent(), 'Batalkan Transaksi'))->toBe(0);
+
+    $ownerResponse = $this->actingAs($owner)->get(route('sales'))->assertOk();
+    $adminResponse = $this->actingAs($admin)->get(route('sales'))->assertOk();
+    expect(substr_count($ownerResponse->getContent(), 'Batalkan Transaksi'))->toBe(2)
+        ->and(substr_count($adminResponse->getContent(), 'Batalkan Transaksi'))->toBe(2);
 });
