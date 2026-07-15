@@ -14,6 +14,15 @@ Use the available width at tablet viewports across the authenticated MavaPOS app
 - Enrichment: none. Operational hierarchy and spacing provide the visual structure.
 - Motion: motion-cut. Keep only functional drawer, modal, loading, and pressed-state feedback, with reduced-motion support.
 
+## MAVAPOS Branding
+
+- Use `public/logo.png` as the single runtime brand mark in the authenticated sidebar, mobile header, sign-in page, sign-up page, and public legal headers.
+- Remove runtime references to TailAdmin `logo.svg`, `logo-dark.svg`, `logo-icon.svg`, and `auth-logo.svg` assets.
+- Keep functional navigation and action icons because they communicate menu and control meaning; the replacement applies to TailAdmin branding, not semantic icons.
+- Use the same `logo.png` in light and dark modes because the supplied transparent artwork already carries the MAVAPOS colours.
+- Preserve intrinsic aspect ratio with `object-contain`; use a compact crop only through the container, never by distorting the image.
+- Do not delete the legacy SVG files as part of this change. They may be removed separately after deployment confirms no external references remain.
+
 ## Responsive Foundation
 
 The responsive changes apply to all authenticated application pages, not only Dashboard or POS.
@@ -138,6 +147,7 @@ The required inputs are only product or variant and quantity. Reference and note
 ## Out of Scope
 
 - Replacing TailAdmin, Public Sans, the existing icon language, or the application sidebar.
+- Replacing semantic menu/action icons with the MAVAPOS wordmark.
 - Granting cashiers general Inventory, product, raw-material, purchase-order, or transfer access.
 - Allowing cashiers to change purchase price, stock minimum, absolute stock, or stock-out quantities.
 - Changing the desktop sidebar breakpoint or turning the tablet sidebar into a persistent rail.
