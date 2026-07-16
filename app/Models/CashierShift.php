@@ -11,6 +11,7 @@ class CashierShift extends Model
     protected $fillable = [
         'user_id',
         'branch_id',
+        'previous_cashier_shift_id',
         'opened_at',
         'closed_at',
         'sales_count',
@@ -21,6 +22,9 @@ class CashierShift extends Model
         'qris_total',
         'card_total',
         'opening_cash_amount',
+        'validated_cash_amount',
+        'validated_card_amount',
+        'handover_validated_at',
         'opening_note',
         'closing_note',
     ];
@@ -30,7 +34,9 @@ class CashierShift extends Model
         return [
             'opened_at' => 'datetime',
             'closed_at' => 'datetime',
+            'handover_validated_at' => 'datetime',
             'branch_id' => 'integer',
+            'previous_cashier_shift_id' => 'integer',
             'sales_count' => 'integer',
             'gross_sales' => 'integer',
             'discount_total' => 'integer',
@@ -39,6 +45,8 @@ class CashierShift extends Model
             'qris_total' => 'integer',
             'card_total' => 'integer',
             'opening_cash_amount' => 'integer',
+            'validated_cash_amount' => 'integer',
+            'validated_card_amount' => 'integer',
         ];
     }
 
@@ -55,5 +63,10 @@ class CashierShift extends Model
     public function sales(): HasMany
     {
         return $this->hasMany(PosSale::class);
+    }
+
+    public function previousShift(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'previous_cashier_shift_id');
     }
 }

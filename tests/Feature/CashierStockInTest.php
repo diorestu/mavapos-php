@@ -3,6 +3,7 @@
 use App\Models\Branch;
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\RawMaterial;
 use App\Models\User;
 use App\Support\BranchInventoryManager;
 use Database\Seeders\DatabaseSeeder;
@@ -79,6 +80,40 @@ test('cashier can stock in an active product variant', function () {
     ])->assertCreated()->assertJsonPath('item.isVariant', true);
 
     expect($inventory->fresh()->stock)->toBe(5);
+});
+
+test('cashier can stock in raw material from the focused stock-in page', function () {
+    $cashier = User::factory()->create(['role' => 'kasir']);
+    $material = RawMaterial::query()->create([
+        'code' => 'BB-SUSU-KASIR',
+        'name' => 'Susu UHT',
+        'category' => 'Bahan minuman',
+        'unit' => 'liter',
+        'stock' => 4.5,
+        'min_stock' => 1,
+        'cost_per_unit' => 18000,
+    ]);
+
+    $this->actingAs($cashier)
+        ->get(route('cashier-stock-in.index'))
+        ->assertOk()
+        ->assertSee('Susu UHT')
+        ->assertSee('raw_material', false);
+
+    $this->actingAs($cashier)
+        ->postJson(route('cashier-stock-in.store'), [
+            'stock_item' => 'raw-material-'.$material->id,
+            'quantity' => 2.25,
+            'reference' => 'BELANJA-SUSU',
+            'note' => 'Stok susu datang.',
+        ])
+        ->assertCreated()
+        ->assertJsonPath('item.type', 'raw_material')
+        ->assertJsonPath('stockBefore', 4.5)
+        ->assertJsonPath('stockAfter', 6.75);
+
+    expect((float) $material->fresh()->stock)->toBe(6.75)
+        ->and($material->fresh()->note)->toBe('Stok susu datang.');
 });
 
 test('cashier stock in validates quantity and warehouse cannot use focused route', function () {

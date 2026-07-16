@@ -9,6 +9,7 @@
         @js($categories),
         @js($activeShift),
         @js($blockingShift),
+        @js($lastClosedShift),
         {
             startShift: @js(route('pos.shift.start')),
             closeShift: @js(route('pos.shift.close')),
@@ -65,7 +66,7 @@
                 </template>
                 <template x-if="!shift && blockingShift">
                     <p class="mt-1 text-sm text-warning-700 dark:text-warning-300">
-                        Kasir <span class="font-semibold" x-text="blockingShift.cashier"></span> masih aktif sejak <span x-text="blockingShift.openedAt"></span>. Tutup kasir tersebut sebelum shift baru.
+                        Sesi <span class="font-semibold" x-text="blockingShift.cashier"></span> masih aktif sejak <span x-text="blockingShift.openedAt"></span>. Akhiri sesi tersebut sebelum shift berikutnya.
                     </p>
                 </template>
                 <template x-if="!shift && !blockingShift">
@@ -84,11 +85,11 @@
                 </button>
                 <button type="button" x-show="!shift && !blockingShift" @click="startModal = true"
                     class="inline-flex h-10 items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600">
-                    Mulai Pekerjaan
+                    Mulai Shift
                 </button>
                 <button type="button" x-show="shift" @click="closeModal = true"
                     class="inline-flex h-10 items-center justify-center rounded-lg border border-error-200 px-4 text-sm font-semibold text-error-600 transition hover:bg-error-50 dark:border-error-500/30 dark:hover:bg-error-500/10">
-                    Tutup Kasir
+                    Akhiri Sesi
                 </button>
             </div>
         </section>
@@ -287,17 +288,52 @@
                         </svg>
                     </div>
                     <div>
-                        <h2 class="text-base font-semibold text-gray-900 dark:text-white">Mulai pekerjaan kasir?</h2>
-                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Shift akan dicatat sebagai absensi mulai kerja. Transaksi POS baru bisa dilakukan setelah shift aktif.</p>
+                        <h2 class="text-base font-semibold text-gray-900 dark:text-white">Mulai shift kasir?</h2>
+                        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Kasir masuk wajib cocokkan cash dan kartu dari rekap sesi sebelumnya sebelum transaksi.</p>
                     </div>
                 </div>
 
-                <label class="mt-4 block">
+                <div x-show="lastClosedShift" class="mt-4 rounded-xl border border-warning-200 bg-warning-50 p-3 text-xs dark:border-warning-500/20 dark:bg-warning-500/10">
+                    <div class="flex items-start justify-between gap-3">
+                        <div>
+                            <p class="font-semibold text-warning-800 dark:text-warning-200">Validasi rekap sebelumnya</p>
+                            <p class="mt-0.5 text-warning-700 dark:text-warning-300">
+                                <span x-text="lastClosedShift?.cashier || '-'"></span> · <span x-text="lastClosedShift?.closedAt || '-'"></span>
+                            </p>
+                        </div>
+                        <button type="button" @click="shiftRecap = lastClosedShift" class="text-xs font-semibold text-warning-800 underline dark:text-warning-200">Lihat rekap</button>
+                    </div>
+                    <div class="mt-3 grid grid-cols-2 gap-2">
+                        <div class="rounded-lg bg-white/70 p-2 dark:bg-gray-950/30">
+                            <p class="text-[10px] uppercase text-warning-700 dark:text-warning-300">Cash struk</p>
+                            <p class="mt-1 font-semibold tabular-nums text-warning-900 dark:text-warning-100" x-text="formatRupiah(lastClosedShift?.expectedCashInDrawer || 0)"></p>
+                        </div>
+                        <div class="rounded-lg bg-white/70 p-2 dark:bg-gray-950/30">
+                            <p class="text-[10px] uppercase text-warning-700 dark:text-warning-300">Kartu struk</p>
+                            <p class="mt-1 font-semibold tabular-nums text-warning-900 dark:text-warning-100" x-text="formatRupiah(lastClosedShift?.cardTotal || 0)"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <label x-show="!lastClosedShift" class="mt-4 block">
                     <span class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Uang kas awal untuk kembalian</span>
                     <input type="text" inputmode="numeric" autocomplete="off" :value="formatInputNumber(openingCashAmount)" @input="onMoneyInput('openingCashAmount', $event)" placeholder="0"
                         class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-right text-sm tabular-nums text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-950 dark:text-white/90" />
                     <span class="mt-1 block text-[11px] text-gray-500 dark:text-gray-400">Nominal cash yang disiapkan di laci kas untuk uang kembalian.</span>
                 </label>
+
+                <div x-show="lastClosedShift" class="mt-4 grid gap-3 sm:grid-cols-2">
+                    <label class="block">
+                        <span class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Cash tervalidasi</span>
+                        <input type="text" inputmode="numeric" autocomplete="off" :value="formatInputNumber(validatedCashAmount)" @input="onMoneyInput('validatedCashAmount', $event)" placeholder="0"
+                            class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-right text-sm tabular-nums text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-950 dark:text-white/90" />
+                    </label>
+                    <label class="block">
+                        <span class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Kartu tervalidasi</span>
+                        <input type="text" inputmode="numeric" autocomplete="off" :value="formatInputNumber(validatedCardAmount)" @input="onMoneyInput('validatedCardAmount', $event)" placeholder="0"
+                            class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-right text-sm tabular-nums text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-950 dark:text-white/90" />
+                    </label>
+                </div>
 
                 <label class="mt-4 block">
                     <span class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Catatan awal shift (opsional)</span>
@@ -308,7 +344,7 @@
                 <div class="mt-5 grid gap-2 sm:grid-cols-2">
                     <button type="button" @click="startShift()" :disabled="shiftLoading"
                         class="inline-flex h-10 items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60">
-                        <span x-show="!shiftLoading">Ya, mulai kerja</span>
+                        <span x-show="!shiftLoading">Ya, mulai shift</span>
                         <span x-show="shiftLoading">Memulai...</span>
                     </button>
                     <a href="{{ route('dashboard') }}" class="inline-flex h-10 items-center justify-center rounded-lg border border-gray-200 px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.04]">
@@ -320,8 +356,8 @@
 
         <div x-cloak x-show="closeModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/50 p-4">
             <div @click.outside="closeModal = false" class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
-                <h2 class="text-base font-semibold text-gray-900 dark:text-white">Tutup kasir?</h2>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Setelah ditutup, kasir berikutnya bisa memulai shift baru. Pastikan semua pembayaran sudah selesai.</p>
+                <h2 class="text-base font-semibold text-gray-900 dark:text-white">Akhiri sesi kasir?</h2>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Sistem mencetak rekap cash dan kartu untuk dicocokkan. Kasir harian tetap berjalan sampai closing malam.</p>
                 <div class="mt-4 grid grid-cols-2 gap-2">
                     <div class="rounded-lg bg-gray-50 p-3 dark:bg-white/[0.04]">
                         <p class="text-[10px] uppercase text-gray-400">Transaksi</p>
@@ -349,7 +385,7 @@
                 <div class="mt-5 grid gap-2 sm:grid-cols-2">
                     <button type="button" @click="closeShift()" :disabled="shiftLoading"
                         class="inline-flex h-10 items-center justify-center rounded-lg bg-error-600 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-error-700 disabled:cursor-not-allowed disabled:opacity-60">
-                        <span x-show="!shiftLoading">Tutup kasir</span>
+                        <span x-show="!shiftLoading">Akhiri sesi</span>
                         <span x-show="shiftLoading">Menutup...</span>
                     </button>
                     <button type="button" @click="closeModal = false" class="inline-flex h-10 items-center justify-center rounded-lg border border-gray-200 px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.04]">

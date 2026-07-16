@@ -136,6 +136,10 @@ Route::middleware('auth:web,sanctum')->group(function () {
             Route::get('/reports', [ReportController::class, 'index'])->name('reports');
             Route::get('/reports/download', [ReportController::class, 'download'])->name('reports.download');
         });
+
+        Route::middleware('role:owner,admin')->group(function () {
+            Route::delete('/cashier-shifts/{cashierShift}', [CashierShiftController::class, 'destroy'])->name('cashier-shifts.destroy');
+        });
     });
     Route::middleware('role:owner,admin')->group(function () {
         Route::get('/print-test', function () {

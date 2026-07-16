@@ -2,10 +2,14 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\CashierShift;
 use App\Models\User;
+use App\Services\CashierShiftSummaryService;
+use App\Support\BranchContext;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\View\View;
 use Laravel\Socialite\Facades\Socialite;
@@ -146,6 +150,34 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
+        $user = $request->user();
+        $recap = null;
+
+        if ($user?->hasRole('kasir')) {
+            $branchId = app(BranchContext::class)->activeId();
+            $shift = DB::transaction(function () use ($user, $branchId): ?CashierShift {
+                $shift = CashierShift::query()
+                    ->where('user_id', $user->id)
+                    ->where('branch_id', $branchId)
+                    ->whereNull('closed_at')
+                    ->lockForUpdate()
+                    ->first();
+
+                if (! $shift) {
+                    return null;
+                }
+
+                $shift->update([
+                    'closed_at' => now(),
+                    'closing_note' => $shift->closing_note ?: 'Sesi personal berakhir lewat logout.',
+                ]);
+
+                return app(CashierShiftSummaryService::class)->refresh($shift)->load(['user', 'branch']);
+            });
+
+            $recap = $shift ? app(CashierShiftSummaryService::class)->recap($shift) : null;
+        }
+
         Auth::logout();
 
         $request->session()->invalidate();
@@ -154,6 +186,7 @@ class AuthController extends Controller
         if ($request->wantsJson()) {
             return response()->json([
                 'message' => 'Berhasil keluar.',
+                'recap' => $recap,
             ]);
         }
 

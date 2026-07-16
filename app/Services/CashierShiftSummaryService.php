@@ -50,6 +50,9 @@ class CashierShiftSummaryService
             'cardTotal' => $shift->card_total,
             'openingCashAmount' => $shift->opening_cash_amount,
             'expectedCashInDrawer' => $shift->opening_cash_amount + $shift->cash_total,
+            'validatedCashAmount' => $shift->validated_cash_amount,
+            'validatedCardAmount' => $shift->validated_card_amount,
+            'handoverValidatedAt' => $shift->handover_validated_at?->format('d/m/Y H:i'),
             'closingNote' => $shift->closing_note,
             'store' => [
                 'name' => $setting->store_name,

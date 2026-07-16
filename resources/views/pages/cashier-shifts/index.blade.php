@@ -3,6 +3,8 @@
 @php
     $rupiah = fn ($value) => 'Rp'.number_format((int) $value, 0, ',', '.');
     $canForceCloseShift = auth()->user()?->hasRole(['owner', 'admin']);
+    $canDeleteShiftHistory = auth()->user()?->hasRole(['owner', 'admin']);
+    $canManageShift = $canForceCloseShift || $canDeleteShiftHistory;
 @endphp
 
 @section('content')
@@ -93,7 +95,7 @@
                             <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">QRIS</th>
                             <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Kartu</th>
                             <th class="px-4 py-2 text-center text-[11px] font-semibold uppercase text-gray-500">Status</th>
-                            @if ($canForceCloseShift)
+                            @if ($canManageShift)
                                 <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Aksi</th>
                             @endif
                         </tr>
@@ -120,14 +122,24 @@
                                         <span class="rounded-full bg-success-50 px-2 py-1 text-[11px] font-semibold text-success-700 dark:bg-success-500/15 dark:text-success-400">Aktif</span>
                                     @endif
                                 </td>
-                                @if ($canForceCloseShift)
+                                @if ($canManageShift)
                                     <td class="px-4 py-3 text-right">
                                         @if (! $shift->closed_at)
+                                            @if ($canForceCloseShift)
                                             <form method="POST" action="{{ route('cashier-shifts.force-close', $shift) }}" onsubmit="return confirm(@js('Tutup paksa shift '.($shift->user?->name ?? 'Kasir').'?'));">
                                                 @csrf
                                                 <input type="hidden" name="closing_note" value="Ditutup paksa oleh {{ auth()->user()->name }} karena kasir lupa tutup shift.">
                                                 <button type="submit" class="inline-flex h-8 items-center justify-center rounded-lg border border-warning-200 px-3 text-xs font-semibold text-warning-700 transition hover:bg-warning-50 dark:border-warning-500/20 dark:text-warning-300 dark:hover:bg-warning-500/10">
                                                     Tutup Paksa
+                                                </button>
+                                            </form>
+                                            @endif
+                                        @elseif ($canDeleteShiftHistory)
+                                            <form method="POST" action="{{ route('cashier-shifts.destroy', $shift) }}" onsubmit="return confirm(@js('Hapus riwayat shift '.($shift->user?->name ?? 'Kasir').' beserta seluruh transaksi di dalamnya? Tindakan ini tidak dapat dibatalkan.'));">
+                                                @csrf
+                                                @method('DELETE')
+                                                <button type="submit" class="inline-flex h-8 items-center justify-center rounded-lg border border-error-200 px-3 text-xs font-semibold text-error-700 transition hover:bg-error-50 dark:border-error-500/20 dark:text-error-300 dark:hover:bg-error-500/10">
+                                                    Hapus Riwayat Shift
                                                 </button>
                                             </form>
                                         @else
@@ -137,7 +149,7 @@
                                 @endif
                             </tr>
                         @empty
-                            <tr><td colspan="{{ $canForceCloseShift ? 11 : 10 }}" class="px-4 py-8 text-center text-sm text-gray-500">Belum ada shift kasir.</td></tr>
+                            <tr><td colspan="{{ $canManageShift ? 11 : 10 }}" class="px-4 py-8 text-center text-sm text-gray-500">Belum ada shift kasir.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

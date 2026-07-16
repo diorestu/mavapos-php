@@ -37,9 +37,16 @@ class PosController extends Controller
             ->first();
         $activeShift = $openShift?->user_id === auth()->id() ? $openShift : null;
         $blockingShift = $openShift && $openShift->user_id !== auth()->id() ? $openShift : null;
+        $lastClosedShift = CashierShift::query()
+            ->with(['user', 'branch'])
+            ->where('branch_id', $branchId)
+            ->whereNotNull('closed_at')
+            ->latest('closed_at')
+            ->first();
 
         $activeShiftPayload = $activeShift ? $this->shiftPayload($activeShift) : null;
         $blockingShiftPayload = $blockingShift ? $this->shiftPayload($blockingShift) : null;
+        $lastClosedShiftPayload = $lastClosedShift ? app(CashierShiftSummaryService::class)->recap($lastClosedShift) : null;
         $categoriesPayload = ProductCategory::query()
             ->where('status', 'aktif')
             ->orderBy('name')
@@ -66,6 +73,7 @@ class PosController extends Controller
             return response()->json([
                 'activeShift' => $activeShiftPayload,
                 'blockingShift' => $blockingShiftPayload,
+                'lastClosedShift' => $lastClosedShiftPayload,
                 'categories' => $categoriesPayload,
                 'items' => $itemsPayload,
             ]);
@@ -75,6 +83,7 @@ class PosController extends Controller
             'title' => 'Kasir',
             'activeShift' => $activeShiftPayload,
             'blockingShift' => $blockingShiftPayload,
+            'lastClosedShift' => $lastClosedShiftPayload,
             'categories' => $categoriesPayload,
             'items' => $itemsPayload,
         ]);
@@ -84,6 +93,8 @@ class PosController extends Controller
     {
         $validated = $request->validate([
             'opening_cash_amount' => ['nullable', 'integer', 'min:0', 'max:999999999999'],
+            'validated_cash_amount' => ['nullable', 'integer', 'min:0', 'max:999999999999'],
+            'validated_card_amount' => ['nullable', 'integer', 'min:0', 'max:999999999999'],
             'opening_note' => ['nullable', 'string', 'max:1000'],
         ]);
         $branchId = app(BranchContext::class)->activeId();
@@ -97,18 +108,51 @@ class PosController extends Controller
                 ->first();
 
             if ($openShift && $openShift->user_id !== auth()->id()) {
-                abort(409, 'Kasir '.$openShift->user?->name.' masih aktif. Tutup kasir tersebut sebelum memulai shift baru.');
+                abort(409, 'Sesi '.$openShift->user?->name.' masih aktif. Akhiri sesi tersebut sebelum kasir berikutnya mulai.');
             }
 
             if ($openShift) {
                 return $openShift->load(['user', 'branch']);
             }
 
+            $previousShift = CashierShift::query()
+                ->where('branch_id', $branchId)
+                ->whereNotNull('closed_at')
+                ->lockForUpdate()
+                ->latest('closed_at')
+                ->first();
+
+            $openingCashAmount = (int) ($validated['opening_cash_amount'] ?? 0);
+            $validatedCashAmount = $validated['validated_cash_amount'] ?? null;
+            $validatedCardAmount = $validated['validated_card_amount'] ?? null;
+            $handoverValidatedAt = null;
+
+            if ($previousShift) {
+                $previousShift = app(CashierShiftSummaryService::class)->refresh($previousShift);
+                $expectedCash = $previousShift->opening_cash_amount + $previousShift->cash_total;
+                $expectedCard = $previousShift->card_total;
+
+                if ($validatedCashAmount === null || (int) $validatedCashAmount !== $expectedCash) {
+                    abort(422, 'Validasi cash tidak sesuai rekap sebelumnya. Nominal wajib '.number_format($expectedCash, 0, ',', '.').'.');
+                }
+
+                if ($validatedCardAmount === null || (int) $validatedCardAmount !== $expectedCard) {
+                    abort(422, 'Validasi kartu tidak sesuai rekap sebelumnya. Nominal wajib '.number_format($expectedCard, 0, ',', '.').'.');
+                }
+
+                $openingCashAmount = $expectedCash;
+                $handoverValidatedAt = now();
+            }
+
             return CashierShift::query()->create([
                 'user_id' => auth()->id(),
                 'branch_id' => $branchId,
+                'previous_cashier_shift_id' => $previousShift?->id,
                 'opened_at' => now(),
-                'opening_cash_amount' => $validated['opening_cash_amount'] ?? 0,
+                'opening_cash_amount' => $openingCashAmount,
+                'validated_cash_amount' => $validatedCashAmount,
+                'validated_card_amount' => $validatedCardAmount,
+                'handover_validated_at' => $handoverValidatedAt,
                 'opening_note' => $validated['opening_note'] ?? null,
             ])->load(['user', 'branch']);
         });
@@ -473,6 +517,9 @@ class PosController extends Controller
             'cardTotal' => $shift->card_total,
             'openingCashAmount' => $shift->opening_cash_amount,
             'cashInDrawer' => $shift->opening_cash_amount + $shift->cash_total,
+            'validatedCashAmount' => $shift->validated_cash_amount,
+            'validatedCardAmount' => $shift->validated_card_amount,
+            'handoverValidatedAt' => $shift->handover_validated_at?->timezone('Asia/Makassar')->format('d M Y H:i'),
         ];
     }
 }

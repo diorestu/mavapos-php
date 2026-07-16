@@ -18,6 +18,42 @@ beforeEach(function () {
     $this->seed(DatabaseSeeder::class);
 });
 
+test('halaman shift menghitung nominal dari transaksi meski ringkasan shift belum tersinkron', function () {
+    $cashier = User::factory()->create(['name' => 'Kasir Ringkasan', 'role' => 'kasir']);
+    $branch = Branch::query()->firstOrFail();
+    $shift = CashierShift::query()->create([
+        'user_id' => $cashier->id,
+        'branch_id' => $branch->id,
+        'opened_at' => now()->subHour(),
+        'closed_at' => now(),
+    ]);
+
+    PosSale::query()->create([
+        'cashier_shift_id' => $shift->id,
+        'branch_id' => $branch->id,
+        'user_id' => $cashier->id,
+        'invoice_number' => 'POS-SHIFT-NOMINAL',
+        'payment_method' => 'cash',
+        'subtotal' => 25000,
+        'discount' => 2000,
+        'total' => 23000,
+        'paid_amount' => 25000,
+        'change_amount' => 2000,
+        'sold_at' => now(),
+    ]);
+
+    $this->actingAs($cashier)
+        ->get(route('cashier-shifts'))
+        ->assertOk()
+        ->assertViewHas('shifts', fn ($shifts): bool => $shifts->getCollection()->contains(
+            fn (CashierShift $shift): bool => $shift->sales_count === 1
+                && $shift->net_sales === 23000
+                && $shift->cash_total === 23000,
+        ))
+        ->assertSee('Kasir Ringkasan')
+        ->assertSee('Rp23.000');
+});
+
 test('kasir wajib mulai shift sebelum checkout dan report menampilkan pendapatan per kasir', function () {
     $cashier = User::factory()->create([
         'name' => 'Kasir Pagi',
@@ -117,7 +153,69 @@ test('shift kasir aktif harus ditutup sebelum kasir lain memulai pekerjaan', fun
     $this->actingAs($secondCashier)
         ->postJson(route('pos.shift.start'))
         ->assertStatus(409)
-        ->assertJsonPath('message', 'Kasir Kasir Pertama masih aktif. Tutup kasir tersebut sebelum memulai shift baru.');
+        ->assertJsonPath('message', 'Sesi Kasir Pertama masih aktif. Akhiri sesi tersebut sebelum kasir berikutnya mulai.');
+});
+
+test('kasir berikutnya wajib memvalidasi cash dan kartu dari rekap sesi sebelumnya', function () {
+    $firstCashier = User::factory()->create(['name' => 'Kasir Pagi', 'role' => 'kasir']);
+    $secondCashier = User::factory()->create(['name' => 'Kasir Siang', 'role' => 'kasir']);
+
+    $this->actingAs($firstCashier)
+        ->postJson(route('pos.shift.start'), [
+            'opening_cash_amount' => 100000,
+        ])
+        ->assertOk();
+
+    $this->actingAs($firstCashier)
+        ->postJson(route('pos.checkout'), [
+            'items' => [['id' => 'product-SKU-001', 'quantity' => 1]],
+            'payment_method' => 'cash',
+            'discount' => 0,
+            'paid_amount' => 20000,
+        ])
+        ->assertOk();
+
+    $this->actingAs($firstCashier)
+        ->postJson(route('pos.checkout'), [
+            'items' => [['id' => 'product-SKU-001', 'quantity' => 1]],
+            'payment_method' => 'card',
+            'discount' => 0,
+            'paid_amount' => 0,
+        ])
+        ->assertOk();
+
+    $recap = $this->actingAs($firstCashier)
+        ->postJson(route('pos.shift.close'), [
+            'closing_note' => 'Handover siang.',
+        ])
+        ->assertOk()
+        ->json('recap');
+
+    $this->actingAs($secondCashier)
+        ->postJson(route('pos.shift.start'), [
+            'validated_cash_amount' => $recap['expectedCashInDrawer'] - 1000,
+            'validated_card_amount' => $recap['cardTotal'],
+        ])
+        ->assertUnprocessable()
+        ->assertJsonPath('message', 'Validasi cash tidak sesuai rekap sebelumnya. Nominal wajib '.number_format($recap['expectedCashInDrawer'], 0, ',', '.').'.');
+
+    $this->actingAs($secondCashier)
+        ->postJson(route('pos.shift.start'), [
+            'validated_cash_amount' => $recap['expectedCashInDrawer'],
+            'validated_card_amount' => $recap['cardTotal'],
+            'opening_note' => 'Cash dan kartu sudah cocok.',
+        ])
+        ->assertOk()
+        ->assertJsonPath('shift.cashier', 'Kasir Siang')
+        ->assertJsonPath('shift.openingCashAmount', $recap['expectedCashInDrawer'])
+        ->assertJsonPath('shift.validatedCashAmount', $recap['expectedCashInDrawer'])
+        ->assertJsonPath('shift.validatedCardAmount', $recap['cardTotal']);
+
+    $previousShift = CashierShift::query()->where('user_id', $firstCashier->id)->firstOrFail();
+    $nextShift = CashierShift::query()->where('user_id', $secondCashier->id)->firstOrFail();
+
+    expect($nextShift->previous_cashier_shift_id)->toBe($previousShift->id)
+        ->and($nextShift->handover_validated_at)->not->toBeNull();
 });
 
 test('owner dapat menutup paksa shift kasir aktif', function () {
@@ -235,6 +333,87 @@ test('kasir tidak dapat menutup paksa shift dari halaman admin', function () {
         ->assertForbidden();
 
     expect($shift->fresh()->closed_at)->toBeNull();
+});
+
+test('admin dapat menghapus riwayat shift beserta transaksi di dalamnya', function () {
+    $cashier = User::factory()->create(['role' => 'kasir']);
+    $admin = User::factory()->create(['role' => 'admin']);
+
+    $this->actingAs($cashier)->postJson(route('pos.shift.start'))->assertOk();
+    $checkout = $this->actingAs($cashier)->postJson(route('pos.checkout'), [
+        'items' => [['id' => 'product-SKU-001', 'quantity' => 1]],
+        'payment_method' => 'cash', 'discount' => 0, 'paid_amount' => 20000,
+    ])->assertOk();
+    $this->actingAs($cashier)->postJson(route('pos.shift.close'))->assertOk();
+
+    $shift = CashierShift::query()->where('user_id', $cashier->id)->firstOrFail();
+    $sale = PosSale::query()->where('invoice_number', $checkout->json('sale.invoice_number'))->firstOrFail();
+
+    $this->actingAs($admin)
+        ->delete('/cashier-shifts/'.$shift->id)
+        ->assertRedirect(route('cashier-shifts'))
+        ->assertSessionHas('success', 'Riwayat shift dan transaksi di dalamnya berhasil dihapus.');
+
+    $this->assertDatabaseMissing('cashier_shifts', ['id' => $shift->id]);
+    $this->assertDatabaseMissing('pos_sales', ['id' => $sale->id]);
+    $this->assertDatabaseMissing('pos_sale_items', ['pos_sale_id' => $sale->id]);
+});
+
+test('owner dapat menghapus riwayat shift tetapi kasir tidak', function () {
+    $cashier = User::factory()->create(['role' => 'kasir']);
+    $owner = User::factory()->create(['role' => 'owner']);
+    $shift = CashierShift::query()->create([
+        'user_id' => $cashier->id,
+        'branch_id' => Branch::query()->firstOrFail()->id,
+        'opened_at' => now()->subHour(),
+        'closed_at' => now(),
+    ]);
+
+    $this->actingAs($owner)
+        ->delete('/cashier-shifts/'.$shift->id)
+        ->assertRedirect(route('cashier-shifts'));
+
+    $this->assertDatabaseMissing('cashier_shifts', ['id' => $shift->id]);
+
+    $cashierShift = CashierShift::query()->create([
+        'user_id' => $cashier->id,
+        'branch_id' => Branch::query()->firstOrFail()->id,
+        'opened_at' => now()->subHour(),
+        'closed_at' => now(),
+    ]);
+
+    $this->actingAs($cashier)
+        ->delete('/cashier-shifts/'.$cashierShift->id)
+        ->assertForbidden();
+
+    $this->assertDatabaseHas('cashier_shifts', ['id' => $cashierShift->id]);
+});
+
+test('aksi hapus riwayat shift hanya tampil untuk owner dan admin', function () {
+    $cashier = User::factory()->create(['role' => 'kasir']);
+    $admin = User::factory()->create(['role' => 'admin']);
+    $owner = User::factory()->create(['role' => 'owner']);
+    CashierShift::query()->create([
+        'user_id' => $cashier->id,
+        'branch_id' => Branch::query()->firstOrFail()->id,
+        'opened_at' => now()->subHour(),
+        'closed_at' => now(),
+    ]);
+
+    $this->actingAs($admin)
+        ->get(route('cashier-shifts'))
+        ->assertOk()
+        ->assertSee('Hapus Riwayat Shift');
+
+    $this->actingAs($owner)
+        ->get(route('cashier-shifts'))
+        ->assertOk()
+        ->assertSee('Hapus Riwayat Shift');
+
+    $this->actingAs($cashier)
+        ->get(route('cashier-shifts'))
+        ->assertOk()
+        ->assertDontSee('Hapus Riwayat Shift');
 });
 
 test('pilihan tutup paksa hanya tampil untuk owner dan admin', function () {

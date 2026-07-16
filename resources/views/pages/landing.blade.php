@@ -158,7 +158,7 @@
                         <span class="inline-flex items-center gap-1.5 rounded-full bg-brand-50 px-4 py-1.5 text-xs font-bold tracking-wide text-brand-600">
                             🚀 SISTEM APLIKASI KASIR CLOUD UNTUK UMKM MODERN
                         </span>
-                        
+
                         <div class="space-y-5">
                             <h1 class="text-4xl font-extrabold tracking-tight text-gray-900 sm:text-5xl lg:text-6xl lg:leading-[1.15]">
                                 Satu Aplikasi Kasir untuk <span class="text-brand-500">Semua Kebutuhan</span> Bisnis Anda
@@ -364,7 +364,7 @@
                 <!-- Tabs Content Panels -->
                 <div class="mt-12 premium-card overflow-hidden">
                     <div class="grid lg:grid-cols-[1.1fr_0.9fr] items-center">
-                        
+
                         <!-- Panel Info -->
                         <div class="p-8 sm:p-12 space-y-6">
                             <!-- FNB -->
@@ -683,8 +683,8 @@
                 <div class="relative z-1 flex flex-col items-center justify-between gap-6 md:flex-row">
                     <div class="space-y-2 text-center md:text-left">
                         <span class="inline-block bg-white/20 px-3 py-1 rounded-full text-xs font-bold text-brand-100">PROMO HEMAT HINGGA 30%</span>
-                        <h3 class="text-2xl font-bold sm:text-3xl">Langganan Mava Pro Selama 1 Tahun</h3>
-                        <p class="text-sm text-brand-100/80">Hemat pengeluaran operasional hingga Rp 500.000 dibandingkan bayar bulanan.</p>
+                        <h3 class="text-2xl font-bold sm:text-3xl">Langganan Tahunan MavaPOS</h3>
+                        <p class="text-sm text-brand-100/80">Mulai dari Rp 149.000 per outlet per bulan jika bayar annually.</p>
                     </div>
                     <a href="{{ route('signup') }}" class="rounded-full bg-white px-6 py-3.5 font-bold text-brand-600 shadow-theme-md transition hover:bg-brand-50 hover:scale-[1.02] shrink-0">
                         Ambil Promo Sekarang
@@ -694,7 +694,7 @@
         </section>
 
         <!-- Pricing Table -->
-        <section id="harga" class="px-4 py-20 lg:py-28">
+        <section id="harga" class="px-4 py-20 lg:py-28" x-data="{ billing: 'monthly' }">
             <div class="mx-auto max-w-7xl">
                 <!-- Title -->
                 <div class="mx-auto max-w-3xl text-center space-y-4">
@@ -707,16 +707,32 @@
                     </p>
                 </div>
 
+                <div class="mt-8 flex justify-center">
+                    <div class="inline-flex rounded-full border border-gray-200 bg-white p-1 shadow-theme-xs">
+                        <button type="button" @click="billing = 'monthly'"
+                            class="rounded-full px-5 py-2 text-sm font-bold transition"
+                            :class="billing === 'monthly' ? 'bg-gray-900 text-white shadow-theme-xs' : 'text-gray-500 hover:text-gray-900'">
+                            Bulanan
+                        </button>
+                        <button type="button" @click="billing = 'annual'"
+                            class="rounded-full px-5 py-2 text-sm font-bold transition"
+                            :class="billing === 'annual' ? 'bg-brand-500 text-white shadow-theme-xs' : 'text-gray-500 hover:text-gray-900'">
+                            Tahunan
+                        </button>
+                    </div>
+                </div>
+
                 <!-- Price Cards -->
-                <div class="mx-auto mt-16 grid max-w-4xl items-stretch gap-8 md:grid-cols-2">
-                    <!-- Trial Plan -->
+                <div class="mx-auto mt-16 grid max-w-6xl items-stretch gap-8 md:grid-cols-3">
+                    <!-- Starter Plan -->
                     <div class="premium-card flex flex-col p-8 bg-white">
-                        <h3 class="text-2xl font-bold text-gray-900">Uji Coba</h3>
+                        <h3 class="text-2xl font-bold text-gray-900">Starter</h3>
                         <p class="mt-2 text-sm text-gray-500">Untuk mencoba fitur inti kasir dan menyiapkan toko pertama Anda.</p>
                         
                         <div class="my-8">
                             <span class="text-5xl font-extrabold text-gray-900">Rp 0</span>
                             <span class="text-gray-500">/ 14 hari</span>
+                            <p class="mt-2 text-sm font-semibold text-brand-600">Free trial tanpa biaya langganan</p>
                         </div>
 
                         <ul class="space-y-4 text-sm text-gray-600 mb-8 border-t border-gray-100 pt-6">
@@ -731,16 +747,40 @@
                         </a>
                     </div>
 
+                    <!-- Basic Plan -->
+                    <div class="premium-card flex flex-col p-8 bg-white">
+                        <h3 class="text-2xl font-bold text-gray-900">Mava Basic</h3>
+                        <p class="mt-2 text-sm text-gray-500">Untuk outlet yang membutuhkan sistem kasir online inti dengan laporan dasar.</p>
+
+                        <div class="my-8">
+                            <span class="text-5xl font-extrabold text-gray-900" x-text="billing === 'annual' ? 'Rp 149.000' : 'Rp 199.000'"></span>
+                            <span class="text-gray-500">/ outlet / bulan</span>
+                            <p class="mt-2 text-sm font-semibold text-brand-600" x-text="billing === 'annual' ? 'Ditagih tahunan' : 'Rp 149.000 / outlet / bulan jika bayar annually'"></p>
+                        </div>
+
+                        <ul class="space-y-4 text-sm text-gray-600 mb-8 border-t border-gray-100 pt-6">
+                            <li class="flex items-start gap-3"><span class="font-bold text-brand-500">✓</span> 1 Outlet Cabang</li>
+                            <li class="flex items-start gap-3"><span class="font-bold text-brand-500">✓</span> Produk SKU Dasar</li>
+                            <li class="flex items-start gap-3"><span class="font-bold text-brand-500">✓</span> Transaksi POS Kasir Lengkap</li>
+                            <li class="flex items-start gap-3"><span class="font-bold text-brand-500">✓</span> Ringkasan Laporan Harian Dasar</li>
+                        </ul>
+
+                        <a href="{{ route('signup') }}" class="mt-auto rounded-full border border-gray-200 bg-white py-3.5 text-center font-bold text-gray-700 transition hover:bg-gray-50">
+                            Pilih Mava Basic
+                        </a>
+                    </div>
+
                     <!-- Pro Plan -->
-                    <div class="premium-card flex flex-col p-8 border-2 border-brand-500 relative bg-white md:-translate-y-4 shadow-theme-xl">
+                    <div class="premium-card flex flex-col p-8 border-2 border-brand-500 relative bg-white lg:-translate-y-4 shadow-theme-xl">
                         <span class="absolute right-6 top-0 -translate-y-1/2 rounded-full bg-brand-500 px-4 py-1 text-xs font-bold uppercase tracking-wide text-white">TERPOPULER</span>
                         
                         <h3 class="text-2xl font-bold text-gray-900">Mava Pro</h3>
                         <p class="mt-2 text-sm text-gray-500">Sistem kasir online lengkap untuk bisnis aktif, retail, kafe, & salon.</p>
                         
                         <div class="my-8">
-                            <span class="text-5xl font-extrabold text-gray-900">Rp 149.000</span>
-                            <span class="text-gray-500">/ bulan / outlet</span>
+                            <span class="text-5xl font-extrabold text-gray-900" x-text="billing === 'annual' ? 'Rp 199.000' : 'Rp 249.000'"></span>
+                            <span class="text-gray-500">/ outlet / bulan</span>
+                            <p class="mt-2 text-sm font-semibold text-brand-600" x-text="billing === 'annual' ? 'Ditagih tahunan' : 'Rp 199.000 / outlet / bulan jika bayar annually'"></p>
                         </div>
 
                         <ul class="space-y-4 text-sm text-gray-600 mb-8 border-t border-gray-100 pt-6">

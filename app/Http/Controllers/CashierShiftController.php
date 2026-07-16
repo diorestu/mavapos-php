@@ -16,11 +16,16 @@ class CashierShiftController extends Controller
     public function index(Request $request): View
     {
         $branchId = app(BranchContext::class)->activeId();
+        $activeSales = fn ($query) => $query->active();
 
         $shifts = CashierShift::query()
             ->with(['user', 'branch'])
             ->where('branch_id', $branchId)
-            ->withCount('sales')
+            ->withCount(['sales as sales_count' => $activeSales])
+            ->withSum(['sales as net_sales' => $activeSales], 'total')
+            ->withSum(['sales as cash_total' => fn ($query) => $query->active()->where('payment_method', 'cash')], 'total')
+            ->withSum(['sales as qris_total' => fn ($query) => $query->active()->where('payment_method', 'qris')], 'total')
+            ->withSum(['sales as card_total' => fn ($query) => $query->active()->where('payment_method', 'card')], 'total')
             ->latest('opened_at')
             ->paginate(12);
 
@@ -30,6 +35,11 @@ class CashierShiftController extends Controller
                 ->with(['user', 'branch'])
                 ->where('branch_id', $branchId)
                 ->whereNull('closed_at')
+                ->withCount(['sales as sales_count' => $activeSales])
+                ->withSum(['sales as net_sales' => $activeSales], 'total')
+                ->withSum(['sales as cash_total' => fn ($query) => $query->active()->where('payment_method', 'cash')], 'total')
+                ->withSum(['sales as qris_total' => fn ($query) => $query->active()->where('payment_method', 'qris')], 'total')
+                ->withSum(['sales as card_total' => fn ($query) => $query->active()->where('payment_method', 'card')], 'total')
                 ->latest('opened_at')
                 ->first(),
             'shifts' => $shifts,
@@ -78,5 +88,25 @@ class CashierShiftController extends Controller
             ->route('cashier-shifts')
             ->with('success', 'Shift '.($shift->user?->name ?? 'Kasir').' ditutup paksa.')
             ->with('shiftRecap', $recap);
+    }
+
+    public function destroy(CashierShift $cashierShift): RedirectResponse
+    {
+        $branchId = app(BranchContext::class)->activeId();
+
+        DB::transaction(function () use ($cashierShift, $branchId): void {
+            $shift = CashierShift::query()
+                ->whereKey($cashierShift->id)
+                ->where('branch_id', $branchId)
+                ->whereNotNull('closed_at')
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $shift->delete();
+        });
+
+        return redirect()
+            ->route('cashier-shifts')
+            ->with('success', 'Riwayat shift dan transaksi di dalamnya berhasil dihapus.');
     }
 }
