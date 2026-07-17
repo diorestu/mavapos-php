@@ -285,7 +285,7 @@
                     <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800"><h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Export & Import Data Toko</h2><p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Import bersifat merge: data lama tidak dihapus dan duplikat dilewati.</p></div>
                     <div class="grid gap-4 p-4 lg:grid-cols-2">
                         <div class="rounded-lg border border-gray-200 p-4 dark:border-gray-800"><h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Export SQL</h3><p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Download data tenant dan cabang yang sedang terhubung.</p><a href="{{ route('settings.data.export') }}" class="mt-4 inline-flex h-10 items-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white">Download SQL</a></div>
-                        <form method="POST" action="{{ route('settings.data.import') }}" enctype="multipart/form-data" class="rounded-lg border border-gray-200 p-4 dark:border-gray-800">@csrf<h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Import SQL (Merge)</h3><p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Gunakan file export SQL MAVA dari tenant yang sama.</p><input type="file" name="sql_file" accept=".sql,application/sql" required class="mt-4 block w-full text-xs text-gray-600 dark:text-gray-300"><button type="submit" class="mt-4 inline-flex h-10 items-center rounded-lg border border-brand-200 px-4 text-sm font-semibold text-brand-600">Import & Merge</button></form>
+                        <div class="rounded-lg border border-gray-200 p-4 dark:border-gray-800"><h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Import SQL (Merge)</h3><p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Gunakan file export SQL MAVA dari tenant yang sama.</p><input form="sql-import-form" type="file" name="sql_file" accept=".sql,application/sql" required class="mt-4 block w-full text-xs text-gray-600 dark:text-gray-300"><button form="sql-import-form" type="submit" class="mt-4 inline-flex h-10 items-center rounded-lg border border-brand-200 px-4 text-sm font-semibold text-brand-600">Import & Merge</button></div>
                     </div>
                 </section>
 
@@ -542,6 +542,9 @@
                     </div>
                 </section>
             </div>
+        </form>
+        <form id="sql-import-form" method="POST" action="{{ route('settings.data.import') }}" enctype="multipart/form-data">
+            @csrf
         </form>
     </div>
 @endsection
