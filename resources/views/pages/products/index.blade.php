@@ -278,6 +278,13 @@
 
                     <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
                         <div>
+                            <label for="new_product_stock_mode" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Sumber stok</label>
+                            <select id="new_product_stock_mode" x-model="draft.stockMode" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900">
+                                <option value="inventory">Stok produk jadi</option>
+                                <option value="recipe">Diolah dari bahan baku (stok produk tidak perlu diisi)</option>
+                            </select>
+                        </div>
+                        <div>
                             <label for="new_product_name" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                                 Nama produk<span class="text-error-500">*</span>
                             </label>
@@ -322,6 +329,10 @@
                             <input id="new_product_barcode" type="text" placeholder="Opsional"
                                 x-model="draft.barcode"
                                 class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800" />
+                        </div>
+                        <div>
+                            <label for="new_product_image" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Gambar produk</label>
+                            <input id="new_product_image" type="file" accept="image/*" @change="draft.image = $event.target.files[0] || null" class="block w-full text-sm text-gray-500 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-brand-700 dark:text-gray-400 dark:file:bg-brand-500/15 dark:file:text-brand-300" />
                         </div>
                         <div>
                             <label for="new_product_buy_price" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
@@ -499,6 +510,10 @@
                                 class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800" />
                         </div>
                         <div>
+                            <label for="edit_product_image" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Ganti gambar produk</label>
+                            <input id="edit_product_image" type="file" accept="image/*" @change="editDraft.image = $event.target.files[0] || null" class="block w-full text-sm text-gray-500 file:mr-3 file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-2 file:text-xs file:font-semibold file:text-brand-700 dark:text-gray-400 dark:file:bg-brand-500/15 dark:file:text-brand-300" />
+                        </div>
+                        <div>
                             <label for="edit_product_buy_price" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">
                                 Harga modal
                             </label>
@@ -511,6 +526,13 @@
                             </label>
                             <input id="edit_product_sell_price" type="number" min="0" x-model="editDraft.sellPrice"
                                 class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90 dark:placeholder:text-white/30 dark:focus:border-brand-800" />
+                        </div>
+                        <div>
+                            <label for="edit_product_stock_mode" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Sumber stok</label>
+                            <select id="edit_product_stock_mode" x-model="editDraft.stockMode" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 py-2.5 text-sm dark:border-gray-700 dark:bg-gray-900">
+                                <option value="inventory">Stok produk jadi</option>
+                                <option value="recipe">Diolah dari bahan baku (stok produk tidak perlu diisi)</option>
+                            </select>
                         </div>
                         <div>
                             <label for="edit_product_stock" class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">

@@ -15,6 +15,7 @@ class UserController extends Controller
         'admin' => 'Admin',
         'kasir' => 'Kasir',
         'gudang' => 'Gudang',
+        'runner' => 'Runner',
     ];
 
     public function index(): View
@@ -22,11 +23,7 @@ class UserController extends Controller
         $user = auth()->user();
         $users = User::query()
             ->where(function ($query) use ($user) {
-                if ($user->trial_ends_at !== null) {
-                    $query->where('trial_ends_at', $user->trial_ends_at);
-                } else {
-                    $query->where('id', $user->id);
-                }
+                $query->where('tenant_owner_id', $user->tenantOwnerId());
             })
             ->latest()
             ->get();
@@ -53,6 +50,7 @@ class UserController extends Controller
             'role' => $validated['role'],
             'password' => $validated['password'],
             'trial_ends_at' => $request->user()?->trial_ends_at,
+            'tenant_owner_id' => $request->user()?->tenantOwnerId(),
         ]);
 
         return redirect()

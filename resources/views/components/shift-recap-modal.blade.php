@@ -1,5 +1,5 @@
-<div x-cloak x-show="shiftRecap" class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/50 p-4">
-    <div @click.outside="dismissShiftRecap()" class="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
+<div x-cloak x-show="shiftRecap" x-transition.opacity.duration.200ms class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/50 p-4">
+    <div @click.outside="dismissShiftRecap()" x-transition:enter="ease-out duration-200" x-transition:enter-start="translate-y-2 scale-95 opacity-0" x-transition:enter-end="translate-y-0 scale-100 opacity-100" x-transition:leave="ease-in duration-150" x-transition:leave-start="translate-y-0 scale-100 opacity-100" x-transition:leave-end="translate-y-2 scale-95 opacity-0" class="w-full max-w-lg rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
         <div class="flex items-start justify-between gap-3">
             <div>
                 <h2 class="text-base font-semibold text-gray-900 dark:text-white">Rekap tutup kasir</h2>

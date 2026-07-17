@@ -69,6 +69,8 @@ Route::middleware('auth:web,sanctum')->group(function () {
         Route::post('/billings/{billing}/refresh', [BillingController::class, 'refresh'])->name('billings.refresh');
         Route::get('/settings', [SettingController::class, 'index'])->name('settings');
         Route::patch('/settings', [SettingController::class, 'update'])->name('settings.update');
+        Route::get('/settings/data-export', [SettingController::class, 'exportData'])->name('settings.data.export');
+        Route::post('/settings/data-import', [SettingController::class, 'importData'])->name('settings.data.import');
         Route::get('/settings/tokens', [DeveloperApiController::class, 'getTokens'])->name('settings.tokens.index');
         Route::post('/settings/tokens', [DeveloperApiController::class, 'createToken'])->name('settings.tokens.store');
         Route::delete('/settings/tokens/{id}', [DeveloperApiController::class, 'revokeToken'])->name('settings.tokens.destroy');
@@ -96,7 +98,9 @@ Route::middleware('auth:web,sanctum')->group(function () {
             Route::get('/raw-materials', [RawMaterialController::class, 'index'])->name('raw-materials');
             Route::post('/raw-materials', [RawMaterialController::class, 'store'])->name('raw-materials.store');
             Route::post('/raw-materials/{rawMaterial}/stock-in', [RawMaterialController::class, 'stockIn'])->name('raw-materials.stock-in');
+            Route::patch('/raw-materials/{rawMaterial}/adjust', [RawMaterialController::class, 'adjust'])->name('raw-materials.adjust');
             Route::get('/inventory', [InventoryController::class, 'index'])->name('inventory');
+            Route::get('/inventory/morning-print', [InventoryController::class, 'morningPrint'])->name('inventory.morning-print');
             Route::post('/inventory/{sku}/in', [InventoryController::class, 'storeIn'])->name('inventory.in');
             Route::post('/inventory/{sku}/out', [InventoryController::class, 'storeOut'])->name('inventory.out');
             Route::patch('/inventory/{sku}', [InventoryController::class, 'update'])->name('inventory.update');
@@ -118,7 +122,7 @@ Route::middleware('auth:web,sanctum')->group(function () {
             Route::post('/sales/{sale}/void', [SaleController::class, 'void'])->name('sales.void');
         });
 
-        Route::middleware('role:kasir')->group(function () {
+        Route::middleware('role:kasir,runner')->group(function () {
             Route::get('/stock-in', [CashierStockInController::class, 'index'])->name('cashier-stock-in.index');
             Route::post('/stock-in', [CashierStockInController::class, 'store'])->name('cashier-stock-in.store');
         });
@@ -134,7 +138,10 @@ Route::middleware('auth:web,sanctum')->group(function () {
             Route::get('/expenses', [ExpenseController::class, 'index'])->name('expenses');
             Route::post('/expenses', [ExpenseController::class, 'store'])->name('expenses.store');
             Route::get('/reports', [ReportController::class, 'index'])->name('reports');
+            Route::get('/reports/journal', [ReportController::class, 'journal'])->name('reports.journal');
             Route::get('/reports/download', [ReportController::class, 'download'])->name('reports.download');
+            Route::get('/reports/financial/download', [ReportController::class, 'downloadFinancial'])->name('reports.financial.download');
+            Route::get('/reports/profit-loss/download', [ReportController::class, 'downloadProfitLoss'])->name('reports.profit-loss.download');
         });
 
         Route::middleware('role:owner,admin')->group(function () {

@@ -11,6 +11,7 @@ use App\Models\ProductVariant;
 use App\Models\RawMaterial;
 use App\Models\StockMovement;
 use App\Models\StoreSetting;
+use App\Models\User;
 use App\Services\CashierShiftSummaryService;
 use App\Support\BranchContext;
 use App\Support\BranchInventoryManager;
@@ -86,6 +87,8 @@ class PosController extends Controller
             'lastClosedShift' => $lastClosedShiftPayload,
             'categories' => $categoriesPayload,
             'items' => $itemsPayload,
+            'cashierSopHtml' => StoreSetting::current()->cashier_sop_html,
+            'availableStaff' => User::query()->where('tenant_owner_id', auth()->user()->tenantOwnerId())->whereKeyNot(auth()->id())->whereIn('role', ['owner', 'admin', 'kasir', 'gudang'])->orderBy('name')->get(['id', 'name', 'role']),
         ]);
     }
 
@@ -96,10 +99,14 @@ class PosController extends Controller
             'validated_cash_amount' => ['nullable', 'integer', 'min:0', 'max:999999999999'],
             'validated_card_amount' => ['nullable', 'integer', 'min:0', 'max:999999999999'],
             'opening_note' => ['nullable', 'string', 'max:1000'],
+            'companion_staff_ids' => ['nullable', 'array', 'max:20'],
+            'companion_staff_ids.*' => ['integer', 'distinct', 'exists:users,id'],
         ]);
+        $ownerId = auth()->user()->tenantOwnerId();
+        $companionIds = User::query()->where('tenant_owner_id', $ownerId)->whereKeyNot(auth()->id())->whereIn('id', $validated['companion_staff_ids'] ?? [])->pluck('id')->values()->all();
         $branchId = app(BranchContext::class)->activeId();
 
-        $shift = DB::transaction(function () use ($validated, $branchId): CashierShift {
+        $shift = DB::transaction(function () use ($validated, $branchId, $companionIds): CashierShift {
             $openShift = CashierShift::query()
                 ->where('branch_id', $branchId)
                 ->whereNull('closed_at')
@@ -154,6 +161,7 @@ class PosController extends Controller
                 'validated_card_amount' => $validatedCardAmount,
                 'handover_validated_at' => $handoverValidatedAt,
                 'opening_note' => $validated['opening_note'] ?? null,
+                'companion_staff_ids' => $companionIds,
             ])->load(['user', 'branch']);
         });
 
@@ -203,7 +211,9 @@ class PosController extends Controller
             'items' => ['required', 'array', 'min:1'],
             'items.*.id' => ['required', 'string'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
-            'payment_method' => ['required', 'in:cash,qris,card'],
+            'payment_method' => ['required', 'in:cash,qris,card,free'],
+            'complimentary_category' => ['required_if:payment_method,free', 'nullable', 'in:influencer,partnership,owner'],
+            'complimentary_recipient_name' => ['required_if:payment_method,free', 'nullable', 'string', 'max:150'],
             'discount' => ['nullable', 'integer', 'min:0'],
             'paid_amount' => ['nullable', 'integer', 'min:0'],
         ]);
@@ -227,10 +237,13 @@ class PosController extends Controller
             foreach ($validated['items'] as $line) {
                 $quantity = (int) $line['quantity'];
                 $sellable = $this->lockSellable($line['id'], $branchId);
-                $availableStock = (int) $sellable['inventory']->stock;
-
-                if ($availableStock < $quantity) {
-                    abort(422, 'Stok '.$sellable['name'].' tidak cukup.');
+                if ($sellable['stock_mode'] === 'inventory') {
+                    $availableStock = (int) $sellable['inventory']->stock;
+                    if ($availableStock < $quantity) {
+                        abort(422, 'Stok '.$sellable['name'].' tidak cukup.');
+                    }
+                } elseif (! ProductRecipeItem::query()->where('product_id', $sellable['product_id'])->exists()) {
+                    abort(422, 'Resep '.$sellable['name'].' belum diatur.');
                 }
 
                 $lineTotal = $sellable['price'] * $quantity;
@@ -243,7 +256,8 @@ class PosController extends Controller
                 ];
             }
 
-            $discount = min((int) ($validated['discount'] ?? 0), $subtotal);
+            $isComplimentary = $validated['payment_method'] === 'free';
+            $discount = $isComplimentary ? $subtotal : min((int) ($validated['discount'] ?? 0), $subtotal);
             $total = $subtotal - $discount;
             $paidAmount = $validated['payment_method'] === 'cash'
                 ? (int) ($validated['paid_amount'] ?? 0)
@@ -259,6 +273,8 @@ class PosController extends Controller
                 'user_id' => auth()->id(),
                 'invoice_number' => $this->nextInvoiceNumber(),
                 'payment_method' => $validated['payment_method'],
+                'complimentary_category' => $isComplimentary ? $validated['complimentary_category'] : null,
+                'complimentary_recipient_name' => $isComplimentary ? $validated['complimentary_recipient_name'] : null,
                 'subtotal' => $subtotal,
                 'discount' => $discount,
                 'total' => $total,
@@ -271,10 +287,12 @@ class PosController extends Controller
                 $sellable = $line['sellable'];
                 $quantity = $line['quantity'];
                 $inventory = $sellable['inventory'];
-                $stockBefore = (int) $inventory->stock;
+                $stockBefore = $inventory ? (int) $inventory->stock : 0;
 
-                $inventory->update(['stock' => $stockBefore - $quantity]);
-                $sellable['model']->update(['stock' => $inventory->stock]);
+                if ($sellable['stock_mode'] === 'inventory') {
+                    $inventory->update(['stock' => $stockBefore - $quantity]);
+                    $sellable['model']->update(['stock' => $inventory->stock]);
+                }
 
                 $sale->items()->create([
                     'product_id' => $sellable['product_id'],
@@ -287,7 +305,7 @@ class PosController extends Controller
                     'line_total' => $line['line_total'],
                 ]);
 
-                StockMovement::query()->create([
+                if ($sellable['stock_mode'] === 'inventory') StockMovement::query()->create([
                     'product_id' => $sellable['product_id'],
                     'product_variant_id' => $sellable['variant_id'],
                     'type' => 'out',
@@ -338,6 +356,8 @@ class PosController extends Controller
                 'cashier' => $sale->shift?->user?->name,
                 'sold_at' => $sale->sold_at?->timezone('Asia/Makassar')->format('d M Y H:i'),
                 'payment_method' => $sale->payment_method,
+                'complimentary_category' => $sale->complimentary_category,
+                'complimentary_recipient_name' => $sale->complimentary_recipient_name,
                 'subtotal' => $sale->subtotal,
                 'discount' => $sale->discount,
                 'total' => $sale->total,
@@ -367,10 +387,12 @@ class PosController extends Controller
             'name' => $product->name,
             'sku' => $product->sku,
             'barcode' => $product->barcode ?? '',
+            'imageUrl' => $product->image_path ? Storage::disk('public')->url($product->image_path) : null,
             'category' => $product->category?->code ?? 'umum',
             'categoryName' => $product->category?->name ?? 'Umum',
             'price' => $product->sell_price,
             'stock' => $inventory->stock,
+            'stockMode' => $product->stock_mode,
             'type' => 'Produk',
             'unit' => 'pcs',
             'isFavorite' => false,
@@ -389,10 +411,12 @@ class PosController extends Controller
             'variant_name' => $variant->name,
             'sku' => $variant->sku ?? $product->sku.'-'.$variant->id,
             'barcode' => $variant->barcode ?? '',
+            'imageUrl' => $product->image_path ? Storage::disk('public')->url($product->image_path) : null,
             'category' => $product->category?->code ?? 'umum',
             'categoryName' => $product->category?->name ?? 'Umum',
             'price' => $variant->sell_price,
             'stock' => $inventory->stock,
+            'stockMode' => $product->stock_mode,
             'type' => 'Varian',
             'unit' => $variant->unit ?: 'pcs',
             'isFavorite' => $variant->is_favorite,
@@ -429,6 +453,7 @@ class PosController extends Controller
             return [
                 'model' => $product,
                 'inventory' => $inventory,
+                'stock_mode' => $product->stock_mode,
                 'type' => 'product',
                 'product_id' => $product->id,
                 'variant_id' => null,
@@ -450,6 +475,7 @@ class PosController extends Controller
             return [
                 'model' => $variant,
                 'inventory' => $inventory,
+                'stock_mode' => $variant->product->stock_mode,
                 'type' => 'variant',
                 'product_id' => $variant->product_id,
                 'variant_id' => $variant->id,

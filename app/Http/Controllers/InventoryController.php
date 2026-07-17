@@ -14,9 +14,18 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
+use Barryvdh\DomPDF\Facade\Pdf;
+use App\Models\RawMaterial;
 
 class InventoryController extends Controller
 {
+    public function morningPrint(): \Symfony\Component\HttpFoundation\Response
+    {
+        $branch = app(BranchContext::class)->active();
+        $materials = RawMaterial::query()->orderBy('name')->get();
+        return Pdf::loadView('pages.inventory.morning-pdf', ['branch' => $branch, 'materials' => $materials, 'printedAt' => now()])
+            ->setPaper('a4')->download('inventaris-pagi-'.$branch->code.'-'.now()->toDateString().'.pdf');
+    }
     public function index(Request $request): View
     {
         $filters = $request->validate([

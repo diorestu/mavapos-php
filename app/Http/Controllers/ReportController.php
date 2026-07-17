@@ -44,6 +44,94 @@ class ReportController extends Controller
             ->download($fileName);
     }
 
+    public function journal(Request $request): View
+    {
+        $validated = $request->validate([
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+        ]);
+        $from = isset($validated['date_from']) ? Carbon::parse($validated['date_from'])->startOfDay() : now()->startOfMonth();
+        $to = isset($validated['date_to']) ? Carbon::parse($validated['date_to'])->endOfDay() : now()->endOfDay();
+        $branch = app(BranchContext::class)->active();
+
+        $lines = collect();
+        PosSale::query()->active()->with(['items.product'])->where('branch_id', $branch->id)
+            ->whereBetween('sold_at', [$from, $to])->orderBy('sold_at')->get()
+            ->each(function (PosSale $sale) use ($lines): void {
+                $paymentAccount = ['cash' => 'Kas', 'qris' => 'Bank / QRIS', 'card' => 'Bank / Kartu'][$sale->payment_method] ?? 'Kas';
+                $lines->push($this->journalLine($sale->sold_at, $sale->invoice_number, 'Penjualan POS', $paymentAccount, 'Penjualan', $sale->total));
+                $cost = $sale->items->sum(fn ($item): int => $item->quantity * (int) ($item->product?->buy_price ?? 0));
+                if ($cost > 0) {
+                    $lines->push($this->journalLine($sale->sold_at, $sale->invoice_number, 'Pengakuan HPP', 'Beban Pokok Penjualan', 'Persediaan', $cost));
+                }
+            });
+        Expense::query()->where('branch_id', $branch->id)->whereBetween('spent_at', [$from, $to])->orderBy('spent_at')->get()
+            ->each(function (Expense $expense) use ($lines): void {
+                $debit = $expense->type === 'stock' ? 'Persediaan' : 'Beban Operasional';
+                $lines->push($this->journalLine($expense->spent_at, $expense->expense_number, $expense->title, $debit, 'Kas', $expense->amount));
+            });
+
+        $totalDebit = $lines->sum('debit');
+
+        return view('pages.reports.journal', [
+            'title' => 'Jurnal Transaksi',
+            'activeBranch' => $branch,
+            'lines' => $lines->sortBy('date')->values(),
+            'totalDebit' => $totalDebit,
+            'totalCredit' => $lines->sum('credit'),
+            'filters' => ['date_from' => $from->toDateString(), 'date_to' => $to->toDateString()],
+        ]);
+    }
+
+    public function downloadFinancial(Request $request): Response
+    {
+        $data = $this->financialData($request);
+        return Pdf::loadView('pages.reports.financial-pdf', $data)->setPaper('a4')->download(
+            'laporan-keuangan-'.$data['filters']['date_from'].'-sampai-'.$data['filters']['date_to'].'.pdf'
+        );
+    }
+
+    public function downloadProfitLoss(Request $request): Response
+    {
+        $data = $this->financialData($request);
+        return Pdf::loadView('pages.reports.profit-loss-pdf', $data)->setPaper('a4')->download(
+            'laporan-laba-rugi-'.$data['filters']['date_from'].'-sampai-'.$data['filters']['date_to'].'.pdf'
+        );
+    }
+
+    private function financialData(Request $request): array
+    {
+        $validated = $request->validate(['date_from' => ['nullable', 'date'], 'date_to' => ['nullable', 'date', 'after_or_equal:date_from']]);
+        $from = isset($validated['date_from']) ? Carbon::parse($validated['date_from'])->startOfDay() : now()->startOfMonth();
+        $to = isset($validated['date_to']) ? Carbon::parse($validated['date_to'])->endOfDay() : now()->endOfDay();
+        $branch = app(BranchContext::class)->active();
+        $sales = PosSale::query()->active()->with(['items.product'])->where('branch_id', $branch->id)->whereBetween('sold_at', [$from, $to])->orderBy('sold_at')->get();
+        $expenses = Expense::query()->where('branch_id', $branch->id)->whereBetween('spent_at', [$from, $to])->orderBy('spent_at')->get();
+        $revenue = (int) $sales->sum('total');
+        $cogs = (int) $sales->sum(fn (PosSale $sale): int => $sale->items->sum(fn ($item): int => $item->quantity * (int) ($item->product?->buy_price ?? 0)));
+        $expenseTotal = (int) $expenses->sum('amount');
+        return ['store' => StoreSetting::current(), 'activeBranch' => $branch, 'sales' => $sales, 'expenses' => $expenses, 'journalLines' => $this->journalLines($sales, $expenses), 'filters' => ['date_from' => $from->toDateString(), 'date_to' => $to->toDateString()], 'summary' => compact('revenue', 'cogs', 'expenseTotal') + ['grossProfit' => $revenue - $cogs, 'netProfit' => $revenue - $cogs - $expenseTotal]];
+    }
+
+    private function journalLines($sales, $expenses): array
+    {
+        $lines = [];
+        foreach ($sales as $sale) {
+            $account = ['cash' => 'Kas', 'qris' => 'Bank / QRIS', 'card' => 'Bank / Kartu'][$sale->payment_method] ?? 'Kas';
+            $lines[] = $this->journalLine($sale->sold_at, $sale->invoice_number, 'Penjualan POS', $account, 'Penjualan', $sale->total);
+        }
+        foreach ($expenses as $expense) {
+            $lines[] = $this->journalLine($expense->spent_at, $expense->expense_number, $expense->title, $expense->type === 'stock' ? 'Persediaan' : 'Beban Operasional', 'Kas', $expense->amount);
+        }
+        return $lines;
+    }
+
+    private function journalLine(Carbon $date, string $reference, string $description, string $debitAccount, string $creditAccount, int $amount): array
+    {
+        return compact('date', 'reference', 'description', 'debitAccount', 'creditAccount', 'amount')
+            + ['debit' => $amount, 'credit' => $amount];
+    }
+
     private function reportData(Request $request): array
     {
         $validated = $request->validate([

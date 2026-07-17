@@ -2,7 +2,7 @@
 
 @section('content')
     <div x-data="inventoryManager(@js($items), @js($movements), @js($filters))" class="space-y-4">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <nav aria-label="Breadcrumb">
                     <ol class="flex items-center gap-1 text-[10px] text-gray-500 dark:text-gray-400">
@@ -213,6 +213,7 @@
                         </svg>
                     </button>
                 </div>
+                <a href="{{ route('inventory.morning-print') }}" class="inline-flex h-10 items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600">Cetak Inventaris Pagi</a>
             </div>
         </section>
 

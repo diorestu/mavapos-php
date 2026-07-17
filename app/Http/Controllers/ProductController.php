@@ -10,6 +10,7 @@ use App\Support\BranchInventoryManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -67,8 +68,9 @@ class ProductController extends Controller
     {
         $validated = $this->validateProduct($request);
 
-        $product = DB::transaction(function () use ($validated): Product {
-            $product = Product::query()->create($this->productAttributes($validated));
+        $imagePath = $request->file('image')?->store('products', 'public');
+        $product = DB::transaction(function () use ($validated, $imagePath): Product {
+            $product = Product::query()->create($this->productAttributes($validated, $imagePath));
             $this->syncVariants($product, $validated['variants'] ?? null);
             $this->syncBranchInventories($product, $validated);
 
@@ -85,14 +87,20 @@ class ProductController extends Controller
     {
         $validated = $this->validateProduct($request, $sku);
 
-        $product = DB::transaction(function () use ($validated, $sku): Product {
+        $existing = Product::query()->where('sku', $sku)->firstOrFail();
+        $imagePath = $request->hasFile('image') ? $request->file('image')->store('products', 'public') : $existing->image_path;
+        $product = DB::transaction(function () use ($validated, $sku, $imagePath): Product {
             $product = Product::query()->firstOrNew(['sku' => $sku]);
-            $product->fill($this->productAttributes($validated))->save();
+            $product->fill($this->productAttributes($validated, $imagePath))->save();
             $this->syncVariants($product, $validated['variants'] ?? null);
             $this->syncBranchInventories($product, $validated);
 
             return $product;
         });
+
+        if ($request->hasFile('image') && $existing->image_path && $existing->image_path !== $imagePath) {
+            Storage::disk('public')->delete($existing->image_path);
+        }
 
         return response()->json([
             'message' => "Produk {$sku} berhasil diperbarui.",
@@ -140,9 +148,11 @@ class ProductController extends Controller
             ],
             'category' => ['nullable', 'string', Rule::in($categoryCodes)],
             'barcode' => ['nullable', 'string', 'max:100'],
+            'image' => ['nullable', 'image', 'max:4096'],
             'buyPrice' => ['nullable', 'numeric', 'min:0'],
             'sellPrice' => ['required', 'numeric', 'min:0'],
             'stock' => ['nullable', 'integer', 'min:0'],
+            'stockMode' => ['required', Rule::in(['inventory', 'recipe'])],
             'minStock' => ['nullable', 'integer', 'min:0'],
             'description' => ['nullable', 'string', 'max:500'],
             'variants' => ['nullable', 'array'],
@@ -166,7 +176,7 @@ class ProductController extends Controller
         ]);
     }
 
-    private function productAttributes(array $validated): array
+    private function productAttributes(array $validated, ?string $imagePath = null): array
     {
         $category = ProductCategory::query()->firstWhere('code', $validated['category'] ?? null);
 
@@ -175,9 +185,11 @@ class ProductController extends Controller
             'name' => $validated['name'],
             'sku' => $validated['sku'],
             'barcode' => $validated['barcode'] ?? null,
+            'image_path' => $imagePath,
             'buy_price' => (int) ($validated['buyPrice'] ?? 0),
             'sell_price' => (int) $validated['sellPrice'],
             'stock' => (int) ($validated['stock'] ?? 0),
+            'stock_mode' => $validated['stockMode'],
             'min_stock' => (int) ($validated['minStock'] ?? 0),
             'description' => $validated['description'] ?? null,
         ];
@@ -194,8 +206,11 @@ class ProductController extends Controller
             'categoryCode' => $product->category?->code ?? '',
             'category' => $product->category?->name ?? 'Umum',
             'barcode' => $product->barcode ?? '',
+            'imagePath' => $product->image_path,
+            'imageUrl' => $product->image_path ? Storage::disk('public')->url($product->image_path) : null,
             'buyPrice' => $product->buy_price > 0 ? $this->formatRupiah($product->buy_price) : '',
             'stock' => $inventory->stock,
+            'stockMode' => $product->stock_mode,
             'minStock' => $inventory->min_stock,
             'price' => $this->formatRupiah($product->sell_price),
             'status' => $this->productStatus($inventory->stock, $inventory->min_stock),

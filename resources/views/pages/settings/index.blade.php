@@ -89,6 +89,20 @@
                     </span>
                 </button>
 
+                <button type="button" @click="activeTab = 'sop'"
+                    class="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition"
+                    :class="activeTab === 'sop' ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/[0.04]'">
+                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-current shadow-theme-xs dark:bg-gray-900">✎</span>
+                    <span>SOP Kasir<span class="block text-[11px] font-normal opacity-75">Per cabang aktif</span></span>
+                </button>
+
+                <button type="button" @click="activeTab = 'data'"
+                    class="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition"
+                    :class="activeTab === 'data' ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/[0.04]'">
+                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-current shadow-theme-xs dark:bg-gray-900">⇄</span>
+                    <span>Data Toko<span class="block text-[11px] font-normal opacity-75">Export & import SQL</span></span>
+                </button>
+
                 <button type="button" @click="activeTab = 'receipt'"
                     class="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition"
                     :class="activeTab === 'receipt' ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/[0.04]'">
@@ -244,6 +258,34 @@
                         <input type="hidden" name="facebook" value="{{ old('facebook', $setting->facebook) }}">
                         <input type="hidden" name="tiktok" value="{{ old('tiktok', $setting->tiktok) }}">
                         <input type="hidden" name="notes" value="{{ old('notes', $setting->notes) }}">
+                    </div>
+                </section>
+
+                <section x-show="activeTab === 'sop'" x-cloak
+                    class="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                    <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+                        <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">SOP Kasir Cabang Aktif</h2>
+                        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Format SOP yang akan dibaca kasir saat membuka dan menutup shift.</p>
+                    </div>
+                    <div class="p-4" x-data="{ html: @js(old('cashier_sop_html', $setting->cashier_sop_html ?: '')), quill: null }"
+                        x-init="quill = new Quill($refs.editor, { theme: 'snow', placeholder: 'Tulis SOP kasir untuk cabang ini...', modules: { toolbar: [['bold', 'italic', 'underline'], [{ list: 'ordered' }, { list: 'bullet' }], ['blockquote', 'link'], [{ header: [2, 3, false] }], ['clean']] } }); quill.root.innerHTML = html; $refs.sop.value = html; quill.on('text-change', () => { html = quill.root.innerHTML; $refs.sop.value = html })">
+                        <div x-ref="editor" class="min-h-56 rounded-lg border border-gray-300 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"></div>
+                        <textarea x-ref="sop" name="cashier_sop_html" class="hidden"></textarea>
+                        <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Tag script dan tag berbahaya akan dihapus saat disimpan.</p>
+                        @error('cashier_sop_html')<span class="mt-1 block text-xs text-error-500">{{ $message }}</span>@enderror
+                        <div class="mt-4 flex justify-end border-t border-gray-100 pt-4 dark:border-gray-800">
+                            <button type="submit" class="inline-flex h-10 items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600">
+                                Simpan SOP Custom
+                            </button>
+                        </div>
+                    </div>
+                </section>
+
+                <section x-show="activeTab === 'data'" x-cloak class="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                    <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800"><h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Export & Import Data Toko</h2><p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Import bersifat merge: data lama tidak dihapus dan duplikat dilewati.</p></div>
+                    <div class="grid gap-4 p-4 lg:grid-cols-2">
+                        <div class="rounded-lg border border-gray-200 p-4 dark:border-gray-800"><h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Export SQL</h3><p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Download data tenant dan cabang yang sedang terhubung.</p><a href="{{ route('settings.data.export') }}" class="mt-4 inline-flex h-10 items-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white">Download SQL</a></div>
+                        <form method="POST" action="{{ route('settings.data.import') }}" enctype="multipart/form-data" class="rounded-lg border border-gray-200 p-4 dark:border-gray-800">@csrf<h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Import SQL (Merge)</h3><p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Gunakan file export SQL MAVA dari tenant yang sama.</p><input type="file" name="sql_file" accept=".sql,application/sql" required class="mt-4 block w-full text-xs text-gray-600 dark:text-gray-300"><button type="submit" class="mt-4 inline-flex h-10 items-center rounded-lg border border-brand-200 px-4 text-sm font-semibold text-brand-600">Import & Merge</button></form>
                     </div>
                 </section>
 

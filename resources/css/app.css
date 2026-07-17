@@ -2,6 +2,36 @@
 @import 'prismjs/themes/prism.min.css';
 @import 'tailwindcss';
 
+.ql-toolbar.ql-snow {
+  border-color: #d0d5dd;
+  border-radius: 8px 8px 0 0;
+  background: #f9fafb;
+}
+
+.ql-container.ql-snow {
+  min-height: 224px;
+  border-color: #d0d5dd;
+  border-radius: 0 0 8px 8px;
+  font-family: inherit;
+}
+
+.dark .ql-toolbar.ql-snow,
+.dark .ql-container.ql-snow {
+  border-color: #344054;
+}
+
+.dark .ql-toolbar.ql-snow {
+  background: #101828;
+}
+
+.dark .ql-editor,
+.dark .ql-picker-label,
+.dark .ql-picker-options,
+.dark .ql-stroke {
+  color: #f2f4f7;
+  stroke: #f2f4f7;
+}
+
 
 @source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
 @source '../../storage/framework/views/*.php';
@@ -899,5 +929,42 @@ pre[class*='language-'] {
 @media screen and (max-width: 525px) {
   .flatpickr-calendar.static {
     margin-right: -60px !important;
+  }
+}
+
+@keyframes pos-product-added {
+  0% { transform: scale(1); }
+  45% { transform: scale(0.965); }
+  100% { transform: scale(1); }
+}
+
+@keyframes pos-cart-item-added {
+  0% { opacity: 0.35; transform: translateX(10px) scale(0.98); }
+  100% { opacity: 1; transform: translateX(0) scale(1); }
+}
+
+.pos-product-card-added {
+  animation: pos-product-added 260ms ease-out;
+}
+
+.pos-cart-item-added {
+  animation: pos-cart-item-added 420ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.pos-cart-fly {
+  position: fixed;
+  z-index: 100000;
+  width: 18px;
+  height: 18px;
+  pointer-events: none;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 32% 28%, #ffffff 0 10%, #818cf8 28%, #4f46e5 72%);
+  box-shadow: 0 5px 16px rgba(79, 70, 229, 0.38);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pos-product-card-added,
+  .pos-cart-item-added {
+    animation: none;
   }
 }

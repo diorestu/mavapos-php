@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\PosSale;
 use App\Models\User;
 use App\Services\TransactionVoidService;
+use App\Services\SalesBonusService;
 use App\Support\BranchContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -19,7 +20,7 @@ class SaleController extends Controller
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
             'cashier_id' => ['nullable', 'integer', 'exists:users,id'],
-            'payment_method' => ['nullable', 'in:cash,qris,card'],
+            'payment_method' => ['nullable', 'in:cash,qris,card,free'],
             'search' => ['nullable', 'string', 'max:100'],
         ]);
 
@@ -62,6 +63,13 @@ class SaleController extends Controller
             ->paginate(12)
             ->withQueryString();
 
+        $bonus = app(SalesBonusService::class)->forBranchDay($branchId, $from);
+        $bonus['staff'] = User::query()->whereIn('id', $bonus['staffIds'])->orderBy('name')->get(['id', 'name']);
+        $bonus['staffBreakdown'] = collect($bonus['staffBreakdown'])->map(function (array $row) use ($bonus): array {
+            $row['name'] = $bonus['staff']->firstWhere('id', $row['userId'])?->name ?? 'Staff';
+            return $row;
+        })->values();
+
         return view('pages.sales.index', [
             'title' => 'Penjualan',
             'sales' => $sales,
@@ -85,6 +93,7 @@ class SaleController extends Controller
                 'qris_total' => (int) $summary->qris_total,
                 'card_total' => (int) $summary->card_total,
             ],
+            'bonus' => $bonus,
         ]);
     }
 

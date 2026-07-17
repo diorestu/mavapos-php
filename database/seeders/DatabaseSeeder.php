@@ -189,7 +189,7 @@ class DatabaseSeeder extends Seeder
 
         StoreSetting::query()->firstOrCreate([], StoreSetting::defaults());
 
-        User::query()->updateOrCreate(
+        $owner = User::query()->updateOrCreate(
             ['email' => 'test@example.com'],
             [
                 'name' => 'Test User',
@@ -198,5 +198,11 @@ class DatabaseSeeder extends Seeder
                 'trial_ends_at' => now()->addDays(14),
             ],
         );
+
+        foreach (['products', 'product_categories', 'suppliers', 'customers', 'expenses', 'raw_materials', 'store_settings', 'branches'] as $table) {
+            if (\Illuminate\Support\Facades\Schema::hasColumn($table, 'user_id')) {
+                \Illuminate\Support\Facades\DB::table($table)->whereNull('user_id')->update(['user_id' => $owner->id]);
+            }
+        }
     }
 }

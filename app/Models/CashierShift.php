@@ -10,6 +10,7 @@ class CashierShift extends Model
 {
     protected $fillable = [
         'user_id',
+        'companion_staff_ids',
         'branch_id',
         'previous_cashier_shift_id',
         'opened_at',
@@ -47,6 +48,7 @@ class CashierShift extends Model
             'opening_cash_amount' => 'integer',
             'validated_cash_amount' => 'integer',
             'validated_card_amount' => 'integer',
+            'companion_staff_ids' => 'array',
         ];
     }
 

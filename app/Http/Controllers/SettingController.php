@@ -7,6 +7,8 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
+use App\Services\TenantSqlTransferService;
+use Symfony\Component\HttpFoundation\Response;
 
 class SettingController extends Controller
 {
@@ -39,6 +41,7 @@ class SettingController extends Controller
             'tax_number' => ['nullable', 'string', 'max:80'],
             'operational_hours' => ['nullable', 'string', 'max:500'],
             'notes' => ['nullable', 'string', 'max:500'],
+            'cashier_sop_html' => ['nullable', 'string', 'max:100000'],
             'product_categories' => ['nullable', 'string', 'max:1000'],
             'product_units' => ['nullable', 'string', 'max:500'],
             'product_brands' => ['nullable', 'string', 'max:1000'],
@@ -56,6 +59,10 @@ class SettingController extends Controller
         ]);
 
         unset($validated['logo']);
+
+        $validated['cashier_sop_html'] = isset($validated['cashier_sop_html'])
+            ? strip_tags((string) preg_replace('/<(script|style|iframe|object|embed)\b[^>]*>.*?<\/\1>/is', '', $validated['cashier_sop_html']), '<p><br><strong><b><em><i><u><ol><ul><li><h1><h2><h3><blockquote><a>')
+            : null;
 
         $setting = StoreSetting::current();
 
@@ -82,6 +89,19 @@ class SettingController extends Controller
         return redirect()
             ->route('settings')
             ->with('status', 'Pengaturan toko berhasil disimpan.');
+    }
+
+    public function exportData(TenantSqlTransferService $transfer): Response
+    {
+        $ownerId = auth()->user()->tenantOwnerId();
+        return response($transfer->export($ownerId), 200, ['Content-Type' => 'application/sql', 'Content-Disposition' => 'attachment; filename="mava-tenant-'.$ownerId.'.sql"']);
+    }
+
+    public function importData(Request $request, TenantSqlTransferService $transfer): RedirectResponse
+    {
+        $request->validate(['sql_file' => ['required', 'file', 'extensions:sql', 'max:51200']]);
+        $count = $transfer->import($request->file('sql_file')->get(), auth()->user()->tenantOwnerId());
+        return back()->with('status', $count.' statement SQL berhasil di-merge. Data yang sudah ada tidak dihapus.');
     }
 
     private function booleanFields(): array

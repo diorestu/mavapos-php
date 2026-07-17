@@ -82,6 +82,7 @@
                             <th class="px-4 py-3 text-right"><p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Minimum</p></th>
                             <th class="px-4 py-3 text-right"><p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Harga/Satuan</p></th>
                             <th class="px-4 py-3 text-center"><p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Status</p></th>
+                            <th class="px-4 py-3 text-right"><p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Koreksi</p></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -104,6 +105,7 @@
                                         <span class="rounded-full bg-success-50 px-2.5 py-0.5 text-[11px] font-semibold text-success-600 dark:bg-success-500/15 dark:text-success-400">Aman</span>
                                     @endif
                                 </td>
+                                <td class="px-4 py-2.5 text-right"><form method="POST" action="{{ route('raw-materials.adjust', $material) }}" class="inline-flex items-center gap-1">@csrf @method('PATCH')<input name="stock" type="number" min="0" step="0.001" value="{{ $material->stock }}" class="h-8 w-20 rounded border border-gray-300 px-2 text-right text-xs dark:border-gray-700 dark:bg-gray-900 dark:text-white"><button class="h-8 rounded bg-warning-500 px-2 text-[11px] font-semibold text-white">Simpan</button></form></td>
                             </tr>
                         @empty
                             <tr>

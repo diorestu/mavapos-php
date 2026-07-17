@@ -7,6 +7,7 @@
         'cash' => 'Tunai',
         'qris' => 'QRIS',
         'card' => 'Kartu',
+        'free' => 'Gratis',
     ];
 @endphp
 
@@ -123,6 +124,41 @@
         </section>
 
         <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+            <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+                <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Capaian per Orang</h2>
+                <p class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">Jumlah transaksi pribadi dan bonus berdasarkan target harian cabang.</p>
+            </div>
+            <div class="max-w-full overflow-x-auto">
+                <table class="w-full min-w-[620px]">
+                    <thead><tr class="bg-gray-50 text-left dark:bg-gray-900/40"><th class="px-4 py-2 text-[11px] uppercase text-gray-500">Staff</th><th class="px-4 py-2 text-right text-[11px] uppercase text-gray-500">Transaksi Pribadi</th><th class="px-4 py-2 text-center text-[11px] uppercase text-gray-500">Status</th><th class="px-4 py-2 text-right text-[11px] uppercase text-gray-500">Bonus</th></tr></thead>
+                    <tbody>
+                        @forelse ($bonus['staffBreakdown'] as $staffRow)
+                            <tr class="border-t border-gray-100 dark:border-gray-800"><td class="px-4 py-3 text-sm font-semibold text-gray-800 dark:text-white/90">{{ $staffRow['name'] }}</td><td class="px-4 py-3 text-right text-sm tabular-nums text-gray-700 dark:text-gray-300">{{ number_format($staffRow['salesCount'], 0, ',', '.') }}</td><td class="px-4 py-3 text-center"><span class="rounded-full px-2.5 py-1 text-[11px] font-semibold {{ $bonus['targetReached'] ? 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300' }}">{{ $bonus['targetReached'] ? 'Target Tercapai' : 'Belum Ada Bonus' }}</span></td><td class="px-4 py-3 text-right text-sm font-semibold tabular-nums text-gray-800 dark:text-white/90">{{ $rupiah($staffRow['bonus']) }}</td></tr>
+                        @empty
+                            <tr><td colspan="4" class="px-4 py-8 text-center text-sm text-gray-500">Belum ada staff yang bertugas hari ini.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="rounded-xl border {{ $bonus['targetReached'] ? 'border-success-200 bg-success-50 dark:border-success-500/30 dark:bg-success-500/10' : 'border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]' }} p-4">
+            <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <p class="text-xs font-semibold uppercase {{ $bonus['targetReached'] ? 'text-success-700 dark:text-success-300' : 'text-gray-500 dark:text-gray-400' }}">{{ $bonus['targetReached'] ? 'Target Tercapai' : 'Bonus Staff Harian' }}</p>
+                    <p class="mt-1 text-sm text-gray-700 dark:text-gray-300">{{ number_format($bonus['salesCount'], 0, ',', '.') }} transaksi aktif hari ini · {{ number_format($bonus['staffCount'], 0, ',', '.') }} staff bertugas</p>
+                    @if ($bonus['staff']->isNotEmpty())
+                        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Berhak menerima: {{ $bonus['staff']->pluck('name')->join(', ') }}</p>
+                    @endif
+                </div>
+                <div class="text-left sm:text-right">
+                    <p class="text-xs text-gray-500 dark:text-gray-400">Bonus per orang</p>
+                    <p class="mt-1 text-xl font-semibold tabular-nums {{ $bonus['targetReached'] ? 'text-success-700 dark:text-success-300' : 'text-gray-800 dark:text-white/90' }}">{{ $rupiah($bonus['bonusPerPerson']) }}</p>
+                </div>
+            </div>
+        </section>
+
+        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
             <div class="flex flex-col gap-1 border-b border-gray-100 px-4 py-3 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Daftar Invoice</h2>
@@ -146,6 +182,7 @@
                             <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Total</th>
                             <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Bayar</th>
                             <th class="px-4 py-2 text-center text-[11px] font-semibold uppercase text-gray-500">Metode</th>
+                            <th class="px-4 py-2 text-left text-[11px] font-semibold uppercase text-gray-500">Keterangan</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -208,9 +245,17 @@
                                         <button type="button" @click="openVoid(@js(['id' => $sale->id, 'invoice' => $sale->invoice_number, 'total' => $sale->total]))" class="mt-2 block w-full text-[11px] font-semibold text-error-600 hover:text-error-700">Batalkan Transaksi</button>
                                     @endif
                                 </td>
+                                <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">
+                                    @if ($sale->payment_method === 'free')
+                                        <span class="font-semibold text-warning-700 dark:text-warning-300">{{ ucfirst($sale->complimentary_category) }}</span>
+                                        <span class="block text-[11px] text-gray-500 dark:text-gray-400">{{ $sale->complimentary_recipient_name }}</span>
+                                    @else
+                                        <span class="text-gray-400">—</span>
+                                    @endif
+                                </td>
                             </tr>
                         @empty
-                            <tr><td colspan="9" class="px-4 py-10 text-center text-sm text-gray-500">Belum ada transaksi penjualan dalam filter ini.</td></tr>
+                            <tr><td colspan="10" class="px-4 py-10 text-center text-sm text-gray-500">Belum ada transaksi penjualan dalam filter ini.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

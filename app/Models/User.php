@@ -28,6 +28,7 @@ class User extends Authenticatable
         'google_id',
         'role',
         'trial_ends_at',
+        'tenant_owner_id',
     ];
 
     /**
@@ -51,7 +52,37 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
             'trial_ends_at' => 'datetime',
+            'tenant_owner_id' => 'integer',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::created(function (User $user): void {
+            if ($user->tenant_owner_id === null && $user->role === 'owner') {
+                $user->forceFill(['tenant_owner_id' => $user->id])->saveQuietly();
+            }
+        });
+    }
+
+    public function tenantOwnerId(): int
+    {
+        if ($this->tenant_owner_id) {
+            return (int) $this->tenant_owner_id;
+        }
+
+        if ($this->role === 'owner') {
+            return (int) $this->id;
+        }
+
+        $legacyOwnerId = static::query()->where('role', 'owner')->where('trial_ends_at', $this->trial_ends_at)->value('id');
+        if ($legacyOwnerId) {
+            return (int) $legacyOwnerId;
+        }
+
+        $ownerIds = static::query()->where('role', 'owner')->pluck('id');
+
+        return $ownerIds->count() === 1 ? (int) $ownerIds->first() : (int) $this->id;
     }
 
     public function hasRole(string|array $roles): bool

@@ -10,6 +10,8 @@
         @js($activeShift),
         @js($blockingShift),
         @js($lastClosedShift),
+        @js($cashierSopHtml),
+        @js($availableStaff),
         {
             startShift: @js(route('pos.shift.start')),
             closeShift: @js(route('pos.shift.close')),
@@ -51,8 +53,23 @@
             </div>
         </div>
 
-        <section class="grid gap-3 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-white/[0.03] lg:grid-cols-[minmax(0,1fr)_auto]">
-            <div>
+        <section x-data="{ mobileShiftOpen: false }" class="grid gap-3 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-white/[0.03] lg:grid-cols-[minmax(0,1fr)_auto]">
+            <button type="button" @click="mobileShiftOpen = !mobileShiftOpen" class="flex items-center justify-between text-left lg:hidden">
+                <span><span class="block text-[10px] font-medium uppercase text-gray-400">Shift Kasir</span><span class="mt-0.5 block text-sm font-semibold text-gray-800 dark:text-white/90" x-text="shift ? `${shift.cashier} · Aktif` : (blockingShift ? 'Shift lain masih aktif' : 'Belum mulai shift')"></span></span>
+                <svg class="h-5 w-5 text-gray-400 transition-transform" :class="mobileShiftOpen && 'rotate-180'" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 7.5L10 12.5L15 7.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </button>
+            <div x-cloak x-show="mobileShiftOpen" class="border-t border-gray-100 pt-3 dark:border-gray-800 lg:hidden">
+                <template x-if="shift"><div class="flex flex-wrap items-center gap-2"><span class="rounded-full bg-success-50 px-2.5 py-1 text-xs font-semibold text-success-700 dark:bg-success-500/15 dark:text-success-400">Aktif</span><span class="text-sm font-semibold text-gray-800 dark:text-white/90" x-text="shift.cashier"></span><span class="text-xs text-gray-500 dark:text-gray-400">mulai <span x-text="shift.openedAt"></span> · <span x-text="shift.salesCount"></span> transaksi</span><span class="text-xs font-semibold tabular-nums text-gray-800 dark:text-white/90" x-text="formatRupiah(shift.netSales)"></span></div></template>
+                <template x-if="!shift && blockingShift"><p class="text-sm text-warning-700 dark:text-warning-300">Sesi <span class="font-semibold" x-text="blockingShift.cashier"></span> masih aktif. Akhiri sesi tersebut sebelum shift berikutnya.</p></template>
+                <template x-if="!shift && !blockingShift"><p class="text-sm text-gray-500 dark:text-gray-400">Belum mulai pekerjaan. Konfirmasi mulai shift sebelum transaksi.</p></template>
+                <div class="mt-3 flex flex-wrap gap-2">
+                    <button type="button" @click="openCustomerDisplay()" class="inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-700 dark:border-gray-800 dark:text-gray-300">Display</button>
+                    <button type="button" @click="sopModal = true" class="inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-700 dark:border-gray-800 dark:text-gray-300">SOP Kasir</button>
+                    <button type="button" x-show="!shift && !blockingShift" @click="startModal = true" class="inline-flex h-9 items-center justify-center rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white">Mulai Shift</button>
+                    <button type="button" x-show="shift" @click="closeModal = true; sopModal = true" class="inline-flex h-9 items-center justify-center rounded-lg border border-error-200 px-3 text-xs font-semibold text-error-600 dark:border-error-500/30">Akhiri Sesi</button>
+                </div>
+            </div>
+            <div class="hidden lg:block">
                 <p class="text-[10px] font-medium uppercase text-gray-400">Shift Kasir</p>
                 <template x-if="shift">
                     <div class="mt-1 flex flex-wrap items-center gap-2">
@@ -73,7 +90,7 @@
                     <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Belum mulai pekerjaan. Konfirmasi mulai shift sebelum transaksi.</p>
                 </template>
             </div>
-            <div class="flex items-center gap-2">
+            <div class="hidden items-center gap-2 lg:flex">
                 <button type="button" @click="openCustomerDisplay()"
                     class="inline-flex h-10 items-center justify-center gap-1.5 rounded-lg border border-gray-200 px-3 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.04]">
                     <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="4" width="16" height="10" rx="1.5"/><path d="M6 17h8" stroke-linecap="round"/></svg>
@@ -87,7 +104,7 @@
                     class="inline-flex h-10 items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600">
                     Mulai Shift
                 </button>
-                <button type="button" x-show="shift" @click="closeModal = true"
+                <button type="button" x-show="shift" @click="closeModal = true; sopModal = true"
                     class="inline-flex h-10 items-center justify-center rounded-lg border border-error-200 px-4 text-sm font-semibold text-error-600 transition hover:bg-error-50 dark:border-error-500/30 dark:hover:bg-error-500/10">
                     Akhiri Sesi
                 </button>
@@ -97,7 +114,7 @@
         <section class="relative grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_350px]">
             <div x-show="!shift" class="absolute inset-0 z-10 rounded-xl bg-white/75 backdrop-blur-sm dark:bg-gray-950/75"></div>
             <div class="min-w-0 space-y-4">
-                <div class="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
                     <div class="grid gap-3 border-b border-gray-100 p-3 dark:border-gray-800 lg:grid-cols-[minmax(0,1fr)_auto]">
                         <label class="relative block min-w-0">
                             <span class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
@@ -133,7 +150,7 @@
                             </div>
                             <div class="grid grid-cols-2 gap-2 md:grid-cols-4">
                                 <template x-for="item in favoriteItems" :key="`favorite-${item.id}`">
-                                    <button type="button" @click="addItem(item)"
+                                    <button type="button" @click="addItem(item, $event)"
                                         class="min-h-16 rounded-lg border border-gray-200 bg-gray-50 p-2 text-left transition hover:border-brand-200 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/20 dark:border-gray-800 dark:bg-gray-900/70 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10">
                                         <span class="block truncate text-xs font-semibold text-gray-800 dark:text-white/90" x-text="item.name"></span>
                                         <span class="mt-1 block text-xs font-semibold tabular-nums text-brand-600 dark:text-brand-400" x-text="formatRupiah(item.price)"></span>
@@ -142,31 +159,24 @@
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+                        <div class="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">
                             <template x-for="item in filteredItems" :key="item.id">
-                                <button type="button" @click="addItem(item)"
-                                    class="group min-h-[116px] rounded-lg border border-gray-200 bg-white p-3 text-left transition hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-theme-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/20 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-brand-500/40">
-                                    <div class="flex items-start justify-between gap-3">
-                                        <div class="min-w-0">
-                                            <p class="line-clamp-2 text-[13px] font-semibold leading-5 text-gray-800 dark:text-white/90" x-text="item.name"></p>
-                                            <p class="mt-1 truncate text-[11px] text-gray-500 dark:text-gray-400">
-                                                <span x-text="item.sku"></span>
-                                                <span class="mx-1">·</span>
-                                                <span x-text="item.type"></span>
-                                            </p>
-                                        </div>
-                                        <span class="shrink-0 rounded-md bg-gray-50 px-2 py-1 text-[10px] font-medium text-gray-500 dark:bg-white/[0.05] dark:text-gray-400" x-text="item.categoryName"></span>
+                                <button type="button" @click="addItem(item, $event)"
+                                    :class="{ 'pos-product-card-added': recentlyAddedItemId === item.id }"
+                                    class="group relative z-0 grid h-[204px] grid-cols-1 grid-rows-[112px_minmax(0,1fr)] overflow-hidden rounded-xl border border-gray-200 bg-white text-left shadow-theme-xs transition hover:-translate-y-0.5 hover:border-brand-300 hover:shadow-theme-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/20 sm:h-[124px] sm:grid-cols-[96px_minmax(0,1fr)] sm:grid-rows-1 dark:border-gray-800 dark:bg-gray-900 dark:hover:border-brand-500/50">
+                                    <div class="relative h-full bg-gray-100 dark:bg-gray-800">
+                                        <template x-if="item.imageUrl"><img :src="item.imageUrl" alt="" class="h-full w-full object-cover transition duration-500 group-hover:scale-110" /></template>
+                                        <template x-if="!item.imageUrl"><div class="grid h-full place-items-center bg-gradient-to-br from-brand-100 to-gray-100 text-brand-600 dark:from-brand-500/20 dark:to-gray-800 dark:text-brand-300"><svg class="h-7 w-7" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M4 17l4.5-4.5 3.2 3.2L15 12.4 20 17M5 20h14a1 1 0 001-1V5a1 1 0 00-1-1H5a1 1 0 00-1 1v14a1 1 0 001 1z" stroke-linecap="round" stroke-linejoin="round"/><circle cx="9" cy="8" r="1.3"/></svg></div></template>
+                                        <span class="pointer-events-none absolute inset-y-0 -right-8 z-0 hidden w-16 bg-gradient-to-r from-transparent to-white sm:block dark:to-gray-900"></span>
+                                        <span class="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-gray-950/50 to-transparent"></span>
                                     </div>
-                                    <div class="mt-4 flex items-end justify-between gap-3">
-                                        <div>
-                                            <p class="text-sm font-semibold tabular-nums text-gray-900 dark:text-white" x-text="formatRupiah(item.price)"></p>
-                                            <p class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400" x-text="stockLabel(item)"></p>
+                                    <div class="relative z-[1] flex min-w-0 flex-col p-2.5 sm:p-3">
+                                        <p class="line-clamp-2 text-[15px] font-normal leading-5 text-gray-800 dark:text-white/90" x-text="item.name"></p>
+                                        <p class="mt-1 text-[9px] font-medium leading-none tracking-wide text-gray-500 dark:text-gray-400" x-text="stockLabel(item)"></p>
+                                        <div class="mt-auto flex items-end justify-end">
+                                            <p class="w-full text-right text-sm font-bold tabular-nums text-gray-900 dark:text-white" x-text="formatRupiah(item.price)"></p>
+                                            <span class="grid h-8 w-8 shrink-0 translate-y-1 place-items-center rounded-lg bg-gray-900 text-white opacity-0 transition duration-200 group-hover:translate-y-0 group-hover:bg-brand-500 group-hover:opacity-100 group-focus-visible:translate-y-0 group-focus-visible:opacity-100 dark:bg-white dark:text-gray-900 dark:group-hover:bg-brand-400"><svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M10 4.16667V15.8333M4.16663 10H15.8333" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" /></svg></span>
                                         </div>
-                                        <span class="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-gray-900 text-white transition group-hover:bg-brand-500 dark:bg-white dark:text-gray-900 dark:group-hover:bg-brand-400">
-                                            <svg class="h-4 w-4" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                                <path d="M10 4.16667V15.8333M4.16663 10H15.8333" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" />
-                                            </svg>
-                                        </span>
                                     </div>
                                 </button>
                             </template>
@@ -181,14 +191,14 @@
             </div>
 
             <aside class="hidden xl:block min-w-0 xl:sticky xl:top-24 xl:h-fit">
-                <div class="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                <div data-pos-cart-target class="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
                     @include('pages.pos.cart', ['maxHeightClass' => 'max-h-[420px]'])
                 </div>
             </aside>
         </section>
 
         <!-- Floating Bottom Bar for Mobile -->
-        <div x-cloak x-show="cart.length > 0" 
+        <div data-pos-cart-target x-cloak x-show="cart.length > 0"
             class="fixed bottom-4 left-4 right-4 z-40 xl:hidden rounded-2xl bg-gray-900 text-white shadow-lg p-3 dark:bg-white dark:text-gray-900 flex items-center justify-between transition-all duration-300">
             <div class="min-w-0 flex-1">
                 <p class="text-xs font-semibold" x-text="`${cart.reduce((sum, item) => sum + item.quantity, 0)} Item`"></p>
@@ -229,8 +239,8 @@
             </div>
         </div>
 
-        <div x-cloak x-show="sopModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/50 p-4">
-            <div @click.outside="closeSopModal()" class="w-full max-w-2xl rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
+        <div x-cloak x-show="sopModal" x-transition.opacity.duration.200ms class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/50 p-4">
+            <div @click.outside="closeSopModal()" x-transition:enter="ease-out duration-200" x-transition:enter-start="translate-y-2 scale-95 opacity-0" x-transition:enter-end="translate-y-0 scale-100 opacity-100" x-transition:leave="ease-in duration-150" x-transition:leave-start="translate-y-0 scale-100 opacity-100" x-transition:leave-end="translate-y-2 scale-95 opacity-0" class="w-full max-w-2xl rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
                 <div class="flex items-start gap-3">
                     <div class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-warning-50 text-warning-600 dark:bg-warning-500/15 dark:text-warning-300">
                         <svg class="h-5 w-5" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -245,7 +255,18 @@
                     </div>
                 </div>
 
-                <div class="mt-5 grid gap-4 md:grid-cols-2">
+                <div class="mt-5">
+                    <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 text-sm leading-6 text-gray-600 dark:border-gray-800 dark:bg-white/[0.04] dark:text-gray-300">
+                        @if ($cashierSopHtml)
+                            {!! $cashierSopHtml !!}
+                        @else
+                            <p class="font-medium text-gray-700 dark:text-gray-200">Belum ada SOP custom untuk cabang ini.</p>
+                            <p class="mt-1">Gunakan SOP bawaan berikut sebagai panduan operasional.</p>
+                        @endif
+                    </div>
+                </div>
+
+                <div class="mt-5 grid gap-4 md:grid-cols-2" x-show="!cashierSopHtml">
                     <div class="rounded-xl border border-gray-200 bg-gray-50 p-4 dark:border-gray-800 dark:bg-white/[0.04]">
                         <h3 class="text-sm font-semibold text-gray-900 dark:text-white">Saat buka kasir</h3>
                         <ul class="mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-gray-600 dark:text-gray-300">
@@ -278,8 +299,8 @@
             </div>
         </div>
 
-        <div x-cloak x-show="startModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/50 p-4">
-            <div @click.outside="shift ? startModal = false : null" class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
+        <div x-cloak x-show="startModal" x-transition.opacity.duration.200ms class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/50 p-4">
+            <div @click.outside="shift ? startModal = false : null" x-transition:enter="ease-out duration-200" x-transition:enter-start="translate-y-2 scale-95 opacity-0" x-transition:enter-end="translate-y-0 scale-100 opacity-100" x-transition:leave="ease-in duration-150" x-transition:leave-start="translate-y-0 scale-100 opacity-100" x-transition:leave-end="translate-y-2 scale-95 opacity-0" class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
                 <div class="flex items-start gap-3">
                     <div class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-500 dark:bg-brand-500/15">
                         <svg class="h-5 w-5" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -339,6 +360,18 @@
                     <span class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Catatan awal shift (opsional)</span>
                     <textarea x-model="openingNote" rows="3" class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-950 dark:text-white/90"></textarea>
                 </label>
+                <div x-show="availableStaff.length" class="mt-4 rounded-lg border border-gray-200 p-3 dark:border-gray-800">
+                    <p class="text-xs font-semibold text-gray-700 dark:text-gray-300">Staff pendamping / asisten</p>
+                    <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">Pilih staff yang bertugas bersama operator kasir hari ini.</p>
+                    <div class="mt-2 grid gap-2 sm:grid-cols-2">
+                        <template x-for="staff in availableStaff" :key="staff.id">
+                            <label class="flex items-center gap-2 rounded-lg bg-gray-50 px-2.5 py-2 text-xs dark:bg-gray-900">
+                                <input type="checkbox" :value="staff.id" x-model="companionStaffIds" class="rounded border-gray-300 text-brand-500 focus:ring-brand-500/20">
+                                <span class="text-gray-700 dark:text-gray-300" x-text="staff.name"></span>
+                            </label>
+                        </template>
+                    </div>
+                </div>
                 <p x-show="shiftError" class="mt-3 rounded-lg border border-error-200 bg-error-50 px-3 py-2 text-xs text-error-700 dark:border-error-500/20 dark:bg-error-500/10 dark:text-error-300" x-text="shiftError"></p>
 
                 <div class="mt-5 grid gap-2 sm:grid-cols-2">
@@ -354,8 +387,8 @@
             </div>
         </div>
 
-        <div x-cloak x-show="closeModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/50 p-4">
-            <div @click.outside="closeModal = false" class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
+        <div x-cloak x-show="closeModal" x-transition.opacity.duration.200ms class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/50 p-4">
+            <div @click.outside="closeModal = false" x-transition:enter="ease-out duration-200" x-transition:enter-start="translate-y-2 scale-95 opacity-0" x-transition:enter-end="translate-y-0 scale-100 opacity-100" x-transition:leave="ease-in duration-150" x-transition:leave-start="translate-y-0 scale-100 opacity-100" x-transition:leave-end="translate-y-2 scale-95 opacity-0" class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
                 <h2 class="text-base font-semibold text-gray-900 dark:text-white">Akhiri sesi kasir?</h2>
                 <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Sistem mencetak rekap cash dan kartu untuk dicocokkan. Kasir harian tetap berjalan sampai closing malam.</p>
                 <div class="mt-4 grid grid-cols-2 gap-2">
@@ -395,8 +428,8 @@
             </div>
         </div>
 
-        <div x-cloak x-show="receiptModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/50 p-4">
-            <div @click.outside="closeReceiptModal()" class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
+        <div x-cloak x-show="receiptModal" x-transition.opacity.duration.200ms class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/50 p-4">
+            <div @click.outside="closeReceiptModal()" x-transition:enter="ease-out duration-200" x-transition:enter-start="translate-y-2 scale-95 opacity-0" x-transition:enter-end="translate-y-0 scale-100 opacity-100" x-transition:leave="ease-in duration-150" x-transition:leave-start="translate-y-0 scale-100 opacity-100" x-transition:leave-end="translate-y-2 scale-95 opacity-0" class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
                 <div class="flex items-start gap-3">
                     <div class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-400">
                         <svg class="h-5 w-5" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -482,8 +515,8 @@
         <x-shift-recap-modal />
 
         <!-- Variant Selection Modal -->
-        <div x-cloak x-show="variantModal" class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/50 p-4">
-            <div @click.outside="variantModal = false; variantProduct = null" class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
+        <div x-cloak x-show="variantModal" x-transition.opacity.duration.200ms class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/50 p-4">
+            <div @click.outside="variantModal = false; variantProduct = null" x-transition:enter="ease-out duration-200" x-transition:enter-start="translate-y-2 scale-95 opacity-0" x-transition:enter-end="translate-y-0 scale-100 opacity-100" x-transition:leave="ease-in duration-150" x-transition:leave-start="translate-y-0 scale-100 opacity-100" x-transition:leave-end="translate-y-2 scale-95 opacity-0" class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
                 <div class="flex items-center justify-between border-b border-gray-100 pb-3 dark:border-gray-800">
                     <h3 class="text-base font-bold text-gray-900 dark:text-white" x-text="variantProduct ? variantProduct.name : ''"></h3>
                     <button type="button" @click="variantModal = false; variantProduct = null" class="text-gray-400 hover:text-gray-500">

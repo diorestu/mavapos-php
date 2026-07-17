@@ -15,10 +15,10 @@ class BranchContext
     {
         $branchId = Session::get(self::SESSION_KEY);
         $user = auth()->user();
-        $ownerId = $user ? (\App\Models\User::where('role', 'owner')->where('trial_ends_at', $user->trial_ends_at)->value('id') ?? $user->id) : null;
+        $ownerId = $user?->tenantOwnerId();
 
         $branch = $branchId
-            ? Branch::query()->whereKey($branchId)->where('is_active', true)->first()
+            ? Branch::withoutGlobalScope('tenant')->whereKey($branchId)->where('is_active', true)->first()
             : null;
 
         if ($branch && $ownerId && $branch->user_id !== null && $branch->user_id !== $ownerId) {
@@ -26,10 +26,13 @@ class BranchContext
         }
 
         if (! $branch) {
-            $query = Branch::query()->where('is_active', true);
+            $query = Branch::withoutGlobalScope('tenant')->where('is_active', true);
             if ($ownerId) {
                 $query->where(function ($q) use ($ownerId) {
-                    $q->where('user_id', $ownerId)->orWhereNull('user_id');
+                    $q->where('user_id', $ownerId);
+                    if (\App\Models\User::query()->where('role', 'owner')->count() === 1) {
+                        $q->orWhereNull('user_id');
+                    }
                 });
             }
             $branch = $query->orderBy('id')->first()
@@ -49,12 +52,15 @@ class BranchContext
     public function setActive(int $branchId): Branch
     {
         $user = auth()->user();
-        $ownerId = $user ? (\App\Models\User::where('role', 'owner')->where('trial_ends_at', $user->trial_ends_at)->value('id') ?? $user->id) : null;
+        $ownerId = $user?->tenantOwnerId();
 
-        $query = Branch::query()->whereKey($branchId)->where('is_active', true);
+        $query = Branch::withoutGlobalScope('tenant')->whereKey($branchId)->where('is_active', true);
         if ($ownerId) {
             $query->where(function ($q) use ($ownerId) {
-                $q->where('user_id', $ownerId)->orWhereNull('user_id');
+                $q->where('user_id', $ownerId);
+                if (\App\Models\User::query()->where('role', 'owner')->count() === 1) {
+                    $q->orWhereNull('user_id');
+                }
             });
         }
 
@@ -68,12 +74,12 @@ class BranchContext
     public function options(): Collection
     {
         $user = auth()->user();
-        $ownerId = $user ? (\App\Models\User::where('role', 'owner')->where('trial_ends_at', $user->trial_ends_at)->value('id') ?? $user->id) : null;
+        $ownerId = $user?->tenantOwnerId();
 
-        $query = Branch::query()->where('is_active', true);
+        $query = Branch::withoutGlobalScope('tenant')->where('is_active', true);
         if ($ownerId) {
             $query->where(function ($q) use ($ownerId) {
-                $q->where('user_id', $ownerId)->orWhereNull('user_id');
+                $q->where('user_id', $ownerId);
             });
         }
 
@@ -85,7 +91,7 @@ class BranchContext
         $baseCode = 'utama';
         $code = $baseCode;
         $suffix = 2;
-        while (Branch::query()->where('code', $code)->exists()) {
+        while (Branch::withoutGlobalScopes()->where('code', $code)->exists()) {
             $code = $baseCode.'-'.$suffix++;
         }
 

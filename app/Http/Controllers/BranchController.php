@@ -16,11 +16,11 @@ class BranchController extends Controller
     public function index(): View
     {
         $user = auth()->user();
-        $ownerId = \App\Models\User::where('role', 'owner')->where('trial_ends_at', $user->trial_ends_at)->value('id') ?? $user->id;
+        $ownerId = $user->tenantOwnerId();
 
         $branches = Branch::query()
             ->where(function ($q) use ($ownerId) {
-                $q->where('user_id', $ownerId)->orWhereNull('user_id');
+                $q->where('user_id', $ownerId);
             })
             ->orderByDesc('is_active')
             ->orderBy('name')
@@ -42,7 +42,7 @@ class BranchController extends Controller
         ]);
 
         $user = auth()->user();
-        $ownerId = \App\Models\User::where('role', 'owner')->where('trial_ends_at', $user->trial_ends_at)->value('id') ?? $user->id;
+        $ownerId = $user->tenantOwnerId();
 
         $branch = Branch::query()->create([
             'user_id' => $ownerId,

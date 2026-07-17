@@ -12,6 +12,7 @@ class StoreSetting extends Model
 
     protected $fillable = [
         'user_id',
+        'branch_id',
         'store_name',
         'tagline',
         'logo_path',
@@ -30,6 +31,7 @@ class StoreSetting extends Model
         'tax_number',
         'operational_hours',
         'notes',
+        'cashier_sop_html',
         'product_categories',
         'product_units',
         'product_brands',
@@ -84,7 +86,17 @@ class StoreSetting extends Model
 
     public static function current(): self
     {
-        return self::query()->firstOrCreate([], self::defaults());
+        $branchId = app(\App\Support\BranchContext::class)->activeId();
+
+        $branchSetting = self::query()->where('branch_id', $branchId)->first();
+        if ($branchSetting) {
+            return $branchSetting;
+        }
+
+        $legacy = self::query()->whereNull('branch_id')->first();
+        $attributes = $legacy?->only(array_keys(self::defaults())) ?: self::defaults();
+
+        return self::query()->create(array_merge($attributes, ['branch_id' => $branchId]));
     }
 
     public static function defaults(): array

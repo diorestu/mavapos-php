@@ -15,6 +15,8 @@ class PosSale extends Model
         'user_id',
         'invoice_number',
         'payment_method',
+        'complimentary_category',
+        'complimentary_recipient_name',
         'subtotal',
         'discount',
         'total',

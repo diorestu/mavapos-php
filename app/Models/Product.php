@@ -18,9 +18,11 @@ class Product extends Model
         'sku',
         'name',
         'barcode',
+        'image_path',
         'buy_price',
         'sell_price',
         'stock',
+        'stock_mode',
         'min_stock',
         'description',
     ];
@@ -31,6 +33,7 @@ class Product extends Model
             'buy_price' => 'integer',
             'sell_price' => 'integer',
             'stock' => 'integer',
+            'stock_mode' => 'string',
             'min_stock' => 'integer',
         ];
     }

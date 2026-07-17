@@ -1,4 +1,4 @@
-<div class="flex flex-col h-full bg-white dark:bg-white/[0.03] xl:bg-transparent">
+<div class="flex h-full flex-col overflow-hidden rounded-b-xl bg-white dark:bg-white/[0.03] xl:bg-transparent">
     <!-- Header -->
     <div class="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
         <div>
@@ -24,13 +24,11 @@
     <!-- Items List -->
     <div class="{{ $maxHeightClass ?? 'max-h-[420px]' }} space-y-2 overflow-y-auto p-3 custom-scrollbar flex-1">
         <template x-for="item in cart" :key="item.id">
-            <div class="rounded-xl border border-gray-200 p-2.5 dark:border-gray-800 bg-gray-50/50 dark:bg-transparent">
+            <div :class="{ 'pos-cart-item-added': recentlyAddedItemId === item.id }" class="rounded-xl border border-gray-200 bg-gray-50/50 p-2.5 dark:border-gray-800 dark:bg-transparent">
                 <div class="flex items-center gap-3">
                     <div class="min-w-0 flex-1">
                         <p class="truncate text-xs font-bold leading-5 text-gray-800 dark:text-white/90" x-text="item.name"></p>
                         <p class="truncate text-[10px] leading-4 text-gray-500 dark:text-gray-400">
-                            <span x-text="item.sku"></span>
-                            <span class="mx-1">·</span>
                             <span x-text="formatRupiah(item.price)"></span>
                             <span class="mx-1">·</span>
                             <span class="font-semibold text-brand-600 dark:text-brand-400" x-text="`Subtotal: ${formatRupiah(item.price * item.quantity)}`"></span>
@@ -68,7 +66,7 @@
     </div>
 
     <!-- Totals & Payment Section -->
-    <div class="border-t border-gray-100 p-4 dark:border-gray-800 bg-white dark:bg-gray-900/60 sticky bottom-0">
+    <div class="sticky bottom-0 shrink-0 rounded-b-xl border-t border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900/60">
         <div class="space-y-2">
             <div class="flex items-center justify-between text-xs">
                 <span class="text-gray-500 dark:text-gray-400">Subtotal</span>
@@ -120,10 +118,38 @@
 
         <p x-show="checkoutError" class="mt-3.5 rounded-lg border border-error-200 bg-error-50 px-3 py-2 text-xs text-error-700 dark:border-error-500/20 dark:bg-error-500/10 dark:text-error-300" x-text="checkoutError"></p>
 
-        <button type="button" @click="checkout()" :disabled="!canCheckout"
-            class="mt-3.5 inline-flex h-11 w-full items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30 disabled:cursor-not-allowed disabled:opacity-50">
-            <span x-show="!checkoutLoading">Selesaikan Pembayaran</span>
-            <span x-show="checkoutLoading">Memproses...</span>
-        </button>
+        <div class="mt-3.5 grid grid-cols-[1fr_auto] gap-2">
+            <button type="button" @click="checkout()" :disabled="!canCheckout"
+                class="inline-flex h-11 items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30 disabled:cursor-not-allowed disabled:opacity-50">
+                <span x-show="!checkoutLoading">Selesaikan Pembayaran</span>
+                <span x-show="checkoutLoading">Memproses...</span>
+            </button>
+            <button type="button" @click="openComplimentary()" :disabled="checkoutLoading || cart.length === 0"
+                class="h-11 rounded-lg border border-warning-300 px-4 text-sm font-semibold text-warning-700 transition hover:bg-warning-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-warning-500/40 dark:text-warning-300 dark:hover:bg-warning-500/10">Gratis</button>
+        </div>
+    </div>
+
+    <div x-cloak x-show="complimentaryModal" x-transition.opacity.duration.200ms class="fixed inset-0 z-[99999] flex items-center justify-center bg-gray-950/50 p-4">
+        <div @click.outside="cancelComplimentary()" x-transition:enter="ease-out duration-200" x-transition:enter-start="translate-y-2 scale-95 opacity-0" x-transition:enter-end="translate-y-0 scale-100 opacity-100" x-transition:leave="ease-in duration-150" x-transition:leave-start="translate-y-0 scale-100 opacity-100" x-transition:leave-end="translate-y-2 scale-95 opacity-0" class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
+            <template x-if="!complimentaryConfirming">
+                <div>
+                    <h2 class="text-base font-semibold text-gray-900 dark:text-white">Pemberian gratis</h2>
+                    <p class="mt-1 text-sm font-medium text-gray-700 dark:text-gray-200">Apakah Anda yakin ingin memberikan produk ini secara gratis?</p>
+                    <p class="mt-1 text-sm text-gray-500">Produk tetap mengurangi stok dan akan tercatat di laporan harian.</p>
+                    <label class="mt-4 block"><span class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">Kategori</span>
+                        <select x-model="complimentaryCategory" class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white"><option value="influencer">Influencer</option><option value="partnership">Partnership</option><option value="owner">Owner</option></select>
+                    </label>
+                    <label class="mt-3 block"><span class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-300">Nama penerima</span><input x-model="complimentaryRecipientName" type="text" maxlength="150" placeholder="Contoh: Dinda Pratama" class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:text-white" /></label>
+                    <div class="mt-5 grid grid-cols-2 gap-2"><button type="button" @click="proceedComplimentary()" class="h-10 rounded-lg bg-warning-500 px-4 text-sm font-semibold text-white">Lanjutkan</button><button type="button" @click="cancelComplimentary()" class="h-10 rounded-lg border border-gray-200 px-4 text-sm font-semibold text-gray-700 dark:border-gray-800 dark:text-gray-300">Batal</button></div>
+                </div>
+            </template>
+            <template x-if="complimentaryConfirming">
+                <div>
+                    <h2 class="text-base font-semibold text-gray-900 dark:text-white">Apakah Anda yakin?</h2>
+                    <p class="mt-2 text-sm text-gray-500">Konfirmasi pemberian gratis untuk <strong x-text="complimentaryRecipientName"></strong> (<span x-text="complimentaryCategory"></span>). Total nilai barang <strong x-text="formatRupiah(subtotal)"></strong>; stok akan dikurangi.</p>
+                    <div class="mt-5 grid grid-cols-2 gap-2"><button type="button" @click="checkout(true)" :disabled="checkoutLoading" class="h-10 rounded-lg bg-warning-500 px-4 text-sm font-semibold text-white disabled:opacity-60"><span x-text="checkoutLoading ? 'Memproses...' : 'Ya, proses gratis'"></span></button><button type="button" @click="complimentaryConfirming = false" class="h-10 rounded-lg border border-gray-200 px-4 text-sm font-semibold text-gray-700 dark:border-gray-800 dark:text-gray-300">Kembali</button></div>
+                </div>
+            </template>
+        </div>
     </div>
 </div>

@@ -43,6 +43,11 @@
                 <a href="{{ route('reports.download', request()->query()) }}" class="self-end inline-flex h-9 items-center justify-center rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white shadow-theme-xs transition hover:bg-brand-600">
                     Unduh PDF
                 </a>
+                <a href="{{ route('reports.journal', request()->query()) }}" class="self-end inline-flex h-9 items-center justify-center rounded-lg border border-brand-200 px-3 text-xs font-semibold text-brand-600 transition hover:bg-brand-50 dark:border-brand-500/30 dark:hover:bg-brand-500/10">
+                    Jurnal Akunting
+                </a>
+                <a href="{{ route('reports.financial.download', request()->query()) }}" class="self-end inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-700 dark:border-gray-800 dark:text-gray-300">Download Keuangan</a>
+                <a href="{{ route('reports.profit-loss.download', request()->query()) }}" class="self-end inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-700 dark:border-gray-800 dark:text-gray-300">Download Laba Rugi</a>
             </form>
         </div>
 

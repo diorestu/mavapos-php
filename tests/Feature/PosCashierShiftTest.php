@@ -1,9 +1,12 @@
 <?php
 
 use App\Models\Branch;
+use App\Models\StoreSetting;
 use App\Models\BranchInventory;
 use App\Models\CashierShift;
+use App\Models\Expense;
 use App\Models\PosSale;
+use App\Models\PosSaleItem;
 use App\Models\Product;
 use App\Models\ProductRecipeItem;
 use App\Models\RawMaterial;
@@ -11,11 +14,174 @@ use App\Models\User;
 use App\Support\BranchInventoryManager;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\UploadedFile;
 
 uses(RefreshDatabase::class);
 
 beforeEach(function () {
     $this->seed(DatabaseSeeder::class);
+});
+
+test('POS menampilkan SOP custom dari cabang aktif', function () {
+    $cashier = User::factory()->create(['role' => 'kasir']);
+    $this->actingAs($owner);
+    $branch = app(\App\Support\BranchContext::class)->active();
+    $this->actingAs($cashier);
+    app(\App\Support\BranchContext::class)->setActive($branch->id);
+
+    StoreSetting::query()->create([
+        'branch_id' => $branch->id,
+        'store_name' => 'Mava Cabang',
+        'cashier_sop_html' => '<p><strong>Hitung kas awal</strong></p>',
+    ]);
+
+    $this->get(route('pos'))
+        ->assertOk()
+        ->assertSee('Hitung kas awal', false);
+});
+
+test('laporan jurnal menampilkan pasangan debit kredit transaksi cabang aktif', function () {
+    $owner = User::factory()->create(['role' => 'owner']);
+    $branch = Branch::query()->firstOrFail();
+    $shift = CashierShift::query()->create([
+        'user_id' => $owner->id,
+        'branch_id' => $branch->id,
+        'opened_at' => now()->subHour(),
+    ]);
+    $sale = PosSale::query()->create([
+        'cashier_shift_id' => $shift->id,
+        'branch_id' => $branch->id,
+        'user_id' => $owner->id,
+        'invoice_number' => 'POS-JURNAL-001',
+        'payment_method' => 'cash',
+        'subtotal' => 50000,
+        'discount' => 5000,
+        'total' => 45000,
+        'sold_at' => now(),
+    ]);
+    PosSaleItem::query()->create([
+        'pos_sale_id' => $sale->id,
+        'item_type' => 'product',
+        'name' => 'Produk Jurnal',
+        'sku' => 'JURNAL-001',
+        'quantity' => 1,
+        'unit_price' => 45000,
+        'line_total' => 45000,
+    ]);
+    Expense::query()->create([
+        'branch_id' => $branch->id,
+        'expense_number' => 'EXP-JURNAL-001',
+        'type' => 'operational',
+        'title' => 'Listrik toko',
+        'amount' => 10000,
+        'spent_at' => now(),
+    ]);
+
+    $this->actingAs($owner)
+        ->get(route('reports.journal', ['date_from' => now()->toDateString(), 'date_to' => now()->toDateString()]))
+        ->assertOk()
+        ->assertSee('POS-JURNAL-001')
+        ->assertSee('Kas')
+        ->assertSee('Penjualan')
+        ->assertSee('Listrik toko')
+        ->assertSee('Beban Operasional');
+});
+
+test('owner dapat menyimpan SOP custom untuk cabang aktif', function () {
+    $owner = User::factory()->create(['role' => 'owner']);
+    $branch = Branch::query()->firstOrFail();
+
+    $this->actingAs($owner);
+    app(\App\Support\BranchContext::class)->setActive($branch->id);
+
+    $this->patch(route('settings.update'), [
+        'store_name' => 'Mava Cabang',
+        'cashier_sop_html' => '<p><em>Periksa printer</em></p><script>alert(1)</script>',
+    ])->assertRedirect(route('settings'));
+
+    $this->assertDatabaseHas('store_settings', [
+        'branch_id' => $branch->id,
+        'cashier_sop_html' => '<p><em>Periksa printer</em></p>',
+    ]);
+});
+
+test('halaman pengaturan menyediakan aksi simpan SOP custom', function () {
+    $owner = User::factory()->create(['role' => 'owner']);
+
+    $this->actingAs($owner)
+        ->get(route('settings'))
+        ->assertOk()
+        ->assertSee('Simpan SOP Custom');
+});
+
+test('laporan keuangan dan laba rugi dapat diunduh sebagai PDF', function () {
+    $owner = User::factory()->create(['role' => 'owner']);
+    $date = now()->toDateString();
+
+    $this->actingAs($owner)
+        ->get(route('reports.financial.download', ['date_from' => $date, 'date_to' => $date]))
+        ->assertOk()
+        ->assertHeader('content-type', 'application/pdf');
+
+    $this->actingAs($owner)
+        ->get(route('reports.profit-loss.download', ['date_from' => $date, 'date_to' => $date]))
+        ->assertOk()
+        ->assertHeader('content-type', 'application/pdf');
+});
+
+test('owner dapat export dan merge import SQL tenant yang sama', function () {
+    $owner = User::factory()->create(['role' => 'owner']);
+    $this->actingAs($owner);
+    $export = $this->get(route('settings.data.export'))->assertOk();
+    expect($export->headers->get('content-type'))->toContain('application/sql');
+
+    $this->post(route('settings.data.import'), [
+        'sql_file' => UploadedFile::fake()->createWithContent('mava.sql', $export->getContent()),
+    ])->assertRedirect();
+});
+
+test('data tenant tetap terisolasi meski dua owner memiliki waktu trial sama', function () {
+    $trialEndsAt = now()->addDays(14);
+    $firstOwner = User::factory()->create(['role' => 'owner', 'trial_ends_at' => $trialEndsAt]);
+    $secondOwner = User::factory()->create(['role' => 'owner', 'trial_ends_at' => $trialEndsAt]);
+    Product::query()->create(['user_id' => $firstOwner->id, 'sku' => 'TENANT-ONE', 'name' => 'Produk Toko Satu', 'sell_price' => 1000, 'buy_price' => 500, 'stock' => 1]);
+    Product::query()->create(['user_id' => $secondOwner->id, 'sku' => 'TENANT-TWO', 'name' => 'Produk Toko Dua', 'sell_price' => 1000, 'buy_price' => 500, 'stock' => 1]);
+
+    $this->actingAs($secondOwner);
+
+    expect(Product::query()->pluck('sku')->all())->toBe(['TENANT-TWO']);
+});
+
+test('laporan penjualan menampilkan bonus sama rata untuk seluruh staff yang bertugas', function () {
+    $owner = User::factory()->create(['role' => 'owner']);
+    $staff = User::factory()->create(['role' => 'kasir', 'tenant_owner_id' => $owner->id]);
+    $this->actingAs($owner);
+    $branch = app(\App\Support\BranchContext::class)->active();
+    CashierShift::query()->create(['user_id' => $owner->id, 'branch_id' => $branch->id, 'opened_at' => now()->startOfDay()]);
+    CashierShift::query()->create(['user_id' => $staff->id, 'branch_id' => $branch->id, 'opened_at' => now()->startOfDay()]);
+
+    foreach (range(1, 41) as $number) {
+        PosSale::query()->create([
+            'cashier_shift_id' => $number % 2 ? CashierShift::query()->where('user_id', $owner->id)->latest('id')->value('id') : CashierShift::query()->where('user_id', $staff->id)->latest('id')->value('id'),
+            'branch_id' => $branch->id,
+            'user_id' => $number % 2 ? $owner->id : $staff->id,
+            'invoice_number' => 'BONUS-'.str_pad((string) $number, 3, '0', STR_PAD_LEFT),
+            'payment_method' => 'cash', 'subtotal' => 10000, 'total' => 10000, 'sold_at' => now(),
+        ]);
+    }
+
+    $this->actingAs($owner)->get(route('sales'))->assertOk()->assertViewHas('bonus', fn ($bonus): bool => $bonus['salesCount'] === 41 && $bonus['staffBreakdown'][0]['salesCount'] > 0)->assertSee('Capaian per Orang')->assertSee('Target Tercapai')->assertSee('Rp25.000')->assertSee($owner->name)->assertSee($staff->name);
+});
+
+test('buka shift mencatat staff pendamping dari tenant yang sama', function () {
+    $owner = User::factory()->create(['role' => 'owner']);
+    $assistant = User::factory()->create(['role' => 'kasir', 'tenant_owner_id' => $owner->id]);
+
+    $this->actingAs($owner)->postJson(route('pos.shift.start'), [
+        'companion_staff_ids' => [$assistant->id],
+    ])->assertOk();
+
+    expect(CashierShift::query()->latest('id')->value('companion_staff_ids'))->toContain($assistant->id);
 });
 
 test('halaman shift menghitung nominal dari transaksi meski ringkasan shift belum tersinkron', function () {

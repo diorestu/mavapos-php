@@ -93,6 +93,13 @@ class RawMaterialController extends Controller
         return redirect()->route('raw-materials')->with('success', 'Stok bahan baku berhasil ditambahkan.');
     }
 
+    public function adjust(Request $request, RawMaterial $rawMaterial): RedirectResponse
+    {
+        $validated = $request->validate(['stock' => ['required', 'numeric', 'min:0'], 'note' => ['nullable', 'string', 'max:500']]);
+        $rawMaterial->update(['stock' => $validated['stock'], 'note' => $validated['note'] ?? $rawMaterial->note]);
+        return redirect()->route('raw-materials')->with('success', 'Stok fisik bahan baku berhasil dikoreksi.');
+    }
+
     private function nextCode(): string
     {
         $lastCode = RawMaterial::query()

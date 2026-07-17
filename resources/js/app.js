@@ -2,8 +2,11 @@ import './bootstrap';
 import Alpine from 'alpinejs';
 import Toastify from 'toastify-js';
 import 'toastify-js/src/toastify.css';
+import Quill from 'quill';
+import 'quill/dist/quill.snow.css';
 
 window.Alpine = Alpine;
+window.Quill = Quill;
 
 let apexChartsLoader;
 window.loadApexCharts = async () => {
@@ -650,6 +653,8 @@ Alpine.data('productManager', (initialProducts = [], initialCategories = [], ini
         sellPrice: '',
         stock: '',
         minStock: '',
+        stockMode: 'inventory',
+        image: null,
         description: '',
         hasVariants: false,
         variants: [],
@@ -663,6 +668,8 @@ Alpine.data('productManager', (initialProducts = [], initialCategories = [], ini
         sellPrice: '',
         stock: '',
         minStock: '',
+        stockMode: 'inventory',
+        image: null,
         description: '',
         hasVariants: false,
         variants: [],
@@ -781,6 +788,8 @@ Alpine.data('productManager', (initialProducts = [], initialCategories = [], ini
             sellPrice: '',
             stock: '',
             minStock: '',
+            stockMode: 'inventory',
+            image: null,
             description: '',
             hasVariants: false,
             variants: [],
@@ -799,6 +808,8 @@ Alpine.data('productManager', (initialProducts = [], initialCategories = [], ini
             sellPrice: '',
             stock: '',
             minStock: '',
+            stockMode: 'inventory',
+            image: null,
             description: '',
             hasVariants: false,
             variants: [],
@@ -867,6 +878,8 @@ Alpine.data('productManager', (initialProducts = [], initialCategories = [], ini
             sellPrice: this.parseRupiah(product.price),
             stock: product.stock ?? '',
             minStock: product.minStock ?? '',
+            stockMode: product.stockMode || 'inventory',
+            image: null,
             description: product.description || '',
             hasVariants: mappedVariants.length > 0,
             variants: mappedVariants,
@@ -901,10 +914,9 @@ Alpine.data('productManager', (initialProducts = [], initialCategories = [], ini
             method: 'POST',
             headers: {
                 Accept: 'application/json',
-                'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
             },
-            body: JSON.stringify(this.draft),
+            body: this.productFormData(this.draft),
         });
 
         if (!response.ok) {
@@ -929,14 +941,15 @@ Alpine.data('productManager', (initialProducts = [], initialCategories = [], ini
             return;
         }
 
+        const formData = this.productFormData(this.editDraft);
+        formData.append('_method', 'PATCH');
         const response = await fetch(`/products/${encodeURIComponent(this.editingProductSku)}`, {
-            method: 'PATCH',
+            method: 'POST',
             headers: {
                 Accept: 'application/json',
-                'Content-Type': 'application/json',
                 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
             },
-            body: JSON.stringify(this.editDraft),
+            body: formData,
         });
 
         if (!response.ok) {
@@ -955,6 +968,28 @@ Alpine.data('productManager', (initialProducts = [], initialCategories = [], ini
 
         this.closeEditModal();
         notify(payload.message || 'Produk berhasil diperbarui.');
+    },
+
+    productFormData(draft) {
+        const formData = new FormData();
+        Object.entries(draft).forEach(([key, value]) => {
+            if (key === 'image') {
+                if (value instanceof File) formData.append('image', value);
+                return;
+            }
+            if (key === 'variants') {
+                (value || []).forEach((variant, index) => Object.entries(variant).forEach(([variantKey, variantValue]) => {
+                    formData.append(`variants[${index}][${variantKey}]`, variantValue ?? '');
+                }));
+                return;
+            }
+            if (typeof value === 'boolean') {
+                formData.append(key, value ? '1' : '0');
+                return;
+            }
+            formData.append(key, value ?? '');
+        });
+        return formData;
     },
 
     async deleteProduct(product) {
@@ -1804,13 +1839,15 @@ Alpine.data('salesVoidManager', (endpointTemplate = '') => ({
     },
 }));
 
-Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShift = null, blockingShift = null, lastClosedShift = null, endpoints = {}) => ({
+Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShift = null, blockingShift = null, lastClosedShift = null, initialSopHtml = '', availableStaff = [], endpoints = {}) => ({
     items: initialItems,
     categories: initialCategories,
     shift: initialShift,
     blockingShift,
     lastClosedShift,
     endpoints,
+    cashierSopHtml: initialSopHtml,
+    availableStaff,
     sopModal: false,
     showMobileCart: false,
     startModal: !initialShift && !blockingShift,
@@ -1819,11 +1856,16 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     validatedCashAmount: '',
     validatedCardAmount: '',
     openingNote: '',
+    companionStaffIds: [],
     closingNote: '',
     shiftError: '',
     checkoutError: '',
     shiftLoading: false,
     checkoutLoading: false,
+    complimentaryModal: false,
+    complimentaryConfirming: false,
+    complimentaryCategory: 'influencer',
+    complimentaryRecipientName: '',
     receiptModal: false,
     shiftRecap: null,
     shiftRecapError: '',
@@ -1834,6 +1876,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     query: '',
     activeCategory: '',
     cart: [],
+    recentlyAddedItemId: null,
     paymentMethod: 'cash',
     paidAmount: '',
     discount: '',
@@ -1902,7 +1945,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                 ));
             const matchesCategory = !this.activeCategory || item.category === this.activeCategory;
 
-            const hasStock = Number(item.stock) > 0 || (item.variants && item.variants.some((v) => Number(v.stock) > 0));
+            const hasStock = item.stockMode === 'recipe' || Number(item.stock) > 0 || (item.variants && item.variants.some((v) => item.stockMode === 'recipe' || Number(v.stock) > 0));
             return matchesKeyword && matchesCategory && hasStock;
         });
     },
@@ -1910,7 +1953,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     get favoriteItems() {
         return this.items.filter((item) => {
             const isFav = item.isFavorite || (item.variants && item.variants.some((v) => v.isFavorite));
-            const hasStock = Number(item.stock) > 0 || (item.variants && item.variants.some((v) => Number(v.stock) > 0));
+            const hasStock = item.stockMode === 'recipe' || Number(item.stock) > 0 || (item.variants && item.variants.some((v) => item.stockMode === 'recipe' || Number(v.stock) > 0));
             return isFav && hasStock;
         }).slice(0, 8);
     },
@@ -2022,14 +2065,14 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         return `Stok ${stock}`;
     },
 
-    addItem(item) {
+    addItem(item, event = null) {
         if (item.variants && item.variants.length > 0) {
             this.variantProduct = item;
             this.variantModal = true;
             return;
         }
 
-        if (Number(item.stock || 0) <= 0) {
+        if (item.stockMode !== 'recipe' && Number(item.stock || 0) <= 0) {
             return;
         }
 
@@ -2037,6 +2080,8 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
         if (current) {
             this.increase(current.id);
+            this.animateItemAdded(current.id);
+            this.flyToCart(event);
             return;
         }
 
@@ -2046,12 +2091,15 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             sku: item.sku,
             price: Number(item.price),
             stock: Number(item.stock),
+            stockMode: item.stockMode,
             quantity: 1,
         });
+        this.animateItemAdded(item.id);
+        this.flyToCart(event);
     },
 
     addVariant(variant) {
-        if (Number(variant.stock || 0) <= 0) {
+        if (this.variantProduct?.stockMode !== 'recipe' && Number(variant.stock || 0) <= 0) {
             return;
         }
 
@@ -2059,6 +2107,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
         if (current) {
             this.increase(current.id);
+            this.animateItemAdded(current.id);
             this.variantModal = false;
             this.variantProduct = null;
             return;
@@ -2074,17 +2123,55 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             sku: variant.sku,
             price: finalPrice,
             stock: Number(variant.stock),
+            stockMode: this.variantProduct?.stockMode,
             quantity: 1,
         });
+        this.animateItemAdded(variant.id);
 
         this.variantModal = false;
         this.variantProduct = null;
     },
 
+    animateItemAdded(itemId) {
+        this.recentlyAddedItemId = itemId;
+        window.setTimeout(() => {
+            if (this.recentlyAddedItemId === itemId) this.recentlyAddedItemId = null;
+        }, 480);
+    },
+
+    flyToCart(event) {
+        if (!event || window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+
+        const source = event.currentTarget?.getBoundingClientRect();
+        if (!source) return;
+
+        const targetElement = [...document.querySelectorAll('[data-pos-cart-target]')]
+            .find((element) => element.offsetParent !== null);
+        const target = targetElement?.getBoundingClientRect();
+        const startX = event.clientX || (source.left + (source.width / 2));
+        const startY = event.clientY || (source.top + (source.height / 2));
+        const endX = target ? target.left + (target.width / 2) : window.innerWidth - 34;
+        const endY = target ? target.top + 28 : window.innerHeight - 34;
+        const arcX = startX + ((endX - startX) * 0.45);
+        const arcY = Math.min(startY, endY) - 72;
+        const ball = document.createElement('span');
+
+        ball.className = 'pos-cart-fly';
+        ball.style.left = `${startX - 9}px`;
+        ball.style.top = `${startY - 9}px`;
+        document.body.appendChild(ball);
+
+        ball.animate([
+            { transform: 'translate3d(0, 0, 0) scale(1)', opacity: 1 },
+            { transform: `translate3d(${arcX - startX}px, ${arcY - startY}px, 0) scale(1.12)`, opacity: 1, offset: 0.45 },
+            { transform: `translate3d(${endX - startX}px, ${endY - startY}px, 0) scale(0.2)`, opacity: 0.2 },
+        ], { duration: 775, easing: 'cubic-bezier(0.22, 0.8, 0.24, 1)' }).finished.finally(() => ball.remove());
+    },
+
     increase(id) {
         const item = this.cart.find((cartItem) => cartItem.id === id);
 
-        if (!item || item.quantity >= item.stock) {
+        if (!item || (item.stockMode !== 'recipe' && item.quantity >= item.stock)) {
             return;
         }
 
@@ -2806,6 +2893,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                     validated_cash_amount: this.lastClosedShift ? this.numberFromInput(this.validatedCashAmount) : null,
                     validated_card_amount: this.lastClosedShift ? this.numberFromInput(this.validatedCardAmount) : null,
                     opening_note: this.openingNote,
+                    companion_staff_ids: this.companionStaffIds.map(Number),
                 }),
             });
 
@@ -2826,6 +2914,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             this.validatedCashAmount = '';
             this.validatedCardAmount = '';
             this.openingNote = '';
+            this.companionStaffIds = [];
             notify(payload.message || 'Shift kasir dimulai.');
         } finally {
             this.shiftLoading = false;
@@ -2884,8 +2973,30 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     },
     dismissShiftRecap() { this.shiftRecap = null; this.startModal = true; },
 
-    async checkout() {
-        if (!this.canCheckout) {
+    openComplimentary() {
+        if (!this.shift || this.cart.length === 0) {
+            notify('Tambahkan produk dan mulai shift terlebih dahulu.', 'error');
+            return;
+        }
+        this.complimentaryConfirming = false;
+        this.complimentaryModal = true;
+    },
+
+    proceedComplimentary() {
+        if (!this.complimentaryRecipientName.trim()) {
+            notify('Nama penerima wajib diisi.', 'error');
+            return;
+        }
+        this.complimentaryConfirming = true;
+    },
+
+    cancelComplimentary() {
+        this.complimentaryModal = false;
+        this.complimentaryConfirming = false;
+    },
+
+    async checkout(isComplimentary = false) {
+        if (!isComplimentary && !this.canCheckout) {
             notify('Lengkapi pembayaran sebelum checkout.', 'error');
             return;
         }
@@ -2906,9 +3017,11 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                         id: item.id,
                         quantity: item.quantity,
                     })),
-                    payment_method: this.paymentMethod,
-                    discount: this.discountValue,
-                    paid_amount: this.paymentMethod === 'cash' ? this.paid : this.total,
+                    payment_method: isComplimentary ? 'free' : this.paymentMethod,
+                    discount: isComplimentary ? 0 : this.discountValue,
+                    paid_amount: isComplimentary ? 0 : (this.paymentMethod === 'cash' ? this.paid : this.total),
+                    complimentary_category: isComplimentary ? this.complimentaryCategory : null,
+                    complimentary_recipient_name: isComplimentary ? this.complimentaryRecipientName.trim() : null,
                 }),
             });
 
@@ -2928,6 +3041,8 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             this.pushDisplayState('checkout');
             this.showMobileCart = false;
             this.receiptModal = Boolean(this.lastReceipt);
+            this.cancelComplimentary();
+            this.complimentaryRecipientName = '';
             if (this.lastReceipt && this.effectivePrintPreference('autoPrint', this.lastReceipt.printer?.auto_print)) {
                 setTimeout(() => this.printReceipt(), 150);
             }
