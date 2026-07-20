@@ -27,7 +27,9 @@ class CashierShift extends Model
         'validated_card_amount',
         'handover_validated_at',
         'opening_note',
+        'opening_checklist',
         'closing_note',
+        'closing_checklist',
     ];
 
     protected function casts(): array
@@ -49,6 +51,8 @@ class CashierShift extends Model
             'validated_cash_amount' => 'integer',
             'validated_card_amount' => 'integer',
             'companion_staff_ids' => 'array',
+            'opening_checklist' => 'array',
+            'closing_checklist' => 'array',
         ];
     }
 

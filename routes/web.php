@@ -115,6 +115,7 @@ Route::middleware('auth:web,sanctum')->group(function () {
         Route::middleware('role:owner,admin,kasir')->group(function () {
             Route::get('/pos', [PosController::class, 'index'])->name('pos');
             Route::post('/pos/shift/start', [PosController::class, 'startShift'])->name('pos.shift.start');
+            Route::post('/pos/shift/change', [PosController::class, 'changeShift'])->name('pos.shift.change');
             Route::post('/pos/shift/close', [PosController::class, 'closeShift'])->name('pos.shift.close');
             Route::post('/pos/checkout', [PosController::class, 'checkout'])->name('pos.checkout');
             Route::get('/cashier-shifts', [CashierShiftController::class, 'index'])->name('cashier-shifts');
@@ -140,6 +141,7 @@ Route::middleware('auth:web,sanctum')->group(function () {
             Route::get('/reports', [ReportController::class, 'index'])->name('reports');
             Route::get('/reports/journal', [ReportController::class, 'journal'])->name('reports.journal');
             Route::get('/reports/download', [ReportController::class, 'download'])->name('reports.download');
+            Route::get('/reports/excel', [ReportController::class, 'downloadExcel'])->name('reports.excel');
             Route::get('/reports/financial/download', [ReportController::class, 'downloadFinancial'])->name('reports.financial.download');
             Route::get('/reports/profit-loss/download', [ReportController::class, 'downloadProfitLoss'])->name('reports.profit-loss.download');
         });

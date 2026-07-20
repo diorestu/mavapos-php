@@ -44,6 +44,10 @@ test('kasir dapat mencatat pemberian gratis dan stok tetap berkurang', function 
         'total' => 0,
         'paid_amount' => 0,
     ]);
+    $this->assertDatabaseHas('customers', [
+        'name' => 'Dina Creator',
+        'status' => 'aktif',
+    ]);
 
     $this->get(route('sales'))
         ->assertOk()

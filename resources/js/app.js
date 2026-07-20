@@ -1852,11 +1852,15 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     showMobileCart: false,
     startModal: !initialShift && !blockingShift,
     closeModal: false,
+    changeModal: false,
     openingCashAmount: '',
     validatedCashAmount: '',
     validatedCardAmount: '',
     openingNote: '',
     companionStaffIds: [],
+    changeCompanionStaffId: '',
+    openingChecklist: [],
+    closingChecklist: [],
     closingNote: '',
     shiftError: '',
     checkoutError: '',
@@ -1880,6 +1884,9 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     paymentMethod: 'cash',
     paidAmount: '',
     discount: '',
+    customerName: '',
+    customerPhone: '',
+    buyerNationality: '',
     printPreferences: {
         autoPrint: false,
         closeAfterPrint: false,
@@ -1995,7 +2002,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     },
 
     get canCheckout() {
-        return Boolean(this.shift) && !this.checkoutLoading && this.cart.length > 0 && (this.paymentMethod !== 'cash' || this.paid >= this.total);
+        return Boolean(this.shift) && !this.checkoutLoading && this.cart.length > 0 && Boolean(this.buyerNationality) && (this.paymentMethod !== 'cash' || this.paid >= this.total);
     },
 
     normalize(value) {
@@ -2894,6 +2901,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                     validated_card_amount: this.lastClosedShift ? this.numberFromInput(this.validatedCardAmount) : null,
                     opening_note: this.openingNote,
                     companion_staff_ids: this.companionStaffIds.map(Number),
+                    opening_checklist: this.openingChecklist,
                 }),
             });
 
@@ -2915,6 +2923,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             this.validatedCardAmount = '';
             this.openingNote = '';
             this.companionStaffIds = [];
+            this.openingChecklist = [];
             notify(payload.message || 'Shift kasir dimulai.');
         } finally {
             this.shiftLoading = false;
@@ -2935,6 +2944,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                 },
                 body: JSON.stringify({
                     closing_note: this.closingNote,
+                    closing_checklist: this.closingChecklist,
                 }),
             });
 
@@ -2947,12 +2957,14 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             }
 
             this.shiftRecap = payload.recap || null;
+            if (this.shiftRecap) this.shiftRecap.dailyBonus = payload.daily_bonus || null;
             this.shift = null;
             this.lastClosedShift = this.shiftRecap;
             this.closeModal = false;
             this.startModal = !this.shiftRecap;
             this.sopModal = false;
             this.closingNote = '';
+            this.closingChecklist = [];
             this.clearCart();
             notify(payload.message || 'Shift kasir ditutup.');
             if (this.shiftRecap) {
@@ -2961,6 +2973,24 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         } finally {
             this.shiftLoading = false;
         }
+    },
+
+    async changeShift() {
+        this.shiftError = '';
+        this.shiftLoading = true;
+        try {
+            const response = await fetch(this.endpoints.changeShift, {
+                method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' },
+                body: JSON.stringify({ companion_staff_ids: this.changeCompanionStaffId ? [Number(this.changeCompanionStaffId)] : [] }),
+            });
+            const payload = await response.json().catch(() => ({}));
+            if (!response.ok) { this.shiftError = payload.message || 'Pergantian shift gagal dicatat.'; notify(this.shiftError, 'error'); return; }
+            this.shift = payload.shift;
+            this.blockingShift = null;
+            this.changeModal = false;
+            this.changeCompanionStaffId = '';
+            notify(payload.message || 'Pergantian shift berhasil dicatat.');
+        } finally { this.shiftLoading = false; }
     },
 
     shiftRecapRupiah(value) { return window.shiftRecapPrinter.rupiah(value); },
@@ -2978,15 +3008,17 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             notify('Tambahkan produk dan mulai shift terlebih dahulu.', 'error');
             return;
         }
+        this.complimentaryRecipientName = this.customerName.trim();
         this.complimentaryConfirming = false;
         this.complimentaryModal = true;
     },
 
     proceedComplimentary() {
         if (!this.complimentaryRecipientName.trim()) {
-            notify('Nama penerima wajib diisi.', 'error');
+            notify('Nama pembeli wajib diisi.', 'error');
             return;
         }
+        this.customerName = this.complimentaryRecipientName.trim();
         this.complimentaryConfirming = true;
     },
 
@@ -3022,6 +3054,9 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                     paid_amount: isComplimentary ? 0 : (this.paymentMethod === 'cash' ? this.paid : this.total),
                     complimentary_category: isComplimentary ? this.complimentaryCategory : null,
                     complimentary_recipient_name: isComplimentary ? this.complimentaryRecipientName.trim() : null,
+                    customer_name: this.customerName.trim() || null,
+                    customer_phone: this.customerPhone.trim() || null,
+                    buyer_nationality: this.buyerNationality,
                 }),
             });
 
@@ -3043,6 +3078,9 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             this.receiptModal = Boolean(this.lastReceipt);
             this.cancelComplimentary();
             this.complimentaryRecipientName = '';
+            this.customerName = '';
+            this.customerPhone = '';
+            this.buyerNationality = '';
             if (this.lastReceipt && this.effectivePrintPreference('autoPrint', this.lastReceipt.printer?.auto_print)) {
                 setTimeout(() => this.printReceipt(), 150);
             }

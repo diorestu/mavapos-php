@@ -4,14 +4,15 @@ namespace App\Services;
 
 use App\Models\CashierShift;
 use App\Models\PosSale;
+use App\Models\PosSaleItem;
 use App\Models\StoreSetting;
 
 class CashierShiftSummaryService
 {
     public function refresh(CashierShift $shift): CashierShift
     {
-        $totals = PosSale::query()->active()->where('cashier_shift_id', $shift->id)
-            ->selectRaw('COUNT(*) as sales_count')
+        $salesQuery = PosSale::query()->active()->where('cashier_shift_id', $shift->id);
+        $totals = (clone $salesQuery)
             ->selectRaw('COALESCE(SUM(subtotal), 0) as gross_sales')
             ->selectRaw('COALESCE(SUM(discount), 0) as discount_total')
             ->selectRaw('COALESCE(SUM(total), 0) as net_sales')
@@ -19,9 +20,12 @@ class CashierShiftSummaryService
             ->selectRaw("COALESCE(SUM(CASE WHEN payment_method = 'qris' THEN total ELSE 0 END), 0) as qris_total")
             ->selectRaw("COALESCE(SUM(CASE WHEN payment_method = 'card' THEN total ELSE 0 END), 0) as card_total")
             ->first();
+        $salesCount = (int) PosSaleItem::query()
+            ->whereHas('sale', fn ($query) => $query->active()->where('cashier_shift_id', $shift->id))
+            ->sum('quantity') + (int) (clone $salesQuery)->doesntHave('items')->count();
 
         $shift->update([
-            'sales_count' => (int) $totals->sales_count, 'gross_sales' => (int) $totals->gross_sales,
+            'sales_count' => $salesCount, 'gross_sales' => (int) $totals->gross_sales,
             'discount_total' => (int) $totals->discount_total, 'net_sales' => (int) $totals->net_sales,
             'cash_total' => (int) $totals->cash_total, 'qris_total' => (int) $totals->qris_total,
             'card_total' => (int) $totals->card_total,

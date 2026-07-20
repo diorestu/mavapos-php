@@ -14,6 +14,7 @@
         @js($availableStaff),
         {
             startShift: @js(route('pos.shift.start')),
+            changeShift: @js(route('pos.shift.change')),
             closeShift: @js(route('pos.shift.close')),
             checkout: @js(route('pos.checkout')),
             displayPush: @js(route('display.push')),
@@ -59,14 +60,16 @@
                 <svg class="h-5 w-5 text-gray-400 transition-transform" :class="mobileShiftOpen && 'rotate-180'" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.7"><path d="M5 7.5L10 12.5L15 7.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
             </button>
             <div x-cloak x-show="mobileShiftOpen" class="border-t border-gray-100 pt-3 dark:border-gray-800 lg:hidden">
-                <template x-if="shift"><div class="flex flex-wrap items-center gap-2"><span class="rounded-full bg-success-50 px-2.5 py-1 text-xs font-semibold text-success-700 dark:bg-success-500/15 dark:text-success-400">Aktif</span><span class="text-sm font-semibold text-gray-800 dark:text-white/90" x-text="shift.cashier"></span><span class="text-xs text-gray-500 dark:text-gray-400">mulai <span x-text="shift.openedAt"></span> · <span x-text="shift.salesCount"></span> transaksi</span><span class="text-xs font-semibold tabular-nums text-gray-800 dark:text-white/90" x-text="formatRupiah(shift.netSales)"></span></div></template>
+                <template x-if="shift"><div class="flex flex-wrap items-center gap-2"><span class="rounded-full bg-success-50 px-2.5 py-1 text-xs font-semibold text-success-700 dark:bg-success-500/15 dark:text-success-400">Aktif</span><span class="text-sm font-semibold text-gray-800 dark:text-white/90" x-text="shift.cashier"></span><span class="text-xs text-gray-500 dark:text-gray-400">mulai <span x-text="shift.openedAt"></span> · <span x-text="shift.salesCount"></span> cup/item</span><span class="text-xs font-semibold tabular-nums text-gray-800 dark:text-white/90" x-text="formatRupiah(shift.netSales)"></span></div></template>
                 <template x-if="!shift && blockingShift"><p class="text-sm text-warning-700 dark:text-warning-300">Sesi <span class="font-semibold" x-text="blockingShift.cashier"></span> masih aktif. Akhiri sesi tersebut sebelum shift berikutnya.</p></template>
                 <template x-if="!shift && !blockingShift"><p class="text-sm text-gray-500 dark:text-gray-400">Belum mulai pekerjaan. Konfirmasi mulai shift sebelum transaksi.</p></template>
                 <div class="mt-3 flex flex-wrap gap-2">
                     <button type="button" @click="openCustomerDisplay()" class="inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-700 dark:border-gray-800 dark:text-gray-300">Display</button>
                     <button type="button" @click="sopModal = true" class="inline-flex h-9 items-center justify-center rounded-lg border border-gray-200 px-3 text-xs font-semibold text-gray-700 dark:border-gray-800 dark:text-gray-300">SOP Kasir</button>
-                    <button type="button" x-show="!shift && !blockingShift" @click="startModal = true" class="inline-flex h-9 items-center justify-center rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white">Mulai Shift</button>
-                    <button type="button" x-show="shift" @click="closeModal = true; sopModal = true" class="inline-flex h-9 items-center justify-center rounded-lg border border-error-200 px-3 text-xs font-semibold text-error-600 dark:border-error-500/30">Akhiri Sesi</button>
+                    <button type="button" x-show="!shift && !blockingShift" @click="startModal = true" class="inline-flex h-9 items-center justify-center rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white">Buka Kasir</button>
+                    <button type="button" x-show="blockingShift && !shift" @click="changeModal = true" class="inline-flex h-9 items-center justify-center rounded-lg bg-warning-500 px-3 text-xs font-semibold text-white">Ganti Shift</button>
+                    <button type="button" x-show="shift" @click="changeModal = true" class="inline-flex h-9 items-center justify-center rounded-lg border border-warning-200 px-3 text-xs font-semibold text-warning-700 dark:border-warning-500/30 dark:text-warning-300">Ganti Shift</button>
+                    <button type="button" x-show="shift" @click="closeModal = true; sopModal = true" class="inline-flex h-9 items-center justify-center rounded-lg border border-error-200 px-3 text-xs font-semibold text-error-600 dark:border-error-500/30">Tutup Kasir</button>
                 </div>
             </div>
             <div class="hidden lg:block">
@@ -76,7 +79,7 @@
                         <span class="rounded-full bg-success-50 px-2.5 py-1 text-xs font-semibold text-success-700 dark:bg-success-500/15 dark:text-success-400">Aktif</span>
                         <span class="text-sm font-semibold text-gray-800 dark:text-white/90" x-text="shift.cashier"></span>
                         <span class="text-xs text-gray-500 dark:text-gray-400">mulai <span x-text="shift.openedAt"></span></span>
-                        <span class="text-xs text-gray-500 dark:text-gray-400">· <span x-text="shift.salesCount"></span> transaksi</span>
+                        <span class="text-xs text-gray-500 dark:text-gray-400">· <span x-text="shift.salesCount"></span> cup/item</span>
                         <span class="text-xs font-semibold tabular-nums text-gray-800 dark:text-white/90" x-text="formatRupiah(shift.netSales)"></span>
                         <span class="text-xs text-gray-500 dark:text-gray-400">Kas awal <span class="font-semibold tabular-nums text-gray-800 dark:text-white/90" x-text="formatRupiah(shift.openingCashAmount || 0)"></span></span>
                     </div>
@@ -102,11 +105,13 @@
                 </button>
                 <button type="button" x-show="!shift && !blockingShift" @click="startModal = true"
                     class="inline-flex h-10 items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600">
-                    Mulai Shift
+                    Buka Kasir
                 </button>
+                <button type="button" x-show="blockingShift && !shift" @click="changeModal = true" class="inline-flex h-10 items-center justify-center rounded-lg bg-warning-500 px-4 text-sm font-semibold text-white">Ganti Shift</button>
+                <button type="button" x-show="shift" @click="changeModal = true" class="inline-flex h-10 items-center justify-center rounded-lg border border-warning-200 px-4 text-sm font-semibold text-warning-700 dark:border-warning-500/30 dark:text-warning-300">Ganti Shift</button>
                 <button type="button" x-show="shift" @click="closeModal = true; sopModal = true"
                     class="inline-flex h-10 items-center justify-center rounded-lg border border-error-200 px-4 text-sm font-semibold text-error-600 transition hover:bg-error-50 dark:border-error-500/30 dark:hover:bg-error-500/10">
-                    Akhiri Sesi
+                    Tutup Kasir
                 </button>
             </div>
         </section>
@@ -360,6 +365,14 @@
                     <span class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Catatan awal shift (opsional)</span>
                     <textarea x-model="openingNote" rows="3" class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-950 dark:text-white/90"></textarea>
                 </label>
+                <div class="mt-4 rounded-lg border border-brand-200 bg-brand-50/50 p-3 dark:border-brand-500/20 dark:bg-brand-500/10">
+                    <p class="text-xs font-semibold text-brand-800 dark:text-brand-200">Checklist pembukaan</p>
+                    <div class="mt-2 grid gap-2 text-xs text-gray-700 dark:text-gray-300">
+                        <label class="flex items-center gap-2"><input type="checkbox" value="cash" x-model="openingChecklist" class="rounded border-gray-300 text-brand-500"> Modal awal dan laci kas sudah dihitung</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" value="printer" x-model="openingChecklist" class="rounded border-gray-300 text-brand-500"> Printer, laci kas, dan pembayaran siap</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" value="stock" x-model="openingChecklist" class="rounded border-gray-300 text-brand-500"> Produk dan stok penting sudah diperiksa</label>
+                    </div>
+                </div>
                 <div x-show="availableStaff.length" class="mt-4 rounded-lg border border-gray-200 p-3 dark:border-gray-800">
                     <p class="text-xs font-semibold text-gray-700 dark:text-gray-300">Staff pendamping / asisten</p>
                     <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">Pilih staff yang bertugas bersama operator kasir hari ini.</p>
@@ -384,6 +397,21 @@
                         Tidak, kembali
                     </a>
                 </div>
+            </div>
+        </div>
+
+        <div x-cloak x-show="changeModal" x-transition.opacity.duration.200ms class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/50 p-4">
+            <div @click.outside="changeModal = false" class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
+                <h2 class="text-base font-semibold text-gray-900 dark:text-white">Ganti Shift</h2>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Nama petugas baru otomatis tercatat dari akun login. Checklist tidak diperlukan untuk pergantian shift.</p>
+                <div class="mt-4 rounded-lg bg-warning-50 p-3 text-xs text-warning-800 dark:bg-warning-500/10 dark:text-warning-200">
+                    Shift aktif: <span class="font-semibold" x-text="(shift || blockingShift)?.cashier || '-'"></span>
+                </div>
+                <label class="mt-4 block"><span class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Asisten/Rekan kerja (opsional)</span>
+                    <select x-model="changeCompanionStaffId" class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-950 dark:text-white/90"><option value="">Sendirian</option><template x-for="staff in availableStaff" :key="staff.id"><option :value="staff.id" x-text="staff.name"></option></template></select>
+                </label>
+                <p x-show="shiftError" class="mt-3 rounded-lg border border-error-200 bg-error-50 px-3 py-2 text-xs text-error-700" x-text="shiftError"></p>
+                <div class="mt-5 grid grid-cols-2 gap-2"><button type="button" @click="changeShift()" :disabled="shiftLoading" class="h-10 rounded-lg bg-warning-500 px-4 text-sm font-semibold text-white disabled:opacity-60"><span x-text="shiftLoading ? 'Mencatat...' : 'Simpan Pergantian'"></span></button><button type="button" @click="changeModal = false" class="h-10 rounded-lg border border-gray-200 px-4 text-sm font-semibold text-gray-700 dark:border-gray-800 dark:text-gray-300">Batal</button></div>
             </div>
         </div>
 
@@ -413,6 +441,14 @@
                     <span class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Catatan tutup kasir (opsional)</span>
                     <textarea x-model="closingNote" rows="3" class="w-full rounded-lg border border-gray-300 bg-transparent px-3 py-2 text-sm text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-950 dark:text-white/90"></textarea>
                 </label>
+                <div class="mt-4 rounded-lg border border-error-200 bg-error-50/50 p-3 dark:border-error-500/20 dark:bg-error-500/10">
+                    <p class="text-xs font-semibold text-error-800 dark:text-error-200">Checklist penutupan</p>
+                    <div class="mt-2 grid gap-2 text-xs text-gray-700 dark:text-gray-300">
+                        <label class="flex items-center gap-2"><input type="checkbox" value="transactions" x-model="closingChecklist" class="rounded border-gray-300 text-error-500"> Semua transaksi dan pembayaran sudah selesai</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" value="cash" x-model="closingChecklist" class="rounded border-gray-300 text-error-500"> Cash, QRIS, dan kartu sudah dicocokkan</label>
+                        <label class="flex items-center gap-2"><input type="checkbox" value="report" x-model="closingChecklist" class="rounded border-gray-300 text-error-500"> Laporan dan bukti pembayaran sudah dirapikan</label>
+                    </div>
+                </div>
                 <p x-show="shiftError" class="mt-3 rounded-lg border border-error-200 bg-error-50 px-3 py-2 text-xs text-error-700 dark:border-error-500/20 dark:bg-error-500/10 dark:text-error-300" x-text="shiftError"></p>
 
                 <div class="mt-5 grid gap-2 sm:grid-cols-2">

@@ -3,9 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Models\PosSale;
+use App\Models\PosSaleItem;
 use App\Models\User;
-use App\Services\TransactionVoidService;
 use App\Services\SalesBonusService;
+use App\Services\TransactionVoidService;
 use App\Support\BranchContext;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -57,6 +58,13 @@ class SaleController extends Controller
             ->selectRaw("COALESCE(SUM(CASE WHEN payment_method = 'qris' THEN total ELSE 0 END), 0) as qris_total")
             ->selectRaw("COALESCE(SUM(CASE WHEN payment_method = 'card' THEN total ELSE 0 END), 0) as card_total")
             ->first();
+        $summarySaleIds = (clone $baseQuery)->active()->pluck('id');
+        $soldUnits = (int) PosSaleItem::query()->whereIn('pos_sale_id', $summarySaleIds)->sum('quantity')
+            + (int) PosSale::query()->whereIn('id', $summarySaleIds)->doesntHave('items')->count();
+        $buyerNationalityCounts = PosSale::query()->whereIn('id', $summarySaleIds)
+            ->selectRaw('buyer_nationality, COUNT(*) as buyer_count')
+            ->groupBy('buyer_nationality')
+            ->pluck('buyer_count', 'buyer_nationality');
 
         $sales = $baseQuery
             ->latest('sold_at')
@@ -67,6 +75,7 @@ class SaleController extends Controller
         $bonus['staff'] = User::query()->whereIn('id', $bonus['staffIds'])->orderBy('name')->get(['id', 'name']);
         $bonus['staffBreakdown'] = collect($bonus['staffBreakdown'])->map(function (array $row) use ($bonus): array {
             $row['name'] = $bonus['staff']->firstWhere('id', $row['userId'])?->name ?? 'Staff';
+
             return $row;
         })->values();
 
@@ -85,13 +94,15 @@ class SaleController extends Controller
                 'search' => $validated['search'] ?? '',
             ],
             'summary' => [
-                'sales_count' => (int) $summary->sales_count,
+                'sales_count' => $soldUnits,
                 'gross_sales' => (int) $summary->gross_sales,
                 'discount_total' => (int) $summary->discount_total,
                 'net_sales' => (int) $summary->net_sales,
                 'cash_total' => (int) $summary->cash_total,
                 'qris_total' => (int) $summary->qris_total,
                 'card_total' => (int) $summary->card_total,
+                'local_buyers' => (int) ($buyerNationalityCounts->get('local') ?? 0),
+                'foreigner_buyers' => (int) ($buyerNationalityCounts->get('foreigner') ?? 0),
             ],
             'bonus' => $bonus,
         ]);

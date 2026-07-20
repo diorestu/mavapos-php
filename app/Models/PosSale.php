@@ -13,6 +13,8 @@ class PosSale extends Model
         'cashier_shift_id',
         'branch_id',
         'user_id',
+        'customer_id',
+        'buyer_nationality',
         'invoice_number',
         'payment_method',
         'complimentary_category',
@@ -56,6 +58,11 @@ class PosSale extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
     }
 
     public function items(): HasMany

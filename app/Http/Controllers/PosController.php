@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CashierShift;
+use App\Models\Customer;
 use App\Models\PosSale;
 use App\Models\Product;
 use App\Models\ProductCategory;
@@ -13,6 +14,7 @@ use App\Models\StockMovement;
 use App\Models\StoreSetting;
 use App\Models\User;
 use App\Services\CashierShiftSummaryService;
+use App\Services\SalesBonusService;
 use App\Support\BranchContext;
 use App\Support\BranchInventoryManager;
 use Illuminate\Http\JsonResponse;
@@ -101,6 +103,8 @@ class PosController extends Controller
             'opening_note' => ['nullable', 'string', 'max:1000'],
             'companion_staff_ids' => ['nullable', 'array', 'max:20'],
             'companion_staff_ids.*' => ['integer', 'distinct', 'exists:users,id'],
+            'opening_checklist' => ['nullable', 'array'],
+            'opening_checklist.*' => ['string', 'max:100'],
         ]);
         $ownerId = auth()->user()->tenantOwnerId();
         $companionIds = User::query()->where('tenant_owner_id', $ownerId)->whereKeyNot(auth()->id())->whereIn('id', $validated['companion_staff_ids'] ?? [])->pluck('id')->values()->all();
@@ -134,7 +138,7 @@ class PosController extends Controller
             $validatedCardAmount = $validated['validated_card_amount'] ?? null;
             $handoverValidatedAt = null;
 
-            if ($previousShift) {
+            if ($previousShift && $previousShift->closed_at?->isToday()) {
                 $previousShift = app(CashierShiftSummaryService::class)->refresh($previousShift);
                 $expectedCash = $previousShift->opening_cash_amount + $previousShift->cash_total;
                 $expectedCard = $previousShift->card_total;
@@ -161,6 +165,7 @@ class PosController extends Controller
                 'validated_card_amount' => $validatedCardAmount,
                 'handover_validated_at' => $handoverValidatedAt,
                 'opening_note' => $validated['opening_note'] ?? null,
+                'opening_checklist' => $validated['opening_checklist'] ?? null,
                 'companion_staff_ids' => $companionIds,
             ])->load(['user', 'branch']);
         });
@@ -171,10 +176,67 @@ class PosController extends Controller
         ]);
     }
 
+    public function changeShift(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'companion_staff_ids' => ['nullable', 'array', 'max:20'],
+            'companion_staff_ids.*' => ['integer', 'distinct', 'exists:users,id'],
+        ]);
+        $branchId = app(BranchContext::class)->activeId();
+        $ownerId = auth()->user()->tenantOwnerId();
+        $companionIds = User::query()
+            ->where('tenant_owner_id', $ownerId)
+            ->whereKeyNot(auth()->id())
+            ->whereIn('id', $validated['companion_staff_ids'] ?? [])
+            ->pluck('id')->values()->all();
+
+        $shift = DB::transaction(function () use ($branchId, $companionIds): CashierShift {
+            $previousShift = CashierShift::query()
+                ->where('branch_id', $branchId)
+                ->whereNull('closed_at')
+                ->lockForUpdate()
+                ->latest('opened_at')
+                ->first();
+
+            if (! $previousShift) {
+                abort(422, 'Tidak ada shift aktif yang dapat digantikan.');
+            }
+
+            if ($previousShift->user_id === auth()->id()) {
+                abort(422, 'Gunakan Buka Kasir untuk memulai shift Anda.');
+            }
+
+            app(CashierShiftSummaryService::class)->refresh($previousShift);
+            $previousShift->update([
+                'closed_at' => now(),
+                'closing_note' => 'Pergantian shift ke '.auth()->user()->name.'.',
+            ]);
+
+            return CashierShift::query()->create([
+                'user_id' => auth()->id(),
+                'branch_id' => $branchId,
+                'previous_cashier_shift_id' => $previousShift->id,
+                'opened_at' => now(),
+                'opening_cash_amount' => $previousShift->opening_cash_amount + $previousShift->cash_total,
+                'validated_cash_amount' => $previousShift->opening_cash_amount + $previousShift->cash_total,
+                'validated_card_amount' => $previousShift->card_total,
+                'handover_validated_at' => now(),
+                'companion_staff_ids' => $companionIds,
+            ])->load(['user', 'branch']);
+        });
+
+        return response()->json([
+            'message' => 'Pergantian shift berhasil dicatat.',
+            'shift' => $this->shiftPayload($shift),
+        ]);
+    }
+
     public function closeShift(Request $request): JsonResponse
     {
         $validated = $request->validate([
             'closing_note' => ['nullable', 'string', 'max:1000'],
+            'closing_checklist' => ['nullable', 'array'],
+            'closing_checklist.*' => ['string', 'max:100'],
         ]);
         $branchId = app(BranchContext::class)->activeId();
 
@@ -193,15 +255,23 @@ class PosController extends Controller
             $shift->update([
                 'closed_at' => now(),
                 'closing_note' => $validated['closing_note'] ?? null,
+                'closing_checklist' => $validated['closing_checklist'] ?? null,
             ]);
 
             return app(CashierShiftSummaryService::class)->refresh($shift)->load(['user', 'branch']);
         });
 
+        $dailyBonus = app(SalesBonusService::class)->forBranchDay($branchId, now());
+        $dailyBonus['staff'] = User::query()->whereIn('id', $dailyBonus['staffIds'])->orderBy('name')->get(['id', 'name'])->map(fn (User $user): array => [
+            'id' => $user->id,
+            'name' => $user->name,
+        ])->values()->all();
+
         return response()->json([
             'message' => 'Shift kasir ditutup.',
             'shift' => $this->shiftPayload($shift),
             'recap' => app(CashierShiftSummaryService::class)->recap($shift),
+            'daily_bonus' => $dailyBonus,
         ]);
     }
 
@@ -216,6 +286,9 @@ class PosController extends Controller
             'complimentary_recipient_name' => ['required_if:payment_method,free', 'nullable', 'string', 'max:150'],
             'discount' => ['nullable', 'integer', 'min:0'],
             'paid_amount' => ['nullable', 'integer', 'min:0'],
+            'customer_name' => ['nullable', 'string', 'max:150'],
+            'customer_phone' => ['nullable', 'string', 'max:30'],
+            'buyer_nationality' => ['nullable', 'in:local,foreigner'],
         ]);
         $branchId = app(BranchContext::class)->activeId();
 
@@ -267,10 +340,18 @@ class PosController extends Controller
                 abort(422, 'Uang diterima kurang dari total transaksi.');
             }
 
+            $customerData = $validated;
+            if ($isComplimentary && empty($customerData['customer_name'])) {
+                $customerData['customer_name'] = $validated['complimentary_recipient_name'];
+            }
+            $customer = $this->saveCustomer($customerData);
+
             $sale = PosSale::query()->create([
                 'cashier_shift_id' => $shift->id,
                 'branch_id' => $branchId,
                 'user_id' => auth()->id(),
+                'customer_id' => $customer?->id,
+                'buyer_nationality' => $validated['buyer_nationality'] ?? null,
                 'invoice_number' => $this->nextInvoiceNumber(),
                 'payment_method' => $validated['payment_method'],
                 'complimentary_category' => $isComplimentary ? $validated['complimentary_category'] : null,
@@ -305,24 +386,26 @@ class PosController extends Controller
                     'line_total' => $line['line_total'],
                 ]);
 
-                if ($sellable['stock_mode'] === 'inventory') StockMovement::query()->create([
-                    'product_id' => $sellable['product_id'],
-                    'product_variant_id' => $sellable['variant_id'],
-                    'type' => 'out',
-                    'quantity' => $quantity,
-                    'stock_before' => $stockBefore,
-                    'stock_after' => $stockBefore - $quantity,
-                    'reference' => $sale->invoice_number,
-                    'note' => 'Penjualan POS oleh '.auth()->user()->name,
-                    'occurred_at' => $sale->sold_at,
-                ]);
+                if ($sellable['stock_mode'] === 'inventory') {
+                    StockMovement::query()->create([
+                        'product_id' => $sellable['product_id'],
+                        'product_variant_id' => $sellable['variant_id'],
+                        'type' => 'out',
+                        'quantity' => $quantity,
+                        'stock_before' => $stockBefore,
+                        'stock_after' => $stockBefore - $quantity,
+                        'reference' => $sale->invoice_number,
+                        'note' => 'Penjualan POS oleh '.auth()->user()->name,
+                        'occurred_at' => $sale->sold_at,
+                    ]);
+                }
 
                 $this->consumeRawMaterials($sale, $sellable['product_id'], $quantity);
             }
 
             app(CashierShiftSummaryService::class)->refresh($shift);
 
-            return $sale->load('items', 'shift.user');
+            return $sale->load('items', 'shift.user', 'customer');
         });
 
         $setting = StoreSetting::current();
@@ -330,6 +413,7 @@ class PosController extends Controller
         return response()->json([
             'message' => 'Transaksi '.$sale->invoice_number.' berhasil diselesaikan.',
             'sale' => [
+                'id' => $sale->id,
                 'invoice_number' => $sale->invoice_number,
                 'store' => [
                     'name' => $setting->store_name,
@@ -354,8 +438,13 @@ class PosController extends Controller
                     'bluetooth_characteristic_uuid' => $setting->printer_bluetooth_characteristic_uuid,
                 ],
                 'cashier' => $sale->shift?->user?->name,
+                'customer' => $sale->customer ? [
+                    'name' => $sale->customer->name,
+                    'phone' => $sale->customer->phone,
+                ] : null,
                 'sold_at' => $sale->sold_at?->timezone('Asia/Makassar')->format('d M Y H:i'),
                 'payment_method' => $sale->payment_method,
+                'buyer_nationality' => $sale->buyer_nationality,
                 'complimentary_category' => $sale->complimentary_category,
                 'complimentary_recipient_name' => $sale->complimentary_recipient_name,
                 'subtotal' => $sale->subtotal,
@@ -373,6 +462,32 @@ class PosController extends Controller
             ],
             'shift' => $this->shiftPayload($sale->shift),
             'items' => $this->itemsPayload($branchId),
+        ]);
+    }
+
+    private function saveCustomer(array $validated): ?Customer
+    {
+        $name = trim((string) ($validated['customer_name'] ?? ''));
+        $phone = trim((string) ($validated['customer_phone'] ?? ''));
+
+        if ($name === '' && $phone === '') {
+            return null;
+        }
+
+        if ($phone !== '') {
+            $customer = Customer::query()->where('phone', $phone)->first();
+            if ($customer) {
+                $customer->update(['name' => $name !== '' ? $name : $customer->name]);
+
+                return $customer;
+            }
+        }
+
+        return Customer::query()->create([
+            'code' => 'CUST-'.strtoupper(Str::random(8)),
+            'name' => $name !== '' ? $name : 'Pelanggan Umum',
+            'phone' => $phone !== '' ? $phone : null,
+            'status' => 'aktif',
         ]);
     }
 

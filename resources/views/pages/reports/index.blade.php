@@ -43,6 +43,9 @@
                 <a href="{{ route('reports.download', request()->query()) }}" class="self-end inline-flex h-9 items-center justify-center rounded-lg bg-brand-500 px-3 text-xs font-semibold text-white shadow-theme-xs transition hover:bg-brand-600">
                     Unduh PDF
                 </a>
+                <a href="{{ route('reports.excel', request()->query()) }}" class="self-end inline-flex h-9 items-center justify-center rounded-lg border border-success-200 px-3 text-xs font-semibold text-success-700 transition hover:bg-success-50 dark:border-success-500/30 dark:text-success-400 dark:hover:bg-success-500/10">
+                    Export Excel
+                </a>
                 <a href="{{ route('reports.journal', request()->query()) }}" class="self-end inline-flex h-9 items-center justify-center rounded-lg border border-brand-200 px-3 text-xs font-semibold text-brand-600 transition hover:bg-brand-50 dark:border-brand-500/30 dark:hover:bg-brand-500/10">
                     Jurnal Akunting
                 </a>

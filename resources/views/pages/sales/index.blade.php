@@ -102,9 +102,9 @@
 
         <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
-                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Total Penjualan</p>
+                <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Cup / Item Terjual</p>
                 <p class="mt-2 text-xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ $rupiah($summary['net_sales']) }}</p>
-                <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">{{ number_format($summary['sales_count'], 0, ',', '.') }} transaksi dalam periode</p>
+                <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">{{ number_format($summary['sales_count'], 0, ',', '.') }} cup/item dalam periode</p>
             </div>
             <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Penjualan Kotor</p>
@@ -123,14 +123,27 @@
             </div>
         </section>
 
+        <section class="grid gap-3 sm:grid-cols-2">
+            <div class="rounded-xl border border-brand-200 bg-brand-50/50 p-4 dark:border-brand-500/20 dark:bg-brand-500/10">
+                <p class="text-xs font-medium text-brand-700 dark:text-brand-300">Pembeli Local</p>
+                <p class="mt-2 text-xl font-semibold tabular-nums text-brand-900 dark:text-brand-100">{{ number_format($summary['local_buyers'], 0, ',', '.') }}</p>
+                <p class="mt-1 text-[11px] text-brand-700 dark:text-brand-300">Transaksi pembeli lokal dalam periode</p>
+            </div>
+            <div class="rounded-xl border border-warning-200 bg-warning-50/50 p-4 dark:border-warning-500/20 dark:bg-warning-500/10">
+                <p class="text-xs font-medium text-warning-700 dark:text-warning-300">Pembeli Foreigner</p>
+                <p class="mt-2 text-xl font-semibold tabular-nums text-warning-900 dark:text-warning-100">{{ number_format($summary['foreigner_buyers'], 0, ',', '.') }}</p>
+                <p class="mt-1 text-[11px] text-warning-700 dark:text-warning-300">Transaksi turis asing dalam periode</p>
+            </div>
+        </section>
+
         <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
             <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
                 <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Capaian per Orang</h2>
-                <p class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">Jumlah transaksi pribadi dan bonus berdasarkan target harian cabang.</p>
+                <p class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">Jumlah cup/item pribadi dan bonus berdasarkan target harian cabang.</p>
             </div>
             <div class="max-w-full overflow-x-auto">
                 <table class="w-full min-w-[620px]">
-                    <thead><tr class="bg-gray-50 text-left dark:bg-gray-900/40"><th class="px-4 py-2 text-[11px] uppercase text-gray-500">Staff</th><th class="px-4 py-2 text-right text-[11px] uppercase text-gray-500">Transaksi Pribadi</th><th class="px-4 py-2 text-center text-[11px] uppercase text-gray-500">Status</th><th class="px-4 py-2 text-right text-[11px] uppercase text-gray-500">Bonus</th></tr></thead>
+                    <thead><tr class="bg-gray-50 text-left dark:bg-gray-900/40"><th class="px-4 py-2 text-[11px] uppercase text-gray-500">Staff</th><th class="px-4 py-2 text-right text-[11px] uppercase text-gray-500">Cup / Item</th><th class="px-4 py-2 text-center text-[11px] uppercase text-gray-500">Status</th><th class="px-4 py-2 text-right text-[11px] uppercase text-gray-500">Bonus</th></tr></thead>
                     <tbody>
                         @forelse ($bonus['staffBreakdown'] as $staffRow)
                             <tr class="border-t border-gray-100 dark:border-gray-800"><td class="px-4 py-3 text-sm font-semibold text-gray-800 dark:text-white/90">{{ $staffRow['name'] }}</td><td class="px-4 py-3 text-right text-sm tabular-nums text-gray-700 dark:text-gray-300">{{ number_format($staffRow['salesCount'], 0, ',', '.') }}</td><td class="px-4 py-3 text-center"><span class="rounded-full px-2.5 py-1 text-[11px] font-semibold {{ $bonus['targetReached'] ? 'bg-success-50 text-success-700 dark:bg-success-500/15 dark:text-success-300' : 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300' }}">{{ $bonus['targetReached'] ? 'Target Tercapai' : 'Belum Ada Bonus' }}</span></td><td class="px-4 py-3 text-right text-sm font-semibold tabular-nums text-gray-800 dark:text-white/90">{{ $rupiah($staffRow['bonus']) }}</td></tr>
@@ -146,7 +159,7 @@
             <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                     <p class="text-xs font-semibold uppercase {{ $bonus['targetReached'] ? 'text-success-700 dark:text-success-300' : 'text-gray-500 dark:text-gray-400' }}">{{ $bonus['targetReached'] ? 'Target Tercapai' : 'Bonus Staff Harian' }}</p>
-                    <p class="mt-1 text-sm text-gray-700 dark:text-gray-300">{{ number_format($bonus['salesCount'], 0, ',', '.') }} transaksi aktif hari ini · {{ number_format($bonus['staffCount'], 0, ',', '.') }} staff bertugas</p>
+                    <p class="mt-1 text-sm text-gray-700 dark:text-gray-300">{{ number_format($bonus['salesCount'], 0, ',', '.') }} cup/item terjual hari ini · {{ number_format($bonus['staffCount'], 0, ',', '.') }} staff bertugas</p>
                     @if ($bonus['staff']->isNotEmpty())
                         <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Berhak menerima: {{ $bonus['staff']->pluck('name')->join(', ') }}</p>
                     @endif

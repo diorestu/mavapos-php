@@ -44,6 +44,24 @@ class ReportController extends Controller
             ->download($fileName);
     }
 
+    public function downloadExcel(Request $request): Response
+    {
+        $data = $this->reportData($request);
+        $fileName = sprintf(
+            'laporan-%s-sampai-%s.xls',
+            $data['period']['from']->format('Y-m-d'),
+            $data['period']['to']->format('Y-m-d'),
+        );
+
+        return response()->view('pages.reports.excel', [
+            'title' => 'Laporan MavaPOS',
+            ...$data,
+        ], 200, [
+            'Content-Type' => 'application/vnd.ms-excel',
+            'Content-Disposition' => 'attachment; filename="'.$fileName.'"',
+        ]);
+    }
+
     public function journal(Request $request): View
     {
         $validated = $request->validate([
