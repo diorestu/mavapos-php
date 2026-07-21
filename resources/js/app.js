@@ -1884,6 +1884,8 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     paymentMethod: 'cash',
     paidAmount: '',
     discount: '',
+    loyaltyReward: '',
+    loyaltyStamp: false,
     customerName: '',
     customerPhone: '',
     buyerNationality: '',
@@ -1974,6 +1976,12 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     },
 
     get discountValue() {
+        if (this.loyaltyReward === 'fifty_percent') {
+            return Math.floor(this.subtotal / 2);
+        }
+        if (this.loyaltyReward === 'free_cup') {
+            return Math.min(...this.cart.map((item) => Number(item.price)));
+        }
         return Math.min(this.discountNumber, this.subtotal);
     },
 
@@ -2002,7 +2010,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     },
 
     get canCheckout() {
-        return Boolean(this.shift) && !this.checkoutLoading && this.cart.length > 0 && Boolean(this.buyerNationality) && (this.paymentMethod !== 'cash' || this.paid >= this.total);
+        return Boolean(this.shift) && !this.checkoutLoading && this.cart.length > 0 && Boolean(this.buyerNationality) && (!(this.loyaltyStamp || this.loyaltyReward) || Boolean(this.customerPhone.trim())) && (this.paymentMethod !== 'cash' || this.paid >= this.total);
     },
 
     normalize(value) {
@@ -2206,6 +2214,8 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     clearCart() {
         this.cart = [];
         this.discount = '';
+        this.loyaltyReward = '';
+        this.loyaltyStamp = false;
         this.paidAmount = '';
         this.pushDisplayState('cart');
     },
@@ -3057,6 +3067,8 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                     customer_name: this.customerName.trim() || null,
                     customer_phone: this.customerPhone.trim() || null,
                     buyer_nationality: this.buyerNationality,
+                    loyalty_reward: isComplimentary ? null : (this.loyaltyReward || null),
+                    loyalty_stamp: isComplimentary ? false : this.loyaltyStamp,
                 }),
             });
 

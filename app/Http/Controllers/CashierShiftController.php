@@ -109,6 +109,7 @@ class CashierShiftController extends Controller
 
         DB::transaction(function () use ($cashierShift, $validated, $branchId, $companionIds): void {
             $shift = CashierShift::query()->whereKey($cashierShift->id)->where('branch_id', $branchId)->lockForUpdate()->firstOrFail();
+            abort_if(! $shift->closed_at, 422, 'Kas awal hanya dapat dikoreksi setelah kasir menutup shift.');
             $shift->update([
                 'opening_cash_amount' => $validated['opening_cash_amount'],
                 'opened_at' => $validated['opened_at'], 'closed_at' => $validated['closed_at'] ?? null,

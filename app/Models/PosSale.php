@@ -15,6 +15,7 @@ class PosSale extends Model
         'user_id',
         'customer_id',
         'buyer_nationality',
+        'loyalty_reward',
         'invoice_number',
         'payment_method',
         'complimentary_category',

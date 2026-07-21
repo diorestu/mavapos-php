@@ -2,13 +2,17 @@
 
 namespace App\Models;
 
+use App\Traits\TenantScoped;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Support\Carbon;
 
 class Billing extends Model
 {
+    use TenantScoped;
+
     protected $fillable = [
+        'user_id',
         'invoice_number',
         'customer_id',
         'customer_name',

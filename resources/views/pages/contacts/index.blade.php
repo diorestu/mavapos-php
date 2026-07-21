@@ -38,6 +38,26 @@
             </button>
         </div>
 
+        @if ($entityName === 'customer')
+            <section class="grid gap-3 sm:grid-cols-3">
+                <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+                    <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Statistik Loyalitas</p>
+                    <p class="mt-2 text-xl font-semibold tabular-nums text-gray-800 dark:text-white"><span>{{ number_format($loyaltyStats['stamps'], 0, ',', '.') }}</span> stempel</p>
+                    <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">Total stempel aktif pelanggan</p>
+                </div>
+                <div class="rounded-xl border border-warning-200 bg-warning-50/60 p-4 dark:border-warning-500/20 dark:bg-warning-500/10">
+                    <p class="text-xs font-medium text-warning-700 dark:text-warning-300">Reward Diskon 50%</p>
+                    <p class="mt-2 text-xl font-semibold tabular-nums text-warning-800 dark:text-warning-200">{{ number_format($loyaltyStats['fiftyRewardCustomers'], 0, ',', '.') }} pelanggan</p>
+                    <p class="mt-1 text-[11px] text-warning-700/80 dark:text-warning-300/80">Siap dipakai di pembelian berikutnya</p>
+                </div>
+                <div class="rounded-xl border border-success-200 bg-success-50/60 p-4 dark:border-success-500/20 dark:bg-success-500/10">
+                    <p class="text-xs font-medium text-success-700 dark:text-success-300">Reward Gratis 1 Cup</p>
+                    <p class="mt-2 text-xl font-semibold tabular-nums text-success-800 dark:text-success-200">{{ number_format($loyaltyStats['freeCupRewardCustomers'], 0, ',', '.') }} pelanggan</p>
+                    <p class="mt-1 text-[11px] text-success-700/80 dark:text-success-300/80">Siap dipakai di pembelian berikutnya</p>
+                </div>
+            </section>
+        @endif
+
         <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
             <form method="GET" action="{{ url($routePath) }}" class="flex flex-col gap-3 border-b border-gray-100 px-3 py-3 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between sm:px-4">
                 <div class="relative w-full sm:max-w-[30%]">
@@ -94,6 +114,11 @@
                             <th class="px-4 py-2.5 text-left">
                                 <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Email</p>
                             </th>
+                            @if ($entityName === 'customer')
+                                <th class="px-4 py-2.5 text-left">
+                                    <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Loyalitas</p>
+                                </th>
+                            @endif
                             <th class="px-4 py-2.5 text-center">
                                 <p class="text-[11px] font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Status</p>
                             </th>
@@ -121,6 +146,16 @@
                                 <td class="px-4 py-2 text-center text-[12px] font-medium text-gray-500 dark:text-gray-400" x-text="item.code"></td>
                                 <td class="px-4 py-2 text-[12px] text-gray-500 dark:text-gray-400" x-text="item.phone || '-'"></td>
                                 <td class="px-4 py-2 text-[12px] text-gray-500 dark:text-gray-400" x-text="item.email || '-'"></td>
+                                @if ($entityName === 'customer')
+                                    <td class="px-4 py-2">
+                                        <p class="text-xs font-semibold text-gray-800 dark:text-white"><span x-text="item.loyaltyStamps || 0"></span> stempel</p>
+                                        <div class="mt-1 flex flex-wrap gap-1">
+                                            <span x-show="item.loyaltyFiftyAvailable" class="rounded-full bg-warning-50 px-1.5 py-0.5 text-[10px] font-semibold text-warning-700 dark:bg-warning-500/15 dark:text-warning-300">Diskon 50%</span>
+                                            <span x-show="item.loyaltyFreeCupAvailable" class="rounded-full bg-success-50 px-1.5 py-0.5 text-[10px] font-semibold text-success-700 dark:bg-success-500/15 dark:text-success-300">Gratis 1 cup</span>
+                                            <span x-show="!item.loyaltyFiftyAvailable && !item.loyaltyFreeCupAvailable" class="text-[10px] text-gray-400">Belum ada reward</span>
+                                        </div>
+                                    </td>
+                                @endif
                                 <td class="px-4 py-2 text-center">
                                     <span class="rounded-full px-2 py-0.5 text-[11px] font-semibold" :class="statusClass(item.status)" x-text="item.status"></span>
                                 </td>
@@ -147,7 +182,7 @@
                             </tr>
                         </template>
                         <tr x-show="filteredItems.length === 0" class="border-b border-gray-100 last:border-0 dark:border-gray-800">
-                            <td colspan="6" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
+                            <td colspan="{{ $entityName === 'customer' ? 7 : 6 }}" class="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                                 Tidak ada data {{ $entityPlural }} yang cocok dengan filter.
                             </td>
                         </tr>
@@ -377,6 +412,13 @@
                         <p class="text-theme-xs font-medium uppercase text-gray-500 dark:text-gray-400">Email</p>
                         <p class="mt-2 truncate text-theme-sm font-semibold text-gray-800 dark:text-white/90" x-text="detailItem?.email || '-'"></p>
                     </div>
+                    @if ($entityName === 'customer')
+                        <div class="rounded-xl border border-brand-200 bg-brand-50/40 p-4 dark:border-brand-500/20 dark:bg-brand-500/10">
+                            <p class="text-theme-xs font-medium uppercase text-brand-600 dark:text-brand-300">Kartu Loyalitas</p>
+                            <p class="mt-2 text-theme-sm font-semibold text-gray-800 dark:text-white/90"><span x-text="detailItem?.loyaltyStamps || 0"></span> stempel</p>
+                            <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400" x-text="detailItem?.loyaltyFreeCupAvailable ? 'Reward gratis 1 cup tersedia' : (detailItem?.loyaltyFiftyAvailable ? 'Reward diskon 50% tersedia' : 'Belum ada reward tersedia')"></p>
+                        </div>
+                    @endif
                 </div>
 
                 <div class="mt-4 rounded-xl border border-gray-200 p-4 dark:border-gray-800">

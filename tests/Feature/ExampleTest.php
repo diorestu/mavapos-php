@@ -1,11 +1,15 @@
 <?php
 
 use App\Models\Billing;
+use App\Models\CashierShift;
 use App\Models\Product;
 use App\Models\ProductCategory;
+use App\Models\ProductVariant;
 use App\Models\RawMaterial;
 use App\Models\StoreSetting;
 use App\Models\User;
+use App\Support\BranchContext;
+use App\Support\BranchInventoryManager;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -874,14 +878,14 @@ test('pengguna dapat update dan mencatat pergerakan stok varian produk', functio
         'name' => 'Product Parent',
         'sell_price' => 10000,
     ]);
-    $variant = \App\Models\ProductVariant::query()->create([
+    $variant = ProductVariant::query()->create([
         'product_id' => $product->id,
         'name' => 'Ukuran L',
         'sku' => 'VAR-SKU',
         'sell_price' => 10000,
         'is_active' => true,
     ]);
-    $variantWithoutSku = \App\Models\ProductVariant::query()->create([
+    $variantWithoutSku = ProductVariant::query()->create([
         'product_id' => $product->id,
         'name' => 'Ukuran XL',
         'sku' => null,
@@ -889,8 +893,8 @@ test('pengguna dapat update dan mencatat pergerakan stok varian produk', functio
         'is_active' => true,
     ]);
 
-    $branchId = app(\App\Support\BranchContext::class)->activeId();
-    app(\App\Support\BranchInventoryManager::class)->initializeBranch($branchId);
+    $branchId = app(BranchContext::class)->activeId();
+    app(BranchInventoryManager::class)->initializeBranch($branchId);
 
     // Update variant stock with custom SKU
     $this->actingAs($user)
@@ -903,9 +907,9 @@ test('pengguna dapat update dan mencatat pergerakan stok varian produk', functio
         ->assertJsonPath('item.variants.0.minStock', 5);
 
     // Update variant stock with fallback SKU (PARENT-SKU-[id])
-    $fallbackSku = 'PARENT-SKU-' . $variantWithoutSku->id;
+    $fallbackSku = 'PARENT-SKU-'.$variantWithoutSku->id;
     $this->actingAs($user)
-        ->patchJson('/inventory/' . $fallbackSku, [
+        ->patchJson('/inventory/'.$fallbackSku, [
             'stock' => 80,
             'minStock' => 8,
         ])
@@ -927,7 +931,7 @@ test('pengguna dapat update dan mencatat pergerakan stok varian produk', functio
 
     // Record variant stock out using fallback SKU
     $this->actingAs($user)
-        ->postJson('/inventory/' . $fallbackSku . '/out', [
+        ->postJson('/inventory/'.$fallbackSku.'/out', [
             'quantity' => 15,
             'reference' => 'REF-OUT',
             'note' => 'Penjualan XL',
@@ -1153,6 +1157,7 @@ test('form buat tagihan langganan hanya muncul pada masa renewal h-7 atau subscr
     $user = User::factory()->create();
 
     Billing::query()->create([
+        'user_id' => $user->id,
         'invoice_number' => 'INV-AKTIF-JAUH',
         'customer_name' => 'Mava Mart',
         'title' => 'Plus Plan - Bulanan',
@@ -1180,6 +1185,7 @@ test('form buat tagihan langganan hanya muncul pada masa renewal h-7 atau subscr
     Billing::query()->delete();
 
     Billing::query()->create([
+        'user_id' => $user->id,
         'invoice_number' => 'INV-AKTIF-H7',
         'customer_name' => 'Mava Mart',
         'title' => 'Plus Plan - Bulanan',
@@ -1759,8 +1765,8 @@ test('checkout kasir dengan varian menghitung harga varian sebagai add-on', func
     ]);
     $this->actingAs($user);
 
-    $branchId = app(\App\Support\BranchContext::class)->activeId();
-    
+    $branchId = app(BranchContext::class)->activeId();
+
     // Create product
     $product = Product::query()->create([
         'user_id' => $user->id,
@@ -1773,7 +1779,7 @@ test('checkout kasir dengan varian menghitung harga varian sebagai add-on', func
     ]);
 
     // Create variant
-    $variant = \App\Models\ProductVariant::query()->create([
+    $variant = ProductVariant::query()->create([
         'product_id' => $product->id,
         'name' => 'Varian Extra Shot',
         'sku' => 'KOPI-001-EX',
@@ -1784,14 +1790,14 @@ test('checkout kasir dengan varian menghitung harga varian sebagai add-on', func
     ]);
 
     // Initialize inventory
-    app(\App\Support\BranchInventoryManager::class)->initializeBranch($branchId);
-    
+    app(BranchInventoryManager::class)->initializeBranch($branchId);
+
     // Add stock to variant
-    $inventory = app(\App\Support\BranchInventoryManager::class)->forVariant($branchId, $variant);
+    $inventory = app(BranchInventoryManager::class)->forVariant($branchId, $variant);
     $inventory->update(['stock' => 10]);
 
     // Start Shift
-    $shift = \App\Models\CashierShift::query()->create([
+    $shift = CashierShift::query()->create([
         'user_id' => $user->id,
         'branch_id' => $branchId,
         'opening_cash_amount' => 50000,
@@ -1799,16 +1805,16 @@ test('checkout kasir dengan varian menghitung harga varian sebagai add-on', func
     ]);
 
     $this->postJson(route('pos.checkout'), [
-            'items' => [
-                [
-                    'id' => 'variant-' . $variant->id,
-                    'quantity' => 1,
-                ]
+        'items' => [
+            [
+                'id' => 'variant-'.$variant->id,
+                'quantity' => 1,
             ],
-            'payment_method' => 'cash',
-            'discount' => 0,
-            'paid_amount' => 19000,
-        ])
+        ],
+        'payment_method' => 'cash',
+        'discount' => 0,
+        'paid_amount' => 19000,
+    ])
         ->assertOk()
         ->assertJsonPath('sale.total', 19000)
         ->assertJsonPath('sale.items.0.name', 'Kopi Susu · Varian Extra Shot');
@@ -1819,48 +1825,48 @@ test('pengguna dapat mengelola developer token dan mengakses api', function () {
         'role' => 'owner',
         'trial_ends_at' => now()->addDays(14),
     ]);
-    
+
     // 1. Generate Token
     $response = $this->actingAs($user)
         ->postJson(route('settings.tokens.store'), [
             'name' => 'Test Token',
         ])
         ->assertOk();
-    
+
     $plainToken = $response->json('token');
     expect($plainToken)->not->toBeEmpty();
-    
+
     // 2. List Tokens
     $this->actingAs($user)
         ->getJson(route('settings.tokens.index'))
         ->assertOk()
         ->assertJsonCount(1)
         ->assertJsonPath('0.name', 'Test Token');
-        
+
     // Log out of the session so we test pure token auth in the next step
     $this->flushSession();
     auth()->forgetUser();
-        
+
     // 3. Access API with Token
-    $this->withHeader('Authorization', 'Bearer ' . $plainToken)
+    $this->withHeader('Authorization', 'Bearer '.$plainToken)
         ->getJson(route('pos'))
         ->assertOk()
         ->assertJsonStructure(['categories', 'items']);
-        
+
     // Log back in to revoke the token
     $this->actingAs($user);
-        
+
     // 4. Revoke Token
     $tokenId = $user->tokens()->first()->id;
     $this->deleteJson(route('settings.tokens.destroy', ['id' => $tokenId]))
         ->assertOk();
-        
+
     // Log out of the session again
     $this->flushSession();
     auth()->forgetUser();
-        
+
     // 5. Verify Revoked Token access is blocked
-    $this->withHeader('Authorization', 'Bearer ' . $plainToken)
+    $this->withHeader('Authorization', 'Bearer '.$plainToken)
         ->getJson(route('pos'))
         ->assertStatus(401);
 });

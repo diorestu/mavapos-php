@@ -125,7 +125,7 @@
                                 </td>
                                 @if ($canManageShift)
                                     <td class="px-4 py-3 text-right">
-                                        @if ($canEditShift)
+                                        @if ($canEditShift && $shift->closed_at)
                                         <details class="mb-2 text-left">
                                             <summary class="cursor-pointer text-xs font-semibold text-brand-600">Edit data shift</summary>
                                             <form method="POST" action="{{ route('cashier-shifts.update', $shift) }}" class="mt-2 w-72 space-y-2 rounded-lg border border-gray-200 bg-white p-3 shadow-theme-sm dark:border-gray-800 dark:bg-gray-900">

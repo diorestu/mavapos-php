@@ -93,7 +93,18 @@
             <label class="flex items-center justify-between gap-3 text-xs">
                 <span class="text-gray-500 dark:text-gray-400">Diskon</span>
                 <input type="text" inputmode="numeric" autocomplete="off" :value="formatInputNumber(discount)" @input="onMoneyInput('discount', $event)" placeholder="0"
+                    :disabled="loyaltyReward"
                     class="h-8 w-28 rounded-lg border border-gray-300 bg-transparent px-2.5 text-right text-xs tabular-nums text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+            </label>
+            <label class="block text-xs">
+                <span class="mb-1 block text-gray-500 dark:text-gray-400">Kartu Loyalitas</span>
+                <span class="mb-2 flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-300"><input x-model="loyaltyStamp" type="checkbox" class="rounded border-gray-300 text-brand-500 focus:ring-brand-500" /> Tambahkan stempel sesuai jumlah cup (1 cup = 1 stempel)</span>
+                <select x-model="loyaltyReward" @change="discount = ''" class="h-8 w-full rounded-lg border border-gray-300 bg-transparent px-2 text-xs text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                    <option value="">Tidak digunakan</option>
+                    <option value="fifty_percent">Reward stempel ke-5 — Diskon 50%</option>
+                    <option value="free_cup">Reward stempel ke-10 — Gratis 1 cup</option>
+                </select>
+                <span x-show="loyaltyStamp || loyaltyReward" class="mt-1 block text-[10px] text-warning-600">Nomor pelanggan wajib. Stempel hanya diberikan saat pilihan ini dicentang.</span>
             </label>
             <div class="flex items-center justify-between border-t border-gray-100 pt-2 dark:border-gray-800">
                 <span class="text-sm font-semibold text-gray-800 dark:text-white/90">Total</span>

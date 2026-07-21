@@ -13,6 +13,11 @@ class CustomerController extends Controller
     public function index(Request $request): View
     {
         $filters = $this->filterAttributes($request);
+        $customers = Customer::query()
+            ->when($filters['search'] !== '', fn ($query) => $this->applySearchFilter($query, $filters['search']))
+            ->when($filters['status'] !== '', fn ($query) => $query->where('status', $filters['status']))
+            ->latest()
+            ->get();
 
         return view('pages.contacts.index', [
             'title' => 'Pelanggan',
@@ -20,14 +25,15 @@ class CustomerController extends Controller
             'entityName' => 'customer',
             'entityPlural' => 'pelanggan',
             'routePath' => '/customers',
-            'items' => Customer::query()
-                ->when($filters['search'] !== '', fn ($query) => $this->applySearchFilter($query, $filters['search']))
-                ->when($filters['status'] !== '', fn ($query) => $query->where('status', $filters['status']))
-                ->latest()
-                ->get()
+            'items' => $customers
                 ->map(fn (Customer $customer): array => $this->payload($customer))
                 ->values(),
             'filters' => $filters,
+            'loyaltyStats' => [
+                'stamps' => (int) $customers->sum('loyalty_stamp_count'),
+                'fiftyRewardCustomers' => $customers->where('loyalty_fifty_reward_available', true)->count(),
+                'freeCupRewardCustomers' => $customers->where('loyalty_free_reward_available', true)->count(),
+            ],
         ]);
     }
 
@@ -80,6 +86,9 @@ class CustomerController extends Controller
             'email' => $customer->email ?? '',
             'status' => $this->statusLabel($customer->status),
             'address' => $customer->address ?? '',
+            'loyaltyStamps' => $customer->loyalty_stamp_count,
+            'loyaltyFiftyAvailable' => $customer->loyalty_fifty_reward_available,
+            'loyaltyFreeCupAvailable' => $customer->loyalty_free_reward_available,
         ];
     }
 

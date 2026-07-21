@@ -67,6 +67,7 @@ test('admin can edit operational cashier shift data but cannot overwrite calcula
         'opening_cash_amount' => 100000,
         'sales_count' => 7,
         'net_sales' => 75000,
+        'closed_at' => now(),
     ]);
 
     $this->actingAs($admin)->put(route('cashier-shifts.update', $shift), [
@@ -121,4 +122,23 @@ test('owner cannot use admin-only edit endpoints', function () {
 
     $this->actingAs($owner)->putJson(route('sales.update', $sale), [])->assertForbidden();
     $this->put(route('cashier-shifts.update', $shift), [])->assertForbidden();
+});
+
+test('admin cannot edit opening cash while the cashier shift is still active', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $cashier = User::factory()->create(['role' => 'kasir']);
+    $branch = app(BranchContext::class)->active();
+    $shift = CashierShift::query()->create([
+        'user_id' => $cashier->id,
+        'branch_id' => $branch->id,
+        'opened_at' => now(),
+        'opening_cash_amount' => 100000,
+    ]);
+
+    $this->actingAs($admin)->put(route('cashier-shifts.update', $shift), [
+        'opening_cash_amount' => 200000,
+        'opened_at' => now()->format('Y-m-d H:i'),
+    ])->assertStatus(422);
+
+    expect($shift->fresh()->opening_cash_amount)->toBe(100000);
 });

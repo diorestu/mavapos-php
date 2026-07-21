@@ -289,6 +289,8 @@ class PosController extends Controller
             'customer_name' => ['nullable', 'string', 'max:150'],
             'customer_phone' => ['nullable', 'string', 'max:30'],
             'buyer_nationality' => ['nullable', 'in:local,foreigner'],
+            'loyalty_stamp' => ['nullable', 'boolean'],
+            'loyalty_reward' => ['nullable', 'in:fifty_percent,free_cup'],
         ]);
         $branchId = app(BranchContext::class)->activeId();
 
@@ -329,22 +331,34 @@ class PosController extends Controller
                 ];
             }
 
-            $isComplimentary = $validated['payment_method'] === 'free';
-            $discount = $isComplimentary ? $subtotal : min((int) ($validated['discount'] ?? 0), $subtotal);
-            $total = $subtotal - $discount;
-            $paidAmount = $validated['payment_method'] === 'cash'
-                ? (int) ($validated['paid_amount'] ?? 0)
-                : $total;
-
-            if ($validated['payment_method'] === 'cash' && $paidAmount < $total) {
-                abort(422, 'Uang diterima kurang dari total transaksi.');
-            }
-
             $customerData = $validated;
+            $isComplimentary = $validated['payment_method'] === 'free';
             if ($isComplimentary && empty($customerData['customer_name'])) {
                 $customerData['customer_name'] = $validated['complimentary_recipient_name'];
             }
             $customer = $this->saveCustomer($customerData);
+            $loyaltyReward = $isComplimentary ? null : ($validated['loyalty_reward'] ?? null);
+            $loyaltyStamp = ! $isComplimentary && (bool) ($validated['loyalty_stamp'] ?? false);
+            $loyaltyDiscount = 0;
+
+            if ($loyaltyStamp || $loyaltyReward) {
+                abort_if(! $customer || empty($validated['customer_phone']), 422, 'Nomor pelanggan wajib diisi untuk menggunakan Kartu Loyalitas.');
+                $customer = Customer::query()->whereKey($customer->id)->lockForUpdate()->firstOrFail();
+                if ($loyaltyReward === 'fifty_percent') {
+                    abort_unless($customer->loyalty_fifty_reward_available, 422, 'Reward diskon 50% belum tersedia pada kartu pelanggan.');
+                    $loyaltyDiscount = (int) floor($subtotal / 2);
+                } elseif ($loyaltyReward === 'free_cup') {
+                    abort_unless($customer->loyalty_free_reward_available, 422, 'Reward gratis 1 cup belum tersedia pada kartu pelanggan.');
+                    $loyaltyDiscount = min(array_map(fn (array $line): int => $line['sellable']['price'], $saleItems));
+                }
+            }
+
+            $discount = $isComplimentary ? $subtotal : ($loyaltyReward ? $loyaltyDiscount : min((int) ($validated['discount'] ?? 0), $subtotal));
+            $total = $subtotal - $discount;
+            $paidAmount = $validated['payment_method'] === 'cash' ? (int) ($validated['paid_amount'] ?? 0) : $total;
+            if ($validated['payment_method'] === 'cash' && $paidAmount < $total) {
+                abort(422, 'Uang diterima kurang dari total transaksi.');
+            }
 
             $sale = PosSale::query()->create([
                 'cashier_shift_id' => $shift->id,
@@ -352,6 +366,7 @@ class PosController extends Controller
                 'user_id' => auth()->id(),
                 'customer_id' => $customer?->id,
                 'buyer_nationality' => $validated['buyer_nationality'] ?? null,
+                'loyalty_reward' => $loyaltyReward,
                 'invoice_number' => $this->nextInvoiceNumber(),
                 'payment_method' => $validated['payment_method'],
                 'complimentary_category' => $isComplimentary ? $validated['complimentary_category'] : null,
@@ -363,6 +378,37 @@ class PosController extends Controller
                 'change_amount' => max(0, $paidAmount - $total),
                 'sold_at' => now(),
             ]);
+
+            if ($customer && ($loyaltyStamp || $loyaltyReward)) {
+                $stampCount = $customer->loyalty_stamp_count;
+                $fiftyAvailable = $customer->loyalty_fifty_reward_available;
+                $freeAvailable = $customer->loyalty_free_reward_available;
+
+                if ($loyaltyReward === 'fifty_percent') {
+                    $fiftyAvailable = false;
+                }
+                if ($loyaltyReward === 'free_cup') {
+                    $stampCount = max(0, $stampCount - 10);
+                    $fiftyAvailable = false;
+                    $freeAvailable = false;
+                }
+                if ($loyaltyStamp) {
+                    $previousStampCount = $stampCount;
+                    $stampCount += array_sum(array_column($saleItems, 'quantity'));
+                    if ($previousStampCount < 5 && $stampCount >= 5) {
+                        $fiftyAvailable = true;
+                    }
+                    if ($previousStampCount < 10 && $stampCount >= 10) {
+                        $freeAvailable = true;
+                    }
+                }
+
+                $customer->update([
+                    'loyalty_stamp_count' => $stampCount,
+                    'loyalty_fifty_reward_available' => $fiftyAvailable,
+                    'loyalty_free_reward_available' => $freeAvailable,
+                ]);
+            }
 
             foreach ($saleItems as $line) {
                 $sellable = $line['sellable'];
@@ -445,6 +491,8 @@ class PosController extends Controller
                 'sold_at' => $sale->sold_at?->timezone('Asia/Makassar')->format('d M Y H:i'),
                 'payment_method' => $sale->payment_method,
                 'buyer_nationality' => $sale->buyer_nationality,
+                'loyalty_reward' => $sale->loyalty_reward,
+                'loyalty_stamp_count' => $sale->customer?->fresh()->loyalty_stamp_count,
                 'complimentary_category' => $sale->complimentary_category,
                 'complimentary_recipient_name' => $sale->complimentary_recipient_name,
                 'subtotal' => $sale->subtotal,
