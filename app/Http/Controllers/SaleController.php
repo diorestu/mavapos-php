@@ -4,7 +4,9 @@ namespace App\Http\Controllers;
 
 use App\Models\PosSale;
 use App\Models\PosSaleItem;
+use App\Models\Product;
 use App\Models\User;
+use App\Services\AdminSaleEditorService;
 use App\Services\SalesBonusService;
 use App\Services\TransactionVoidService;
 use App\Support\BranchContext;
@@ -15,6 +17,21 @@ use Illuminate\View\View;
 
 class SaleController extends Controller
 {
+    public function edit(PosSale $sale): View
+    {
+        $branchId = app(BranchContext::class)->activeId();
+        $sale = PosSale::query()->with('items')->whereKey($sale->id)->where('branch_id', $branchId)->firstOrFail();
+        abort_if($sale->voided_at, 422, 'Transaksi yang sudah di-void tidak dapat diedit.');
+
+        $items = Product::query()->with(['variants' => fn ($query) => $query->where('is_active', true)])->orderBy('name')->get()
+            ->flatMap(function (Product $product) {
+                return collect([['id' => 'product-'.$product->sku, 'name' => $product->name, 'price' => $product->sell_price]])
+                    ->merge($product->variants->map(fn ($variant) => ['id' => 'variant-'.$variant->id, 'name' => $product->name.' · '.$variant->name, 'price' => $product->sell_price + $variant->sell_price]));
+            })->values();
+
+        return view('pages.sales.edit', compact('sale', 'items') + ['title' => 'Edit Transaksi']);
+    }
+
     public function index(Request $request): View
     {
         $validated = $request->validate([
@@ -116,6 +133,28 @@ class SaleController extends Controller
         return response()->json([
             'message' => 'Transaksi '.$sale->invoice_number.' berhasil dibatalkan.',
             'sale' => ['id' => $sale->id, 'status' => 'voided', 'voidReason' => $sale->void_reason],
+        ]);
+    }
+
+    public function update(Request $request, PosSale $sale, AdminSaleEditorService $service): JsonResponse
+    {
+        $validated = $request->validate([
+            'items' => ['required', 'array', 'min:1'],
+            'items.*.id' => ['required', 'string'],
+            'items.*.quantity' => ['required', 'integer', 'min:1'],
+            'payment_method' => ['required', 'in:cash,qris,card,free'],
+            'complimentary_category' => ['required_if:payment_method,free', 'nullable', 'in:influencer,partnership,owner'],
+            'complimentary_recipient_name' => ['required_if:payment_method,free', 'nullable', 'string', 'max:150'],
+            'discount' => ['nullable', 'integer', 'min:0'],
+            'paid_amount' => ['nullable', 'integer', 'min:0'],
+            'buyer_nationality' => ['nullable', 'in:local,foreigner'],
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
+        $sale = $service->update($sale, app(BranchContext::class)->activeId(), $request->user(), $validated);
+
+        return response()->json([
+            'message' => 'Transaksi '.$sale->invoice_number.' berhasil diperbarui.',
+            'sale' => ['id' => $sale->id, 'subtotal' => $sale->subtotal, 'total' => $sale->total],
         ]);
     }
 }

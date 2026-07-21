@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CashierShift;
+use App\Models\User;
 use App\Services\CashierShiftSummaryService;
 use App\Support\BranchContext;
 use Illuminate\Http\JsonResponse;
@@ -43,6 +44,7 @@ class CashierShiftController extends Controller
                 ->latest('opened_at')
                 ->first(),
             'shifts' => $shifts,
+            'availableStaff' => User::query()->where('tenant_owner_id', $request->user()->tenantOwnerId())->orderBy('name')->get(['id', 'name']),
         ]);
     }
 
@@ -88,6 +90,35 @@ class CashierShiftController extends Controller
             ->route('cashier-shifts')
             ->with('success', 'Shift '.($shift->user?->name ?? 'Kasir').' ditutup paksa.')
             ->with('shiftRecap', $recap);
+    }
+
+    public function update(Request $request, CashierShift $cashierShift): RedirectResponse
+    {
+        $validated = $request->validate([
+            'opening_cash_amount' => ['required', 'integer', 'min:0', 'max:999999999999'],
+            'opened_at' => ['required', 'date'],
+            'closed_at' => ['nullable', 'date', 'after_or_equal:opened_at'],
+            'opening_note' => ['nullable', 'string', 'max:1000'],
+            'closing_note' => ['nullable', 'string', 'max:1000'],
+            'companion_staff_ids' => ['nullable', 'array', 'max:20'],
+            'companion_staff_ids.*' => ['integer', 'distinct', 'exists:users,id'],
+        ]);
+        $branchId = app(BranchContext::class)->activeId();
+        $companionIds = User::query()->where('tenant_owner_id', $request->user()->tenantOwnerId())
+            ->whereIn('id', $validated['companion_staff_ids'] ?? [])->pluck('id')->values()->all();
+
+        DB::transaction(function () use ($cashierShift, $validated, $branchId, $companionIds): void {
+            $shift = CashierShift::query()->whereKey($cashierShift->id)->where('branch_id', $branchId)->lockForUpdate()->firstOrFail();
+            $shift->update([
+                'opening_cash_amount' => $validated['opening_cash_amount'],
+                'opened_at' => $validated['opened_at'], 'closed_at' => $validated['closed_at'] ?? null,
+                'opening_note' => $validated['opening_note'] ?? null, 'closing_note' => $validated['closing_note'] ?? null,
+                'companion_staff_ids' => $companionIds,
+            ]);
+            app(CashierShiftSummaryService::class)->refresh($shift);
+        });
+
+        return redirect()->route('cashier-shifts')->with('success', 'Data shift berhasil diperbarui. Total penjualan dihitung ulang dari transaksi.');
     }
 
     public function destroy(CashierShift $cashierShift): RedirectResponse

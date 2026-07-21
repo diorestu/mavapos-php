@@ -4,6 +4,7 @@
     $rupiah = fn ($value) => 'Rp'.number_format((int) $value, 0, ',', '.');
     $canForceCloseShift = auth()->user()?->hasRole(['owner', 'admin']);
     $canDeleteShiftHistory = auth()->user()?->hasRole(['owner', 'admin']);
+    $canEditShift = auth()->user()?->hasRole('admin');
     $canManageShift = $canForceCloseShift || $canDeleteShiftHistory;
 @endphp
 
@@ -124,6 +125,23 @@
                                 </td>
                                 @if ($canManageShift)
                                     <td class="px-4 py-3 text-right">
+                                        @if ($canEditShift)
+                                        <details class="mb-2 text-left">
+                                            <summary class="cursor-pointer text-xs font-semibold text-brand-600">Edit data shift</summary>
+                                            <form method="POST" action="{{ route('cashier-shifts.update', $shift) }}" class="mt-2 w-72 space-y-2 rounded-lg border border-gray-200 bg-white p-3 shadow-theme-sm dark:border-gray-800 dark:bg-gray-900">
+                                                @csrf
+                                                @method('PUT')
+                                                <label class="block text-[11px] text-gray-500">Kas awal<input name="opening_cash_amount" type="number" min="0" value="{{ $shift->opening_cash_amount }}" class="mt-1 h-8 w-full rounded border border-gray-300 bg-transparent px-2 text-xs dark:border-gray-700" /></label>
+                                                <label class="block text-[11px] text-gray-500">Mulai<input name="opened_at" type="datetime-local" value="{{ $shift->opened_at?->format('Y-m-d\\TH:i') }}" class="mt-1 h-8 w-full rounded border border-gray-300 bg-transparent px-2 text-xs dark:border-gray-700" /></label>
+                                                <label class="block text-[11px] text-gray-500">Tutup<input name="closed_at" type="datetime-local" value="{{ $shift->closed_at?->format('Y-m-d\\TH:i') }}" class="mt-1 h-8 w-full rounded border border-gray-300 bg-transparent px-2 text-xs dark:border-gray-700" /></label>
+                                                <label class="block text-[11px] text-gray-500">Catatan buka<textarea name="opening_note" rows="2" class="mt-1 w-full rounded border border-gray-300 bg-transparent px-2 py-1 text-xs dark:border-gray-700">{{ $shift->opening_note }}</textarea></label>
+                                                <label class="block text-[11px] text-gray-500">Catatan tutup<textarea name="closing_note" rows="2" class="mt-1 w-full rounded border border-gray-300 bg-transparent px-2 py-1 text-xs dark:border-gray-700">{{ $shift->closing_note }}</textarea></label>
+                                                <label class="block text-[11px] text-gray-500">Asisten<select name="companion_staff_ids[]" multiple class="mt-1 h-20 w-full rounded border border-gray-300 bg-transparent px-2 text-xs dark:border-gray-700">@foreach ($availableStaff as $staff)<option value="{{ $staff->id }}" @selected(in_array($staff->id, $shift->companion_staff_ids ?? []))>{{ $staff->name }}</option>@endforeach</select></label>
+                                                <p class="text-[10px] text-gray-500">Total penjualan selalu dihitung dari transaksi.</p>
+                                                <button class="h-8 w-full rounded bg-brand-500 text-xs font-semibold text-white">Simpan perubahan</button>
+                                            </form>
+                                        </details>
+                                        @endif
                                         @if (! $shift->closed_at)
                                             @if ($canForceCloseShift)
                                             <form method="POST" action="{{ route('cashier-shifts.force-close', $shift) }}" onsubmit="return confirm(@js('Tutup paksa shift '.($shift->user?->name ?? 'Kasir').'?'));">

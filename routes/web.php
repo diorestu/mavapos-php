@@ -128,6 +128,12 @@ Route::middleware('auth:web,sanctum')->group(function () {
             Route::post('/stock-in', [CashierStockInController::class, 'store'])->name('cashier-stock-in.store');
         });
 
+        Route::middleware('role:admin')->group(function () {
+            Route::get('/sales/{sale}/edit', [SaleController::class, 'edit'])->name('sales.edit');
+            Route::put('/sales/{sale}', [SaleController::class, 'update'])->name('sales.update');
+            Route::put('/cashier-shifts/{cashierShift}', [CashierShiftController::class, 'update'])->name('cashier-shifts.update');
+        });
+
         Route::middleware('role:owner,admin')->group(function () {
             Route::post('/cashier-shifts/{cashierShift}/force-close', [CashierShiftController::class, 'forceClose'])->name('cashier-shifts.force-close');
             Route::get('/customers', [CustomerController::class, 'index'])->name('customers');

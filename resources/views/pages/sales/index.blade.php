@@ -257,6 +257,9 @@
                                     @if ($canVoidSale)
                                         <button type="button" @click="openVoid(@js(['id' => $sale->id, 'invoice' => $sale->invoice_number, 'total' => $sale->total]))" class="mt-2 block w-full text-[11px] font-semibold text-error-600 hover:text-error-700">Batalkan Transaksi</button>
                                     @endif
+                                    @if (! $sale->voided_at && $currentUser?->hasRole('admin'))
+                                        <a href="{{ route('sales.edit', $sale) }}" class="mt-2 block text-[11px] font-semibold text-brand-600 hover:text-brand-700">Edit Transaksi</a>
+                                    @endif
                                 </td>
                                 <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">
                                     @if ($sale->payment_method === 'free')
