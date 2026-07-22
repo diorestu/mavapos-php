@@ -1853,6 +1853,8 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     startModal: !initialShift && !blockingShift,
     closeModal: false,
     changeModal: false,
+    changeCashierUserId: '',
+    changeCashierPassword: '',
     openingCashAmount: '',
     validatedCashAmount: '',
     validatedCardAmount: '',
@@ -2991,13 +2993,19 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         try {
             const response = await fetch(this.endpoints.changeShift, {
                 method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '' },
-                body: JSON.stringify({ companion_staff_ids: this.changeCompanionStaffId ? [Number(this.changeCompanionStaffId)] : [] }),
+                body: JSON.stringify({
+                    cashier_user_id: this.changeCashierUserId ? Number(this.changeCashierUserId) : null,
+                    cashier_password: this.changeCashierPassword,
+                    companion_staff_ids: this.changeCompanionStaffId ? [Number(this.changeCompanionStaffId)] : [],
+                }),
             });
             const payload = await response.json().catch(() => ({}));
             if (!response.ok) { this.shiftError = payload.message || 'Pergantian shift gagal dicatat.'; notify(this.shiftError, 'error'); return; }
             this.shift = payload.shift;
             this.blockingShift = null;
             this.changeModal = false;
+            this.changeCashierUserId = '';
+            this.changeCashierPassword = '';
             this.changeCompanionStaffId = '';
             notify(payload.message || 'Pergantian shift berhasil dicatat.');
         } finally { this.shiftLoading = false; }

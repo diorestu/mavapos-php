@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Billing;
 use App\Models\StoreSetting;
 use App\Services\PakasirClient;
+use App\Support\LocalTime;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -274,9 +275,9 @@ class BillingController extends Controller
             'paymentStatusLabel' => $this->statusLabel($billing->payment_status),
             'paymentUrl' => $billing->payment_url ?? $this->paymentUrl($billing),
             'paymentNumber' => $billing->payment_number ?? '',
-            'createdAt' => $billing->created_at?->format('d M Y H:i') ?? '',
-            'paidAt' => $billing->paid_at?->format('d M Y H:i') ?? '',
-            'expiresAt' => $billing->expires_at?->format('d M Y H:i') ?? '',
+            'createdAt' => LocalTime::format($billing->created_at, 'd M Y H:i', ''),
+            'paidAt' => LocalTime::format($billing->paid_at, 'd M Y H:i', ''),
+            'expiresAt' => LocalTime::format($billing->expires_at, 'd M Y H:i', ''),
             'refreshUrl' => route('billings.refresh', $billing),
         ];
     }

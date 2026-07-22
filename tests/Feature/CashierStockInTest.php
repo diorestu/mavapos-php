@@ -84,6 +84,8 @@ test('cashier can stock in an active product variant', function () {
 
 test('cashier can stock in raw material from the focused stock-in page', function () {
     $cashier = User::factory()->create(['role' => 'kasir']);
+    $this->actingAs($cashier);
+
     $material = RawMaterial::query()->create([
         'code' => 'BB-SUSU-KASIR',
         'name' => 'Susu UHT',

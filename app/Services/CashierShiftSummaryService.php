@@ -6,6 +6,7 @@ use App\Models\CashierShift;
 use App\Models\PosSale;
 use App\Models\PosSaleItem;
 use App\Models\StoreSetting;
+use App\Support\LocalTime;
 
 class CashierShiftSummaryService
 {
@@ -43,8 +44,8 @@ class CashierShiftSummaryService
             'id' => $shift->id,
             'cashier' => $shift->user?->name ?? 'Kasir',
             'branch' => $shift->branch?->name ?? 'Cabang',
-            'openedAt' => $shift->opened_at?->format('d/m/Y H:i'),
-            'closedAt' => $shift->closed_at?->format('d/m/Y H:i'),
+            'openedAt' => LocalTime::format($shift->opened_at, 'd/m/Y H:i', ''),
+            'closedAt' => LocalTime::format($shift->closed_at, 'd/m/Y H:i', ''),
             'salesCount' => $shift->sales_count,
             'grossSales' => $shift->gross_sales,
             'discountTotal' => $shift->discount_total,
@@ -56,7 +57,7 @@ class CashierShiftSummaryService
             'expectedCashInDrawer' => $shift->opening_cash_amount + $shift->cash_total,
             'validatedCashAmount' => $shift->validated_cash_amount,
             'validatedCardAmount' => $shift->validated_card_amount,
-            'handoverValidatedAt' => $shift->handover_validated_at?->format('d/m/Y H:i'),
+            'handoverValidatedAt' => LocalTime::format($shift->handover_validated_at, 'd/m/Y H:i', ''),
             'closingNote' => $shift->closing_note,
             'store' => [
                 'name' => $setting->store_name,

@@ -12,10 +12,8 @@ beforeEach(function () {
 });
 
 test('global search menampilkan menu produk dan invoice', function () {
-    $cashier = User::factory()->create([
-        'name' => 'Kasir Search',
-        'email' => 'kasir-search@example.com',
-    ]);
+    $cashier = User::query()->where('email', 'test@example.com')->firstOrFail();
+    $cashier->update(['name' => 'Kasir Search']);
 
     $product = Product::query()->where('sku', 'SKU-001')->firstOrFail();
 

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Helpers\MenuHelper;
 use App\Models\PosSale;
 use App\Models\Product;
+use App\Support\LocalTime;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -110,7 +111,7 @@ class GlobalSearchController extends Controller
                 'type' => 'sale',
                 'label' => 'Invoice',
                 'title' => $sale->invoice_number,
-                'subtitle' => trim(($sale->user?->name ?: 'Kasir').' · '.$this->formatRupiah($sale->total).' · '.$sale->sold_at?->format('d M Y H:i')),
+                'subtitle' => trim(($sale->user?->name ?: 'Kasir').' · '.$this->formatRupiah($sale->total).' · '.LocalTime::format($sale->sold_at, 'd M Y H:i', '')),
                 'url' => route('sales', [
                     'search' => $sale->invoice_number,
                     'date_from' => $sale->sold_at?->toDateString(),

@@ -177,7 +177,7 @@
                         <tbody>
                             @forelse ($expenses as $expense)
                                 <tr class="border-b border-gray-100 transition-colors last:border-0 hover:bg-gray-25 dark:border-gray-800 dark:hover:bg-white/[0.02]">
-                                    <td class="px-4 py-2 text-[12px] text-gray-500 dark:text-gray-400">{{ $expense->spent_at?->format('d M Y H:i') }}</td>
+                                    <td class="px-4 py-2 text-[12px] text-gray-500 dark:text-gray-400">@localtime($expense->spent_at)</td>
                                     <td class="px-4 py-2">
                                         <p class="max-w-[240px] truncate text-[13px] font-semibold text-gray-800 dark:text-white/90">{{ $expense->title }}</p>
                                         <p class="mt-0.5 max-w-[240px] truncate text-[11px] text-gray-500 dark:text-gray-400">{{ $expense->category ?: 'Tanpa kategori' }}</p>

@@ -235,7 +235,7 @@
                                         </div>
                                     </details>
                                 </td>
-                                <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">{{ $sale->sold_at?->format('d M Y H:i') }}</td>
+                                <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">@localtime($sale->sold_at)</td>
                                 <td class="px-4 py-3">
                                     <p class="text-xs font-semibold text-gray-800 dark:text-white/90">{{ $sale->user?->name ?? 'Kasir' }}</p>
                                     <p class="text-[11px] text-gray-500 dark:text-gray-400">{{ $sale->user?->email }}</p>

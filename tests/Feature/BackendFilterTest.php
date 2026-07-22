@@ -5,12 +5,16 @@ use App\Models\Product;
 use App\Models\ProductCategory;
 use App\Models\Supplier;
 use App\Models\User;
+use App\Support\BranchContext;
+use App\Support\BranchInventoryManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
 test('produk difilter dari backend berdasarkan search kategori dan status', function () {
     $user = User::factory()->create();
+    $this->actingAs($user);
+
     $food = ProductCategory::query()->create([
         'name' => 'Makanan',
         'code' => 'makanan',
@@ -54,6 +58,7 @@ test('produk difilter dari backend berdasarkan search kategori dan status', func
 
 test('kategori produk difilter dari backend berdasarkan search dan status', function () {
     $user = User::factory()->create();
+    $this->actingAs($user);
 
     ProductCategory::query()->create([
         'name' => 'Kategori Aktif',
@@ -80,21 +85,26 @@ test('kategori produk difilter dari backend berdasarkan search dan status', func
 
 test('stok difilter dari backend berdasarkan search dan status', function () {
     $user = User::factory()->create();
+    $this->actingAs($user);
 
-    Product::query()->create([
+    $outOfStock = Product::query()->create([
         'name' => 'Produk Habis',
         'sku' => 'HABIS-001',
         'sell_price' => 10000,
         'stock' => 0,
         'min_stock' => 2,
     ]);
-    Product::query()->create([
+    $safeStock = Product::query()->create([
         'name' => 'Produk Aman',
         'sku' => 'AMAN-001',
         'sell_price' => 10000,
         'stock' => 20,
         'min_stock' => 2,
     ]);
+
+    $branchId = app(BranchContext::class)->activeId();
+    app(BranchInventoryManager::class)->forProduct($branchId, $outOfStock)->update(['stock' => 0, 'min_stock' => 2]);
+    app(BranchInventoryManager::class)->forProduct($branchId, $safeStock)->update(['stock' => 20, 'min_stock' => 2]);
 
     $this->actingAs($user)
         ->get(route('inventory', [
@@ -108,6 +118,7 @@ test('stok difilter dari backend berdasarkan search dan status', function () {
 
 test('pelanggan dan supplier difilter dari backend', function () {
     $user = User::factory()->create();
+    $this->actingAs($user);
 
     Customer::query()->create([
         'name' => 'Budi Aktif',

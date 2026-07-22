@@ -403,10 +403,16 @@
         <div x-cloak x-show="changeModal" x-transition.opacity.duration.200ms class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/50 p-4">
             <div @click.outside="changeModal = false" class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
                 <h2 class="text-base font-semibold text-gray-900 dark:text-white">Ganti Shift</h2>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Nama petugas baru otomatis tercatat dari akun login. Checklist tidak diperlukan untuk pergantian shift.</p>
+                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Pilih kasir pengganti dan minta ia memasukkan password. Akun POS tidak perlu logout dan checklist tidak diperlukan.</p>
                 <div class="mt-4 rounded-lg bg-warning-50 p-3 text-xs text-warning-800 dark:bg-warning-500/10 dark:text-warning-200">
                     Shift aktif: <span class="font-semibold" x-text="(shift || blockingShift)?.cashier || '-'"></span>
                 </div>
+                <label class="mt-4 block"><span class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Kasir pengganti</span>
+                    <select x-model="changeCashierUserId" class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-950 dark:text-white/90"><option value="">Pilih kasir</option><template x-for="staff in availableStaff" :key="staff.id"><option :value="staff.id" x-text="staff.name"></option></template></select>
+                </label>
+                <label class="mt-3 block"><span class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Password kasir pengganti</span>
+                    <input x-model="changeCashierPassword" type="password" autocomplete="current-password" class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-950 dark:text-white/90" placeholder="Masukkan password" />
+                </label>
                 <label class="mt-4 block"><span class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Asisten/Rekan kerja (opsional)</span>
                     <select x-model="changeCompanionStaffId" class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-950 dark:text-white/90"><option value="">Sendirian</option><template x-for="staff in availableStaff" :key="staff.id"><option :value="staff.id" x-text="staff.name"></option></template></select>
                 </label>

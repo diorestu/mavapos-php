@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Services\PakasirClient;
 use App\Support\BranchContext;
+use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
 
@@ -31,6 +32,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        Blade::directive('localtime', fn (string $expression): string => "<?php echo \\App\\Support\\LocalTime::format({$expression}); ?>");
+
         View::composer(['layouts.app-header', 'layouts.sidebar'], function ($view): void {
             if (! auth()->check()) {
                 return;

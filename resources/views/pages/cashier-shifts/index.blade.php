@@ -38,7 +38,7 @@
                     <div>
                         <p class="text-xs font-semibold uppercase text-success-700 dark:text-success-300">Shift aktif</p>
                         <h2 class="mt-1 text-lg font-semibold text-gray-900 dark:text-white">{{ $activeShift->user?->name ?? 'Kasir' }}</h2>
-                        <p class="mt-1 text-xs text-gray-600 dark:text-gray-300">Mulai {{ $activeShift->opened_at?->format('d M Y H:i') }}</p>
+                        <p class="mt-1 text-xs text-gray-600 dark:text-gray-300">Mulai @localtime($activeShift->opened_at)</p>
                     </div>
                     <div class="grid grid-cols-2 gap-2 sm:grid-cols-5">
                         <div class="rounded-lg bg-white/70 px-3 py-2 dark:bg-white/[0.04]">
@@ -108,8 +108,8 @@
                                     <p class="text-[13px] font-semibold text-gray-800 dark:text-white/90">{{ $shift->user?->name ?? 'Kasir' }}</p>
                                     <p class="text-[11px] text-gray-500 dark:text-gray-400">{{ $shift->user?->email }}</p>
                                 </td>
-                                <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">{{ $shift->opened_at?->format('d M Y H:i') }}</td>
-                                <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">{{ $shift->closed_at?->format('d M Y H:i') ?? '-' }}</td>
+                                <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">@localtime($shift->opened_at)</td>
+                                <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">@localtime($shift->closed_at)</td>
                                 <td class="px-4 py-3 text-right text-xs font-semibold tabular-nums text-gray-800 dark:text-white/90">{{ number_format($shift->sales_count, 0, ',', '.') }}</td>
                                 <td class="px-4 py-3 text-right text-xs font-semibold tabular-nums text-gray-800 dark:text-white/90">{{ $rupiah($shift->net_sales) }}</td>
                                 <td class="px-4 py-3 text-right text-xs tabular-nums text-gray-600 dark:text-gray-300">{{ $rupiah($shift->opening_cash_amount) }}</td>
@@ -132,8 +132,8 @@
                                                 @csrf
                                                 @method('PUT')
                                                 <label class="block text-[11px] text-gray-500">Kas awal<input name="opening_cash_amount" type="number" min="0" value="{{ $shift->opening_cash_amount }}" class="mt-1 h-8 w-full rounded border border-gray-300 bg-transparent px-2 text-xs dark:border-gray-700" /></label>
-                                                <label class="block text-[11px] text-gray-500">Mulai<input name="opened_at" type="datetime-local" value="{{ $shift->opened_at?->format('Y-m-d\\TH:i') }}" class="mt-1 h-8 w-full rounded border border-gray-300 bg-transparent px-2 text-xs dark:border-gray-700" /></label>
-                                                <label class="block text-[11px] text-gray-500">Tutup<input name="closed_at" type="datetime-local" value="{{ $shift->closed_at?->format('Y-m-d\\TH:i') }}" class="mt-1 h-8 w-full rounded border border-gray-300 bg-transparent px-2 text-xs dark:border-gray-700" /></label>
+                                                <label class="block text-[11px] text-gray-500">Mulai<input name="opened_at" type="datetime-local" value="{{ \App\Support\LocalTime::format($shift->opened_at, 'Y-m-d\\TH:i', '') }}" class="mt-1 h-8 w-full rounded border border-gray-300 bg-transparent px-2 text-xs dark:border-gray-700" /></label>
+                                                <label class="block text-[11px] text-gray-500">Tutup<input name="closed_at" type="datetime-local" value="{{ \App\Support\LocalTime::format($shift->closed_at, 'Y-m-d\\TH:i', '') }}" class="mt-1 h-8 w-full rounded border border-gray-300 bg-transparent px-2 text-xs dark:border-gray-700" /></label>
                                                 <label class="block text-[11px] text-gray-500">Catatan buka<textarea name="opening_note" rows="2" class="mt-1 w-full rounded border border-gray-300 bg-transparent px-2 py-1 text-xs dark:border-gray-700">{{ $shift->opening_note }}</textarea></label>
                                                 <label class="block text-[11px] text-gray-500">Catatan tutup<textarea name="closing_note" rows="2" class="mt-1 w-full rounded border border-gray-300 bg-transparent px-2 py-1 text-xs dark:border-gray-700">{{ $shift->closing_note }}</textarea></label>
                                                 <label class="block text-[11px] text-gray-500">Asisten<select name="companion_staff_ids[]" multiple class="mt-1 h-20 w-full rounded border border-gray-300 bg-transparent px-2 text-xs dark:border-gray-700">@foreach ($availableStaff as $staff)<option value="{{ $staff->id }}" @selected(in_array($staff->id, $shift->companion_staff_ids ?? []))>{{ $staff->name }}</option>@endforeach</select></label>

@@ -14,11 +14,14 @@ uses(RefreshDatabase::class);
 
 test('owner dapat transfer stok antar cabang dan mutasi tercatat', function () {
     $user = User::factory()->create();
-    $fromBranch = Branch::query()->firstOrFail();
+    $this->actingAs($user);
+    $fromBranch = app(\App\Support\BranchContext::class)->active();
+    $fromBranch->update(['user_id' => $user->id, 'is_active' => true]);
     $toBranch = Branch::query()->create([
         'name' => 'Cabang Kedua',
         'code' => 'cabang-kedua',
         'is_active' => true,
+        'user_id' => $user->id,
     ]);
     $product = Product::query()->create([
         'name' => 'Kopi Susu',

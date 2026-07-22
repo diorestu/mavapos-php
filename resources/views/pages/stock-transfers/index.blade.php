@@ -120,7 +120,7 @@
                         <tbody>
                             @forelse ($transfers as $transfer)
                                 <tr class="border-b border-gray-100 last:border-0 dark:border-gray-800">
-                                    <td class="px-4 py-2 text-xs text-gray-500 dark:text-gray-400">{{ $transfer->transferred_at?->format('d M Y H:i') }}</td>
+                                    <td class="px-4 py-2 text-xs text-gray-500 dark:text-gray-400">@localtime($transfer->transferred_at)</td>
                                     <td class="px-4 py-2 text-xs font-semibold text-gray-800 dark:text-white/90">{{ $transfer->transfer_number }}</td>
                                     <td class="px-4 py-2">
                                         <p class="text-xs font-semibold text-gray-800 dark:text-white/90">{{ $transfer->product?->name ?? $transfer->rawMaterial?->name }}</p>

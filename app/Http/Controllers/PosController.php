@@ -20,6 +20,7 @@ use App\Support\BranchInventoryManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
@@ -28,6 +29,7 @@ class PosController extends Controller
     public function index(Request $request)
     {
         $branchId = app(BranchContext::class)->activeId();
+        $cashier = $this->activeCashier();
         $products = Product::query()
             ->with(['category', 'variants'])
             ->orderBy('name')
@@ -38,8 +40,8 @@ class PosController extends Controller
             ->whereNull('closed_at')
             ->latest('opened_at')
             ->first();
-        $activeShift = $openShift?->user_id === auth()->id() ? $openShift : null;
-        $blockingShift = $openShift && $openShift->user_id !== auth()->id() ? $openShift : null;
+        $activeShift = $openShift?->user_id === $cashier->id ? $openShift : null;
+        $blockingShift = $openShift && $openShift->user_id !== $cashier->id ? $openShift : null;
         $lastClosedShift = CashierShift::query()
             ->with(['user', 'branch'])
             ->where('branch_id', $branchId)
@@ -90,7 +92,7 @@ class PosController extends Controller
             'categories' => $categoriesPayload,
             'items' => $itemsPayload,
             'cashierSopHtml' => StoreSetting::current()->cashier_sop_html,
-            'availableStaff' => User::query()->where('tenant_owner_id', auth()->user()->tenantOwnerId())->whereKeyNot(auth()->id())->whereIn('role', ['owner', 'admin', 'kasir', 'gudang'])->orderBy('name')->get(['id', 'name', 'role']),
+            'availableStaff' => User::query()->where('tenant_owner_id', auth()->user()->tenantOwnerId())->whereKeyNot($cashier->id)->whereIn('role', ['owner', 'admin', 'kasir'])->orderBy('name')->get(['id', 'name', 'role']),
         ]);
     }
 
@@ -179,18 +181,33 @@ class PosController extends Controller
     public function changeShift(Request $request): JsonResponse
     {
         $validated = $request->validate([
+            'cashier_user_id' => ['nullable', 'integer', 'exists:users,id'],
+            'cashier_password' => ['nullable', 'string', 'required_with:cashier_user_id'],
             'companion_staff_ids' => ['nullable', 'array', 'max:20'],
             'companion_staff_ids.*' => ['integer', 'distinct', 'exists:users,id'],
         ]);
         $branchId = app(BranchContext::class)->activeId();
         $ownerId = auth()->user()->tenantOwnerId();
+        $currentCashier = $this->activeCashier();
+        $nextCashier = empty($validated['cashier_user_id'])
+            ? auth()->user()
+            : User::query()
+                ->where('tenant_owner_id', $ownerId)
+                ->whereIn('role', ['owner', 'admin', 'kasir'])
+                ->findOrFail($validated['cashier_user_id']);
+
+        abort_if($nextCashier->id === $currentCashier->id, 422, 'Pilih kasir pengganti yang berbeda.');
+        if (! empty($validated['cashier_user_id'])) {
+            abort_unless(Hash::check($validated['cashier_password'], $nextCashier->password), 422, 'Password kasir pengganti tidak sesuai.');
+        }
+
         $companionIds = User::query()
             ->where('tenant_owner_id', $ownerId)
-            ->whereKeyNot(auth()->id())
+            ->whereKeyNot($nextCashier->id)
             ->whereIn('id', $validated['companion_staff_ids'] ?? [])
             ->pluck('id')->values()->all();
 
-        $shift = DB::transaction(function () use ($branchId, $companionIds): CashierShift {
+        $shift = DB::transaction(function () use ($branchId, $companionIds, $currentCashier, $nextCashier): CashierShift {
             $previousShift = CashierShift::query()
                 ->where('branch_id', $branchId)
                 ->whereNull('closed_at')
@@ -202,18 +219,18 @@ class PosController extends Controller
                 abort(422, 'Tidak ada shift aktif yang dapat digantikan.');
             }
 
-            if ($previousShift->user_id === auth()->id()) {
-                abort(422, 'Gunakan Buka Kasir untuk memulai shift Anda.');
+            if ($previousShift->user_id !== $currentCashier->id) {
+                abort(422, 'Sesi aktif tidak sesuai dengan kasir pada perangkat ini.');
             }
 
             app(CashierShiftSummaryService::class)->refresh($previousShift);
             $previousShift->update([
                 'closed_at' => now(),
-                'closing_note' => 'Pergantian shift ke '.auth()->user()->name.'.',
+                'closing_note' => 'Pergantian shift ke '.$nextCashier->name.'.',
             ]);
 
             return CashierShift::query()->create([
-                'user_id' => auth()->id(),
+                'user_id' => $nextCashier->id,
                 'branch_id' => $branchId,
                 'previous_cashier_shift_id' => $previousShift->id,
                 'opened_at' => now(),
@@ -224,6 +241,8 @@ class PosController extends Controller
                 'companion_staff_ids' => $companionIds,
             ])->load(['user', 'branch']);
         });
+
+        session(['pos_active_cashier_id' => $nextCashier->id]);
 
         return response()->json([
             'message' => 'Pergantian shift berhasil dicatat.',
@@ -242,7 +261,7 @@ class PosController extends Controller
 
         $shift = DB::transaction(function () use ($validated, $branchId): CashierShift {
             $shift = CashierShift::query()
-                ->where('user_id', auth()->id())
+                ->where('user_id', $this->activeCashier()->id)
                 ->where('branch_id', $branchId)
                 ->whereNull('closed_at')
                 ->lockForUpdate()
@@ -260,6 +279,8 @@ class PosController extends Controller
 
             return app(CashierShiftSummaryService::class)->refresh($shift)->load(['user', 'branch']);
         });
+
+        session()->forget('pos_active_cashier_id');
 
         $dailyBonus = app(SalesBonusService::class)->forBranchDay($branchId, now());
         $dailyBonus['staff'] = User::query()->whereIn('id', $dailyBonus['staffIds'])->orderBy('name')->get(['id', 'name'])->map(fn (User $user): array => [
@@ -296,7 +317,7 @@ class PosController extends Controller
 
         $sale = DB::transaction(function () use ($validated, $branchId): PosSale {
             $shift = CashierShift::query()
-                ->where('user_id', auth()->id())
+                ->where('user_id', $this->activeCashier()->id)
                 ->where('branch_id', $branchId)
                 ->whereNull('closed_at')
                 ->lockForUpdate()
@@ -363,7 +384,7 @@ class PosController extends Controller
             $sale = PosSale::query()->create([
                 'cashier_shift_id' => $shift->id,
                 'branch_id' => $branchId,
-                'user_id' => auth()->id(),
+                'user_id' => $this->activeCashier()->id,
                 'customer_id' => $customer?->id,
                 'buyer_nationality' => $validated['buyer_nationality'] ?? null,
                 'loyalty_reward' => $loyaltyReward,
@@ -441,7 +462,7 @@ class PosController extends Controller
                         'stock_before' => $stockBefore,
                         'stock_after' => $stockBefore - $quantity,
                         'reference' => $sale->invoice_number,
-                        'note' => 'Penjualan POS oleh '.auth()->user()->name,
+                        'note' => 'Penjualan POS oleh '.$this->activeCashier()->name,
                         'occurred_at' => $sale->sold_at,
                     ]);
                 }
@@ -684,6 +705,18 @@ class PosController extends Controller
     private function refreshShiftTotals(CashierShift $shift): void
     {
         app(CashierShiftSummaryService::class)->refresh($shift);
+    }
+
+    private function activeCashier(): User
+    {
+        $authenticatedUser = auth()->user();
+        $cashierId = (int) session('pos_active_cashier_id', $authenticatedUser->id);
+
+        return User::query()
+            ->whereKey($cashierId)
+            ->where('tenant_owner_id', $authenticatedUser->tenantOwnerId())
+            ->whereIn('role', ['owner', 'admin', 'kasir'])
+            ->first() ?? $authenticatedUser;
     }
 
     private function nextInvoiceNumber(): string

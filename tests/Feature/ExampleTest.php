@@ -134,7 +134,7 @@ test('dashboard toko menampilkan ringkasan dan grafik berbahasa indonesia', func
 });
 
 test('dashboard toko menyinkronkan grafik dan ringkasan dari database', function () {
-    $user = User::factory()->create();
+    $user = User::query()->where('email', 'test@example.com')->firstOrFail();
 
     $this->actingAs($user)
         ->postJson(route('pos.shift.start'))
@@ -162,7 +162,10 @@ test('dashboard toko menyinkronkan grafik dan ringkasan dari database', function
 });
 
 test('notification header menampilkan aktivitas sistem dari database', function () {
-    $user = User::factory()->create(['name' => 'Kasir Notifikasi']);
+    $user = User::query()->where('email', 'test@example.com')->firstOrFail();
+    $user->update(['name' => 'Kasir Notifikasi']);
+    $this->actingAs($user);
+
     StoreSetting::current()->update([
         'store_name' => 'Mava Logo Mart',
         'logo_path' => 'store-logos/logo-test.png',
@@ -206,7 +209,7 @@ test('notification dropdown tetap aman saat dirender tanpa data class component'
 });
 
 test('pengguna dapat update produk melalui controller', function () {
-    $user = User::factory()->create();
+    $user = User::query()->where('email', 'test@example.com')->firstOrFail();
 
     $this->post('/signin', [
         'email' => $user->email,
@@ -222,6 +225,7 @@ test('pengguna dapat update produk melalui controller', function () {
             'buyPrice' => 12000,
             'sellPrice' => 20000,
             'stock' => 8,
+            'stockMode' => 'inventory',
             'minStock' => 10,
             'description' => 'Produk hasil update.',
         ])
@@ -244,7 +248,7 @@ test('pengguna dapat update produk melalui controller', function () {
 });
 
 test('pengguna dapat membuat produk dan tersimpan ke database', function () {
-    $user = User::factory()->create();
+    $user = User::query()->where('email', 'test@example.com')->firstOrFail();
 
     $this->actingAs($user)
         ->postJson('/products', [
@@ -255,6 +259,7 @@ test('pengguna dapat membuat produk dan tersimpan ke database', function () {
             'buyPrice' => 7000,
             'sellPrice' => 10000,
             'stock' => 40,
+            'stockMode' => 'inventory',
             'minStock' => 5,
             'description' => 'Produk baru.',
         ])
@@ -272,7 +277,7 @@ test('pengguna dapat membuat produk dan tersimpan ke database', function () {
 });
 
 test('pengguna dapat menghapus produk beserta data stok cabang dan varian', function () {
-    $user = User::factory()->create();
+    $user = User::query()->where('email', 'test@example.com')->firstOrFail();
 
     $this->actingAs($user)
         ->postJson('/products', [
@@ -281,6 +286,7 @@ test('pengguna dapat menghapus produk beserta data stok cabang dan varian', func
             'category' => 'minuman',
             'sellPrice' => 15000,
             'stock' => 12,
+            'stockMode' => 'inventory',
             'variants' => [
                 [
                     'name' => 'Produk Hapus Varian',
@@ -322,7 +328,7 @@ test('pengguna dapat menghapus produk beserta data stok cabang dan varian', func
 });
 
 test('pengguna dapat membuat produk dengan varian dan tersimpan ke database', function () {
-    $user = User::factory()->create();
+    $user = User::query()->where('email', 'test@example.com')->firstOrFail();
 
     $this->actingAs($user)
         ->postJson('/products', [
@@ -333,6 +339,7 @@ test('pengguna dapat membuat produk dengan varian dan tersimpan ke database', fu
             'buyPrice' => 12000,
             'sellPrice' => 22000,
             'stock' => 25,
+            'stockMode' => 'inventory',
             'minStock' => 5,
             'description' => 'Produk F&B dengan pilihan varian.',
             'variants' => [
@@ -414,7 +421,7 @@ test('pengguna dapat membuat produk dengan varian dan tersimpan ke database', fu
 });
 
 test('pengguna dapat memperbarui varian produk dan varian lama diganti', function () {
-    $user = User::factory()->create();
+    $user = User::query()->where('email', 'test@example.com')->firstOrFail();
 
     $this->actingAs($user)
         ->postJson('/products', [
@@ -422,6 +429,7 @@ test('pengguna dapat memperbarui varian produk dan varian lama diganti', functio
             'sku' => 'GRO-001',
             'category' => 'minuman',
             'sellPrice' => 75000,
+            'stockMode' => 'inventory',
             'variants' => [
                 [
                     'name' => 'Botol 1 Liter',
@@ -441,6 +449,7 @@ test('pengguna dapat memperbarui varian produk dan varian lama diganti', functio
             'category' => 'minuman',
             'sellPrice' => 90000,
             'stock' => 30,
+            'stockMode' => 'inventory',
             'variants' => [
                 [
                     'name' => 'Dus 6 Botol',
@@ -546,7 +555,9 @@ test('pengguna dapat menambah stok bahan baku yang sudah ada', function () {
 });
 
 test('pengguna dapat menyimpan standar bahan resep produk', function () {
-    $user = User::factory()->create();
+    $user = User::query()->where('email', 'test@example.com')->firstOrFail();
+    $this->actingAs($user);
+
     $product = Product::query()->where('sku', 'SKU-001')->firstOrFail();
     $coffee = RawMaterial::query()->create([
         'code' => 'BB-KOPI',
@@ -716,7 +727,7 @@ test('pengguna dapat membuka halaman pengeluaran', function () {
 });
 
 test('pengeluaran stok menambah stok produk dan mencatat mutasi', function () {
-    $user = User::factory()->create();
+    $user = User::query()->where('email', 'test@example.com')->firstOrFail();
     $product = Product::query()->where('sku', 'SKU-001')->firstOrFail();
     $stockBefore = $product->stock;
 
@@ -766,7 +777,7 @@ test('pengguna dapat mengunduh laporan sebagai pdf', function () {
 });
 
 test('pengguna dapat update stok produk dan tersimpan ke database', function () {
-    $user = User::factory()->create();
+    $user = User::query()->where('email', 'test@example.com')->firstOrFail();
 
     $this->actingAs($user)
         ->patchJson('/inventory/SKU-001', [
@@ -787,7 +798,7 @@ test('pengguna dapat update stok produk dan tersimpan ke database', function () 
 });
 
 test('pengguna dapat mencatat stok masuk dan stok produk bertambah', function () {
-    $user = User::factory()->create();
+    $user = User::query()->where('email', 'test@example.com')->firstOrFail();
 
     $this->actingAs($user)
         ->postJson('/inventory/SKU-001/in', [
@@ -818,7 +829,7 @@ test('pengguna dapat mencatat stok masuk dan stok produk bertambah', function ()
 });
 
 test('pengguna dapat mencatat stok keluar dan stok produk berkurang', function () {
-    $user = User::factory()->create();
+    $user = User::query()->where('email', 'test@example.com')->firstOrFail();
 
     $this->actingAs($user)
         ->postJson('/inventory/SKU-001/out', [
@@ -849,7 +860,7 @@ test('pengguna dapat mencatat stok keluar dan stok produk berkurang', function (
 });
 
 test('stok keluar tidak boleh melebihi stok tersedia', function () {
-    $user = User::factory()->create();
+    $user = User::query()->where('email', 'test@example.com')->firstOrFail();
 
     $this->actingAs($user)
         ->postJson('/inventory/SKU-037/out', [
@@ -872,7 +883,9 @@ test('stok keluar tidak boleh melebihi stok tersedia', function () {
 });
 
 test('pengguna dapat update dan mencatat pergerakan stok varian produk', function () {
-    $user = User::factory()->create();
+    $user = User::query()->where('email', 'test@example.com')->firstOrFail();
+    $this->actingAs($user);
+
     $product = Product::query()->create([
         'sku' => 'PARENT-SKU',
         'name' => 'Product Parent',
@@ -1001,7 +1014,9 @@ test('pengguna dapat membuat kategori produk dan tersimpan ke database', functio
 });
 
 test('pengguna dapat menghapus kategori produk yang belum digunakan', function () {
-    $user = User::factory()->create();
+    $user = User::query()->where('email', 'test@example.com')->firstOrFail();
+    $this->actingAs($user);
+
     ProductCategory::query()->create([
         'name' => 'Kategori Hapus',
         'code' => 'kategori-hapus',
@@ -1020,7 +1035,7 @@ test('pengguna dapat menghapus kategori produk yang belum digunakan', function (
 });
 
 test('kategori produk yang masih digunakan tidak dapat dihapus', function () {
-    $user = User::factory()->create();
+    $user = User::query()->where('email', 'test@example.com')->firstOrFail();
 
     $this->actingAs($user)
         ->deleteJson('/product-categories/minuman')
@@ -1583,7 +1598,8 @@ test('default metode printer toko memakai imin inner printer', function () {
 });
 
 test('payload checkout membawa pengaturan struk dan printer toko', function () {
-    $user = User::factory()->create(['role' => 'owner']);
+    $user = User::query()->where('email', 'test@example.com')->firstOrFail();
+    $this->actingAs($user);
 
     StoreSetting::current()->update([
         'tagline' => 'Cepat, rapi, dan hemat',

@@ -56,7 +56,8 @@ test('owner dapat membuat purchase order tanpa langsung mengubah stok', function
 
 test('purchase order diterima akan menambah stok dan mencatat expense', function () {
     $user = User::factory()->create();
-    $branch = Branch::query()->firstOrFail();
+    $this->actingAs($user);
+    $branch = app(\App\Support\BranchContext::class)->active();
     $supplier = Supplier::query()->create([
         'name' => 'Supplier Kopi',
         'code' => 'SUP-KOPI',
