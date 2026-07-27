@@ -17,32 +17,26 @@ class CashierShiftController extends Controller
     public function index(Request $request): View
     {
         $branchId = app(BranchContext::class)->activeId();
-        $activeSales = fn ($query) => $query->active();
-
         $shifts = CashierShift::query()
             ->with(['user', 'branch'])
             ->where('branch_id', $branchId)
-            ->withCount(['sales as sales_count' => $activeSales])
-            ->withSum(['sales as net_sales' => $activeSales], 'total')
-            ->withSum(['sales as cash_total' => fn ($query) => $query->active()->where('payment_method', 'cash')], 'total')
-            ->withSum(['sales as qris_total' => fn ($query) => $query->active()->where('payment_method', 'qris')], 'total')
-            ->withSum(['sales as card_total' => fn ($query) => $query->active()->where('payment_method', 'card')], 'total')
             ->latest('opened_at')
             ->paginate(12);
+        $this->hydrateTotals($shifts->getCollection());
+
+        $activeShift = CashierShift::query()
+            ->with(['user', 'branch'])
+            ->where('branch_id', $branchId)
+            ->whereNull('closed_at')
+            ->latest('opened_at')
+            ->first();
+        if ($activeShift) {
+            $this->hydrateTotals(collect([$activeShift]));
+        }
 
         return view('pages.cashier-shifts.index', [
             'title' => 'Shift Kasir',
-            'activeShift' => CashierShift::query()
-                ->with(['user', 'branch'])
-                ->where('branch_id', $branchId)
-                ->whereNull('closed_at')
-                ->withCount(['sales as sales_count' => $activeSales])
-                ->withSum(['sales as net_sales' => $activeSales], 'total')
-                ->withSum(['sales as cash_total' => fn ($query) => $query->active()->where('payment_method', 'cash')], 'total')
-                ->withSum(['sales as qris_total' => fn ($query) => $query->active()->where('payment_method', 'qris')], 'total')
-                ->withSum(['sales as card_total' => fn ($query) => $query->active()->where('payment_method', 'card')], 'total')
-                ->latest('opened_at')
-                ->first(),
+            'activeShift' => $activeShift,
             'shifts' => $shifts,
             'availableStaff' => User::query()->where('tenant_owner_id', $request->user()->tenantOwnerId())->orderBy('name')->get(['id', 'name']),
         ]);
@@ -120,6 +114,26 @@ class CashierShiftController extends Controller
         });
 
         return redirect()->route('cashier-shifts')->with('success', 'Data shift berhasil diperbarui. Total penjualan dihitung ulang dari transaksi.');
+    }
+
+    private function hydrateTotals($shifts): void
+    {
+        $shifts->each(function (CashierShift $shift): void {
+            $sales = $shift->sales()->active()->with('payments')->get();
+            $payments = $sales->reduce(function (array $totals, $sale): array {
+                if ($sale->payments->isNotEmpty()) {
+                    foreach ($sale->payments as $payment) $totals[$payment->payment_method] += $payment->amount;
+                } elseif (array_key_exists($sale->payment_method, $totals)) {
+                    $totals[$sale->payment_method] += $sale->total;
+                }
+                return $totals;
+            }, ['cash' => 0, 'qris' => 0, 'card' => 0]);
+            $shift->setAttribute('sales_count', $sales->count());
+            $shift->setAttribute('net_sales', $sales->sum('total'));
+            $shift->setAttribute('cash_total', $payments['cash']);
+            $shift->setAttribute('qris_total', $payments['qris']);
+            $shift->setAttribute('card_total', $payments['card']);
+        });
     }
 
     public function destroy(CashierShift $cashierShift): RedirectResponse

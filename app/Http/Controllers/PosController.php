@@ -302,7 +302,10 @@ class PosController extends Controller
             'items' => ['required', 'array', 'min:1'],
             'items.*.id' => ['required', 'string'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
-            'payment_method' => ['required', 'in:cash,qris,card,free'],
+            'payment_method' => ['required', 'in:cash,qris,card,split,free'],
+            'payments' => ['required_if:payment_method,split', 'nullable', 'array', 'min:2', 'max:3'],
+            'payments.*.method' => ['required_with:payments', 'in:cash,qris,card', 'distinct'],
+            'payments.*.amount' => ['required_with:payments', 'integer', 'min:1'],
             'complimentary_category' => ['required_if:payment_method,free', 'nullable', 'in:influencer,partnership,owner'],
             'complimentary_recipient_name' => ['required_if:payment_method,free', 'nullable', 'string', 'max:150'],
             'discount' => ['nullable', 'integer', 'min:0'],
@@ -376,6 +379,16 @@ class PosController extends Controller
 
             $discount = $isComplimentary ? $subtotal : ($loyaltyReward ? $loyaltyDiscount : min((int) ($validated['discount'] ?? 0), $subtotal));
             $total = $subtotal - $discount;
+            $splitPayments = collect($validated['payments'] ?? [])
+                ->map(fn (array $payment): array => [
+                    'method' => $payment['method'],
+                    'amount' => (int) $payment['amount'],
+                ])
+                ->values();
+            if ($validated['payment_method'] === 'split' && $splitPayments->sum('amount') !== $total) {
+                abort(422, 'Total split payment harus sama dengan total transaksi.');
+            }
+
             $paidAmount = $validated['payment_method'] === 'cash' ? (int) ($validated['paid_amount'] ?? 0) : $total;
             if ($validated['payment_method'] === 'cash' && $paidAmount < $total) {
                 abort(422, 'Uang diterima kurang dari total transaksi.');
@@ -399,6 +412,13 @@ class PosController extends Controller
                 'change_amount' => max(0, $paidAmount - $total),
                 'sold_at' => now(),
             ]);
+
+            if ($validated['payment_method'] === 'split') {
+                $sale->payments()->createMany($splitPayments->map(fn (array $payment): array => [
+                    'payment_method' => $payment['method'],
+                    'amount' => $payment['amount'],
+                ])->all());
+            }
 
             if ($customer && ($loyaltyStamp || $loyaltyReward)) {
                 $stampCount = $customer->loyalty_stamp_count;
@@ -472,7 +492,7 @@ class PosController extends Controller
 
             app(CashierShiftSummaryService::class)->refresh($shift);
 
-            return $sale->load('items', 'shift.user', 'customer');
+            return $sale->load('items', 'payments', 'shift.user', 'customer');
         });
 
         $setting = StoreSetting::current();
@@ -511,6 +531,10 @@ class PosController extends Controller
                 ] : null,
                 'sold_at' => $sale->sold_at?->timezone('Asia/Makassar')->format('d M Y H:i'),
                 'payment_method' => $sale->payment_method,
+                'payments' => $sale->payments->map(fn ($payment): array => [
+                    'method' => $payment->payment_method,
+                    'amount' => $payment->amount,
+                ])->values(),
                 'buyer_nationality' => $sale->buyer_nationality,
                 'loyalty_reward' => $sale->loyalty_reward,
                 'loyalty_stamp_count' => $sale->customer?->fresh()->loyalty_stamp_count,

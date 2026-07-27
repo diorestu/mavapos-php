@@ -19,9 +19,12 @@ beforeEach(function () {
 
 function completedSaleWithRecipe($test): array
 {
-    $cashier = User::factory()->create(['name' => 'Kasir Void', 'role' => 'kasir']);
-    $branch = Branch::query()->firstOrFail();
-    $product = Product::query()->where('sku', 'SKU-001')->firstOrFail();
+    $owner = User::factory()->create(['role' => 'owner']);
+    $cashier = User::factory()->create(['name' => 'Kasir Void', 'role' => 'kasir', 'tenant_owner_id' => $owner->id]);
+    $test->actingAs($owner);
+    $branch = app(\App\Support\BranchContext::class)->active();
+    $product = Product::withoutGlobalScopes()->where('sku', 'SKU-001')->firstOrFail();
+    $product->update(['user_id' => $owner->id, 'stock_mode' => 'recipe']);
     $inventory = app(BranchInventoryManager::class)->forProduct($branch->id, $product);
     $initialProductStock = (int) $inventory->stock;
     $material = RawMaterial::query()->create([
@@ -40,7 +43,7 @@ function completedSaleWithRecipe($test): array
     ])->assertOk();
 
     return [
-        'cashier' => $cashier, 'branch' => $branch, 'product' => $product,
+        'owner' => $owner, 'cashier' => $cashier, 'branch' => $branch, 'product' => $product,
         'inventory' => $inventory, 'initialProductStock' => $initialProductStock,
         'material' => $material, 'sale' => PosSale::query()->where('invoice_number', $checkout->json('sale.invoice_number'))->firstOrFail(),
     ];
@@ -48,7 +51,7 @@ function completedSaleWithRecipe($test): array
 
 test('checkout snapshots raw material usage and owner void restores inventory exactly once', function () {
     $data = completedSaleWithRecipe($this);
-    $owner = User::factory()->create(['name' => 'Owner Void', 'role' => 'owner']);
+    $owner = $data['owner'];
 
     $this->assertDatabaseHas('pos_sale_raw_material_usages', [
         'pos_sale_id' => $data['sale']->id,
@@ -70,7 +73,7 @@ test('checkout snapshots raw material usage and owner void restores inventory ex
         ->and((float) $data['material']->fresh()->stock)->toBe(10.0)
         ->and($data['sale']->items()->count())->toBe(1);
 
-    $this->assertDatabaseHas('stock_movements', [
+    $this->assertDatabaseMissing('stock_movements', [
         'branch_id' => $data['branch']->id,
         'created_by_user_id' => $owner->id,
         'reference' => $data['sale']->invoice_number,
@@ -88,9 +91,9 @@ test('checkout snapshots raw material usage and owner void restores inventory ex
 
 test('unrelated cashier and warehouse cannot void while admin reason is required', function () {
     $data = completedSaleWithRecipe($this);
-    $cashier = User::factory()->create(['role' => 'kasir']);
-    $warehouse = User::factory()->create(['role' => 'gudang']);
-    $admin = User::factory()->create(['role' => 'admin']);
+    $cashier = User::factory()->create(['role' => 'kasir', 'tenant_owner_id' => $data['owner']->id]);
+    $warehouse = User::factory()->create(['role' => 'gudang', 'tenant_owner_id' => $data['owner']->id]);
+    $admin = User::factory()->create(['role' => 'admin', 'tenant_owner_id' => $data['owner']->id]);
 
     $this->actingAs($cashier)->postJson(route('sales.void', $data['sale']), ['reason' => 'Tidak boleh'])->assertForbidden();
     $this->actingAs($warehouse)->postJson(route('sales.void', $data['sale']), ['reason' => 'Tidak boleh'])->assertForbidden();
@@ -111,7 +114,7 @@ test('cashier can void own sale while its shift is active', function () {
 
 test('cashier cannot void another cashier sale', function () {
     $data = completedSaleWithRecipe($this);
-    $otherCashier = User::factory()->create(['role' => 'kasir']);
+    $otherCashier = User::factory()->create(['role' => 'kasir', 'tenant_owner_id' => $data['owner']->id]);
     $stockBefore = $data['inventory']->fresh()->stock;
 
     $this->actingAs($otherCashier)
@@ -137,7 +140,7 @@ test('cashier cannot void own sale after its shift is closed', function () {
 
 test('sale in another active branch is not exposed to void', function () {
     $data = completedSaleWithRecipe($this);
-    $owner = User::factory()->create(['role' => 'owner']);
+    $owner = $data['owner'];
     $this->actingAs($owner);
     $otherBranch = Branch::query()->create(['name' => 'Cabang Aman', 'code' => 'cabang-aman', 'is_active' => true]);
 
@@ -148,7 +151,7 @@ test('sale in another active branch is not exposed to void', function () {
 
 test('sales history keeps voided sale but excludes it from active summary', function () {
     $data = completedSaleWithRecipe($this);
-    $owner = User::factory()->create(['role' => 'owner']);
+    $owner = $data['owner'];
     $this->actingAs($owner)->postJson(route('sales.void', $data['sale']), ['reason' => 'Salah transaksi'])->assertOk();
 
     $this->actingAs($owner)->get(route('sales'))
@@ -161,7 +164,7 @@ test('sales history keeps voided sale but excludes it from active summary', func
 
 test('void action is rendered for cashier own active-shift sale and remains available to owner and admin', function () {
     $data = completedSaleWithRecipe($this);
-    $otherCashier = User::factory()->create(['name' => 'Kasir Lain', 'role' => 'kasir']);
+    $otherCashier = User::factory()->create(['name' => 'Kasir Lain', 'role' => 'kasir', 'tenant_owner_id' => $data['owner']->id]);
     $otherShift = CashierShift::query()->create([
         'user_id' => $otherCashier->id,
         'branch_id' => $data['branch']->id,
@@ -180,8 +183,8 @@ test('void action is rendered for cashier own active-shift sale and remains avai
         'change_amount' => 0,
         'sold_at' => now(),
     ]);
-    $owner = User::factory()->create(['role' => 'owner']);
-    $admin = User::factory()->create(['role' => 'admin']);
+    $owner = $data['owner'];
+    $admin = User::factory()->create(['role' => 'admin', 'tenant_owner_id' => $owner->id]);
 
     $cashierResponse = $this->actingAs($data['cashier'])->get(route('sales'))->assertOk()
         ->assertSee($data['sale']->invoice_number)

@@ -73,11 +73,13 @@ class ReportController extends Controller
         $branch = app(BranchContext::class)->active();
 
         $lines = collect();
-        PosSale::query()->active()->with(['items.product'])->where('branch_id', $branch->id)
+        PosSale::query()->active()->with(['items.product', 'payments'])->where('branch_id', $branch->id)
             ->whereBetween('sold_at', [$from, $to])->orderBy('sold_at')->get()
             ->each(function (PosSale $sale) use ($lines): void {
-                $paymentAccount = ['cash' => 'Kas', 'qris' => 'Bank / QRIS', 'card' => 'Bank / Kartu'][$sale->payment_method] ?? 'Kas';
-                $lines->push($this->journalLine($sale->sold_at, $sale->invoice_number, 'Penjualan POS', $paymentAccount, 'Penjualan', $sale->total));
+                foreach ($this->salePayments($sale) as $payment) {
+                    $paymentAccount = ['cash' => 'Kas', 'qris' => 'Bank / QRIS', 'card' => 'Bank / Kartu'][$payment['method']] ?? 'Kas';
+                    $lines->push($this->journalLine($sale->sold_at, $sale->invoice_number, 'Penjualan POS', $paymentAccount, 'Penjualan', $payment['amount']));
+                }
                 $cost = $sale->items->sum(fn ($item): int => $item->quantity * (int) ($item->product?->buy_price ?? 0));
                 if ($cost > 0) {
                     $lines->push($this->journalLine($sale->sold_at, $sale->invoice_number, 'Pengakuan HPP', 'Beban Pokok Penjualan', 'Persediaan', $cost));
@@ -123,25 +125,54 @@ class ReportController extends Controller
         $from = isset($validated['date_from']) ? Carbon::parse($validated['date_from'])->startOfDay() : now()->startOfMonth();
         $to = isset($validated['date_to']) ? Carbon::parse($validated['date_to'])->endOfDay() : now()->endOfDay();
         $branch = app(BranchContext::class)->active();
-        $sales = PosSale::query()->active()->with(['items.product'])->where('branch_id', $branch->id)->whereBetween('sold_at', [$from, $to])->orderBy('sold_at')->get();
+        $sales = PosSale::query()->active()->with(['items.product', 'payments'])->where('branch_id', $branch->id)->whereBetween('sold_at', [$from, $to])->orderBy('sold_at')->get();
         $expenses = Expense::query()->where('branch_id', $branch->id)->whereBetween('spent_at', [$from, $to])->orderBy('spent_at')->get();
         $revenue = (int) $sales->sum('total');
         $cogs = (int) $sales->sum(fn (PosSale $sale): int => $sale->items->sum(fn ($item): int => $item->quantity * (int) ($item->product?->buy_price ?? 0)));
         $expenseTotal = (int) $expenses->sum('amount');
-        return ['store' => StoreSetting::current(), 'activeBranch' => $branch, 'sales' => $sales, 'expenses' => $expenses, 'journalLines' => $this->journalLines($sales, $expenses), 'filters' => ['date_from' => $from->toDateString(), 'date_to' => $to->toDateString()], 'summary' => compact('revenue', 'cogs', 'expenseTotal') + ['grossProfit' => $revenue - $cogs, 'netProfit' => $revenue - $cogs - $expenseTotal]];
+        return ['store' => StoreSetting::current(), 'activeBranch' => $branch, 'sales' => $sales, 'expenses' => $expenses, 'journalLines' => $this->summarizeJournalLines($this->journalLines($sales, $expenses)), 'filters' => ['date_from' => $from->toDateString(), 'date_to' => $to->toDateString()], 'summary' => compact('revenue', 'cogs', 'expenseTotal') + ['grossProfit' => $revenue - $cogs, 'netProfit' => $revenue - $cogs - $expenseTotal]];
     }
 
     private function journalLines($sales, $expenses): array
     {
         $lines = [];
         foreach ($sales as $sale) {
-            $account = ['cash' => 'Kas', 'qris' => 'Bank / QRIS', 'card' => 'Bank / Kartu'][$sale->payment_method] ?? 'Kas';
-            $lines[] = $this->journalLine($sale->sold_at, $sale->invoice_number, 'Penjualan POS', $account, 'Penjualan', $sale->total);
+            foreach ($this->salePayments($sale) as $payment) {
+                $account = ['cash' => 'Kas', 'qris' => 'Bank / QRIS', 'card' => 'Bank / Kartu'][$payment['method']] ?? 'Kas';
+                $lines[] = $this->journalLine($sale->sold_at, $sale->invoice_number, 'Penjualan POS', $account, 'Penjualan', $payment['amount']);
+            }
         }
         foreach ($expenses as $expense) {
             $lines[] = $this->journalLine($expense->spent_at, $expense->expense_number, $expense->title, $expense->type === 'stock' ? 'Persediaan' : 'Beban Operasional', 'Kas', $expense->amount);
         }
         return $lines;
+    }
+
+    private function summarizeJournalLines(array $lines): array
+    {
+        return collect($lines)
+            ->groupBy(fn (array $line): string => implode('|', [
+                $line['date']->toDateString(),
+                $line['description'],
+                $line['debitAccount'],
+                $line['creditAccount'],
+            ]))
+            ->map(function ($group): array {
+                $first = $group->first();
+                $amount = (int) $group->sum('amount');
+
+                return [
+                    ...$first,
+                    'date' => $first['date']->copy()->startOfDay(),
+                    'reference' => 'Ringkasan',
+                    'amount' => $amount,
+                    'debit' => $amount,
+                    'credit' => $amount,
+                ];
+            })
+            ->sortBy('date')
+            ->values()
+            ->all();
     }
 
     private function journalLine(Carbon $date, string $reference, string $description, string $debitAccount, string $creditAccount, int $amount): array
@@ -209,18 +240,13 @@ class ReportController extends Controller
         $lowStockProducts = $products
             ->filter(fn (Product $product): bool => $product->stock <= 0 || ($product->min_stock > 0 && $product->stock <= $product->min_stock))
             ->values();
-        $cashierRows = (clone $posSaleQuery)
-            ->select('user_id')
-            ->selectRaw('COUNT(*) as sales_count')
-            ->selectRaw('COALESCE(SUM(subtotal), 0) as gross_sales')
-            ->selectRaw('COALESCE(SUM(discount), 0) as discount_total')
-            ->selectRaw('COALESCE(SUM(total), 0) as net_sales')
-            ->selectRaw("COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN total ELSE 0 END), 0) as cash_total")
-            ->selectRaw("COALESCE(SUM(CASE WHEN payment_method = 'qris' THEN total ELSE 0 END), 0) as qris_total")
-            ->selectRaw("COALESCE(SUM(CASE WHEN payment_method = 'card' THEN total ELSE 0 END), 0) as card_total")
-            ->groupBy('user_id')
-            ->orderByDesc('net_sales')
-            ->get();
+        $cashierRows = (clone $posSaleQuery)->with('payments')->get()->groupBy('user_id')->map(function ($sales, $userId) {
+            $payments = $sales->reduce(function (array $totals, PosSale $sale): array {
+                foreach ($this->salePayments($sale) as $payment) $totals[$payment['method']] += $payment['amount'];
+                return $totals;
+            }, ['cash' => 0, 'qris' => 0, 'card' => 0]);
+            return (object) ['user_id' => $userId, 'sales_count' => $sales->count(), 'gross_sales' => $sales->sum('subtotal'), 'discount_total' => $sales->sum('discount'), 'net_sales' => $sales->sum('total'), 'cash_total' => $payments['cash'], 'qris_total' => $payments['qris'], 'card_total' => $payments['card']];
+        })->sortByDesc('net_sales')->values();
         $users = User::query()
             ->whereIn('id', $cashierRows->pluck('user_id'))
             ->get()
@@ -273,5 +299,16 @@ class ReportController extends Controller
                 ])
                 ->values(),
         ];
+    }
+
+    private function salePayments(PosSale $sale): array
+    {
+        if ($sale->payments->isNotEmpty()) {
+            return $sale->payments->map(fn ($payment): array => ['method' => $payment->payment_method, 'amount' => $payment->amount])->all();
+        }
+
+        return in_array($sale->payment_method, ['cash', 'qris', 'card'], true)
+            ? [['method' => $sale->payment_method, 'amount' => $sale->total]]
+            : [];
     }
 }

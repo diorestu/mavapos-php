@@ -20,7 +20,7 @@ class AdminSaleEditorService
     public function update(PosSale $sale, int $branchId, User $actor, array $data): PosSale
     {
         return DB::transaction(function () use ($sale, $branchId, $actor, $data): PosSale {
-            $sale = PosSale::query()->with(['items.product', 'items.productVariant', 'rawMaterialUsages', 'shift'])
+            $sale = PosSale::query()->with(['items.product', 'items.productVariant', 'rawMaterialUsages', 'payments', 'shift'])
                 ->whereKey($sale->id)->where('branch_id', $branchId)->lockForUpdate()->firstOrFail();
             abort_if($sale->voided_at, 422, 'Transaksi yang sudah di-void tidak dapat diedit.');
 
@@ -51,6 +51,10 @@ class AdminSaleEditorService
             if ($data['payment_method'] === 'cash' && $paid < $total) {
                 abort(422, 'Uang diterima kurang dari total transaksi.');
             }
+            $payments = collect($data['payments'] ?? [])->map(fn (array $payment): array => ['method' => $payment['method'], 'amount' => (int) $payment['amount']]);
+            if ($data['payment_method'] === 'split' && $payments->sum('amount') !== $total) {
+                abort(422, 'Total split payment harus sama dengan total transaksi.');
+            }
 
             $sale->update([
                 'payment_method' => $data['payment_method'],
@@ -60,6 +64,10 @@ class AdminSaleEditorService
                 'subtotal' => $subtotal, 'discount' => $discount, 'total' => $total,
                 'paid_amount' => $paid, 'change_amount' => max(0, $paid - $total),
             ]);
+            $sale->payments()->delete();
+            if ($data['payment_method'] === 'split') {
+                $sale->payments()->createMany($payments->map(fn (array $payment): array => ['payment_method' => $payment['method'], 'amount' => $payment['amount']])->all());
+            }
 
             foreach ($lines as $line) {
                 $sellable = $line['sellable'];
@@ -76,7 +84,7 @@ class AdminSaleEditorService
 
             $this->shiftSummary->refresh($sale->shift);
 
-            return $sale->refresh()->load('items');
+            return $sale->refresh()->load(['items', 'payments']);
         });
     }
 

@@ -27,6 +27,10 @@ class TransactionVoidService
             abort_if($sale->voided_at, 409, 'Transaksi sudah dibatalkan sebelumnya.');
 
             foreach ($sale->items as $item) {
+                $stockMode = $item->product?->stock_mode;
+                if ($stockMode !== 'inventory') {
+                    continue;
+                }
                 $inventory = $item->product_variant_id && $item->productVariant
                     ? app(BranchInventoryManager::class)->forVariant($branchId, $item->productVariant, true)
                     : app(BranchInventoryManager::class)->forProduct($branchId, $item->product, true);

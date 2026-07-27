@@ -254,6 +254,9 @@
                                     <span class="rounded-full bg-gray-100 px-2 py-1 text-[11px] font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">
                                         {{ $methodLabel[$sale->payment_method] ?? strtoupper($sale->payment_method) }}
                                     </span>
+                                    @if ($sale->payments->isNotEmpty())
+                                        <span class="mt-1 block text-[10px] text-gray-500 dark:text-gray-400">{{ $sale->payments->map(fn ($payment) => strtoupper($payment->payment_method).' '.$rupiah($payment->amount))->join(' · ') }}</span>
+                                    @endif
                                     @if ($canVoidSale)
                                         <button type="button" @click="openVoid(@js(['id' => $sale->id, 'invoice' => $sale->invoice_number, 'total' => $sale->total]))" class="mt-2 block w-full text-[11px] font-semibold text-error-600 hover:text-error-700">Batalkan Transaksi</button>
                                     @endif

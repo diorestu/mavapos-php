@@ -1885,6 +1885,10 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     recentlyAddedItemId: null,
     paymentMethod: 'cash',
     paidAmount: '',
+    splitPayments: [
+        { method: 'cash', amount: '' },
+        { method: 'qris', amount: '' },
+    ],
     discount: '',
     loyaltyReward: '',
     loyaltyStamp: false,
@@ -1902,6 +1906,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         this.$watch('discountValue', () => this.pushDisplayState('cart'));
         this.$watch('paidAmount', () => this.pushDisplayState('cart'));
         this.$watch('paymentMethod', () => this.pushDisplayState('cart'));
+        this.$watch('splitPayments', () => this.pushDisplayState('cart'), { deep: true });
         this.maybeOpenCustomerDisplay();
     },
 
@@ -2003,6 +2008,18 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         return Math.max(0, this.paid - this.total);
     },
 
+    get splitPaid() {
+        return this.splitPayments.reduce((sum, payment) => sum + this.numberFromInput(payment.amount), 0);
+    },
+
+    get splitRemaining() {
+        return this.total - this.splitPaid;
+    },
+
+    get splitMethodsAreUnique() {
+        return new Set(this.splitPayments.map((payment) => payment.method)).size === this.splitPayments.length;
+    },
+
     get remaining() {
         if (this.paymentMethod !== 'cash') {
             return 0;
@@ -2012,7 +2029,11 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     },
 
     get canCheckout() {
-        return Boolean(this.shift) && !this.checkoutLoading && this.cart.length > 0 && Boolean(this.buyerNationality) && (!(this.loyaltyStamp || this.loyaltyReward) || Boolean(this.customerPhone.trim())) && (this.paymentMethod !== 'cash' || this.paid >= this.total);
+        const paymentComplete = this.paymentMethod === 'split'
+            ? this.splitRemaining === 0 && this.splitMethodsAreUnique
+            : (this.paymentMethod !== 'cash' || this.paid >= this.total);
+
+        return Boolean(this.shift) && !this.checkoutLoading && this.cart.length > 0 && Boolean(this.buyerNationality) && (!(this.loyaltyStamp || this.loyaltyReward) || Boolean(this.customerPhone.trim())) && paymentComplete;
     },
 
     normalize(value) {
@@ -2043,11 +2064,32 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         event.target.value = this.formatInputNumber(digits);
     },
 
+    onSplitMoneyInput(index, event) {
+        const digits = String(event.target.value || '').replace(/[^\d]/g, '');
+        this.splitPayments[index].amount = digits;
+        event.target.value = this.formatInputNumber(digits);
+    },
+
+    selectPaymentMethod(method) {
+        this.paymentMethod = method;
+        if (method !== 'cash') this.paidAmount = '';
+    },
+
+    enableSplitPayment() {
+        this.paymentMethod = 'split';
+        this.paidAmount = '';
+        this.splitPayments = [
+            { method: 'cash', amount: '' },
+            { method: 'qris', amount: '' },
+        ];
+    },
+
     paymentLabel(method) {
         return {
             cash: 'Tunai',
             qris: 'QRIS',
             card: 'Kartu',
+            split: 'Split Payment',
         }[method] || method || '-';
     },
 
@@ -2219,6 +2261,10 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         this.loyaltyReward = '';
         this.loyaltyStamp = false;
         this.paidAmount = '';
+        this.splitPayments = [
+            { method: 'cash', amount: '' },
+            { method: 'qris', amount: '' },
+        ];
         this.pushDisplayState('cart');
     },
 
@@ -2238,7 +2284,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             discount: this.discountValue,
             total: this.total,
             payment_method: this.paymentMethod,
-            paid_amount: this.paymentMethod === 'cash' ? this.paid : this.total,
+            paid_amount: this.paymentMethod === 'cash' ? this.paid : (this.paymentMethod === 'split' ? this.splitPaid : this.total),
             change_amount: this.change,
             invoice_number: mode === 'checkout' ? (this.lastReceipt?.invoice_number || null) : null,
         };
@@ -3070,6 +3116,10 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                     payment_method: isComplimentary ? 'free' : this.paymentMethod,
                     discount: isComplimentary ? 0 : this.discountValue,
                     paid_amount: isComplimentary ? 0 : (this.paymentMethod === 'cash' ? this.paid : this.total),
+                    payments: isComplimentary || this.paymentMethod !== 'split' ? null : this.splitPayments.map((payment) => ({
+                        method: payment.method,
+                        amount: this.numberFromInput(payment.amount),
+                    })),
                     complimentary_category: isComplimentary ? this.complimentaryCategory : null,
                     complimentary_recipient_name: isComplimentary ? this.complimentaryRecipientName.trim() : null,
                     customer_name: this.customerName.trim() || null,

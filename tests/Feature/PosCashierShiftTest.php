@@ -23,9 +23,10 @@ beforeEach(function () {
 });
 
 test('POS menampilkan SOP custom dari cabang aktif', function () {
-    $cashier = User::factory()->create(['role' => 'kasir']);
+    $owner = User::factory()->create(['role' => 'owner']);
     $this->actingAs($owner);
     $branch = app(\App\Support\BranchContext::class)->active();
+    $cashier = User::factory()->create(['role' => 'kasir', 'tenant_owner_id' => $owner->id]);
     $this->actingAs($cashier);
     app(\App\Support\BranchContext::class)->setActive($branch->id);
 
@@ -42,7 +43,8 @@ test('POS menampilkan SOP custom dari cabang aktif', function () {
 
 test('laporan jurnal menampilkan pasangan debit kredit transaksi cabang aktif', function () {
     $owner = User::factory()->create(['role' => 'owner']);
-    $branch = Branch::query()->firstOrFail();
+    $this->actingAs($owner);
+    $branch = app(\App\Support\BranchContext::class)->active();
     $shift = CashierShift::query()->create([
         'user_id' => $owner->id,
         'branch_id' => $branch->id,
@@ -89,10 +91,8 @@ test('laporan jurnal menampilkan pasangan debit kredit transaksi cabang aktif', 
 
 test('owner dapat menyimpan SOP custom untuk cabang aktif', function () {
     $owner = User::factory()->create(['role' => 'owner']);
-    $branch = Branch::query()->firstOrFail();
-
     $this->actingAs($owner);
-    app(\App\Support\BranchContext::class)->setActive($branch->id);
+    $branch = app(\App\Support\BranchContext::class)->active();
 
     $this->patch(route('settings.update'), [
         'store_name' => 'Mava Cabang',
@@ -226,11 +226,14 @@ test('kasir wajib mulai shift sebelum checkout dan report menampilkan pendapatan
         'email' => 'kasir-pagi@example.com',
     ]);
 
-    $product = Product::query()->where('sku', 'SKU-001')->firstOrFail();
+    $this->actingAs($cashier);
+    $branch = app(\App\Support\BranchContext::class)->active();
+    $product = Product::withoutGlobalScopes()->where('sku', 'SKU-001')->firstOrFail();
+    $product->update(['user_id' => $cashier->id]);
+    app(BranchInventoryManager::class)->forProduct($branch->id, $product)->update(['stock' => $product->stock]);
     $startingStock = $product->stock;
 
-    $this->actingAs($cashier)
-        ->postJson(route('pos.checkout'), [
+    $this->postJson(route('pos.checkout'), [
             'items' => [
                 ['id' => 'product-SKU-001', 'quantity' => 1],
             ],
@@ -299,7 +302,7 @@ test('kasir wajib mulai shift sebelum checkout dan report menampilkan pendapatan
     expect(CashierShift::query()->where('user_id', $cashier->id)->whereNull('closed_at')->exists())->toBeFalse();
     expect(PosSale::query()->where('user_id', $cashier->id)->count())->toBe(1);
 
-    $this->actingAs($cashier)
+    $this->actingAs($owner)
         ->get(route('reports'))
         ->assertOk()
         ->assertSee('Pendapatan per Kasir')
@@ -308,8 +311,9 @@ test('kasir wajib mulai shift sebelum checkout dan report menampilkan pendapatan
 });
 
 test('shift kasir aktif harus ditutup sebelum kasir lain memulai pekerjaan', function () {
-    $firstCashier = User::factory()->create(['name' => 'Kasir Pertama']);
-    $secondCashier = User::factory()->create(['name' => 'Kasir Kedua']);
+    $owner = User::factory()->create(['role' => 'owner']);
+    $firstCashier = User::factory()->create(['name' => 'Kasir Pertama', 'role' => 'kasir', 'tenant_owner_id' => $owner->id]);
+    $secondCashier = User::factory()->create(['name' => 'Kasir Kedua', 'role' => 'kasir', 'tenant_owner_id' => $owner->id]);
 
     $this->actingAs($firstCashier)
         ->postJson(route('pos.shift.start'))
@@ -385,13 +389,14 @@ test('kasir berikutnya wajib memvalidasi cash dan kartu dari rekap sesi sebelumn
 });
 
 test('owner dapat menutup paksa shift kasir aktif', function () {
-    $cashier = User::factory()->create([
-        'name' => 'Kasir Lupa Tutup',
-        'role' => 'kasir',
-    ]);
     $owner = User::factory()->create([
         'name' => 'Owner Shift',
         'role' => 'owner',
+    ]);
+    $cashier = User::factory()->create([
+        'name' => 'Kasir Lupa Tutup',
+        'role' => 'kasir',
+        'tenant_owner_id' => $owner->id,
     ]);
 
     $this->actingAs($cashier)
@@ -459,8 +464,8 @@ test('tutup kasir normal mengembalikan rekap penjualan dan total uang', function
 });
 
 test('tutup kasir paksa json mengembalikan kontrak rekap yang sama', function () {
-    $cashier = User::factory()->create(['name' => 'Kasir Rekap Paksa', 'role' => 'kasir']);
     $owner = User::factory()->create(['role' => 'owner']);
+    $cashier = User::factory()->create(['name' => 'Kasir Rekap Paksa', 'role' => 'kasir', 'tenant_owner_id' => $owner->id]);
     $this->actingAs($cashier)->postJson(route('pos.shift.start'), ['opening_cash_amount' => 50000])->assertOk();
     $shift = CashierShift::query()->where('user_id', $cashier->id)->firstOrFail();
 
@@ -526,11 +531,13 @@ test('admin dapat menghapus riwayat shift beserta transaksi di dalamnya', functi
 });
 
 test('owner dapat menghapus riwayat shift tetapi kasir tidak', function () {
-    $cashier = User::factory()->create(['role' => 'kasir']);
     $owner = User::factory()->create(['role' => 'owner']);
+    $cashier = User::factory()->create(['role' => 'kasir', 'tenant_owner_id' => $owner->id]);
+    $this->actingAs($owner);
+    $branch = app(\App\Support\BranchContext::class)->active();
     $shift = CashierShift::query()->create([
         'user_id' => $cashier->id,
-        'branch_id' => Branch::query()->firstOrFail()->id,
+        'branch_id' => $branch->id,
         'opened_at' => now()->subHour(),
         'closed_at' => now(),
     ]);
@@ -543,7 +550,7 @@ test('owner dapat menghapus riwayat shift tetapi kasir tidak', function () {
 
     $cashierShift = CashierShift::query()->create([
         'user_id' => $cashier->id,
-        'branch_id' => Branch::query()->firstOrFail()->id,
+        'branch_id' => $branch->id,
         'opened_at' => now()->subHour(),
         'closed_at' => now(),
     ]);
@@ -556,12 +563,14 @@ test('owner dapat menghapus riwayat shift tetapi kasir tidak', function () {
 });
 
 test('aksi hapus riwayat shift hanya tampil untuk owner dan admin', function () {
-    $cashier = User::factory()->create(['role' => 'kasir']);
-    $admin = User::factory()->create(['role' => 'admin']);
     $owner = User::factory()->create(['role' => 'owner']);
+    $cashier = User::factory()->create(['role' => 'kasir', 'tenant_owner_id' => $owner->id]);
+    $admin = User::factory()->create(['role' => 'admin', 'tenant_owner_id' => $owner->id]);
+    $this->actingAs($owner);
+    $branch = app(\App\Support\BranchContext::class)->active();
     CashierShift::query()->create([
         'user_id' => $cashier->id,
-        'branch_id' => Branch::query()->firstOrFail()->id,
+        'branch_id' => $branch->id,
         'opened_at' => now()->subHour(),
         'closed_at' => now(),
     ]);
@@ -583,12 +592,13 @@ test('aksi hapus riwayat shift hanya tampil untuk owner dan admin', function () 
 });
 
 test('pilihan tutup paksa hanya tampil untuk owner dan admin', function () {
+    $owner = User::factory()->create([
+        'role' => 'owner',
+    ]);
     $cashier = User::factory()->create([
         'name' => 'Kasir UI',
         'role' => 'kasir',
-    ]);
-    $owner = User::factory()->create([
-        'role' => 'owner',
+        'tenant_owner_id' => $owner->id,
     ]);
 
     $this->actingAs($cashier)
@@ -607,10 +617,18 @@ test('pilihan tutup paksa hanya tampil untuk owner dan admin', function () {
 });
 
 test('halaman penjualan menampilkan transaksi pos dan filter invoice', function () {
+    $owner = User::factory()->create(['role' => 'owner']);
     $cashier = User::factory()->create([
         'name' => 'Kasir Sales',
         'email' => 'kasir-sales@example.com',
+        'role' => 'kasir',
+        'tenant_owner_id' => $owner->id,
     ]);
+    $this->actingAs($owner);
+    $branch = app(\App\Support\BranchContext::class)->active();
+    $product = Product::withoutGlobalScopes()->where('sku', 'SKU-001')->firstOrFail();
+    $product->update(['user_id' => $owner->id]);
+    app(BranchInventoryManager::class)->forProduct($branch->id, $product)->update(['stock' => $product->stock]);
 
     $this->actingAs($cashier)
         ->postJson(route('pos.shift.start'))
@@ -646,17 +664,22 @@ test('halaman penjualan menampilkan transaksi pos dan filter invoice', function 
 });
 
 test('cabang aktif mengatur scope transaksi kasir dan laporan', function () {
+    $owner = User::factory()->create(['role' => 'owner']);
     $cashier = User::factory()->create([
         'name' => 'Kasir Cabang Dua',
         'email' => 'kasir-cabang-dua@example.com',
+        'role' => 'kasir', 'tenant_owner_id' => $owner->id,
     ]);
-    $defaultBranch = Branch::query()->firstOrFail();
+    $this->actingAs($owner);
+    $defaultBranch = app(\App\Support\BranchContext::class)->active();
     $secondBranch = Branch::query()->create([
+        'user_id' => $owner->id,
         'name' => 'Cabang Dua',
         'code' => 'cabang-dua',
         'is_active' => true,
     ]);
-    $product = Product::query()->where('sku', 'SKU-001')->firstOrFail();
+    $product = Product::withoutGlobalScopes()->where('sku', 'SKU-001')->firstOrFail();
+    $product->update(['user_id' => $owner->id]);
     app(BranchInventoryManager::class)->forProduct($secondBranch->id, $product)->update(['stock' => 10]);
 
     $this->actingAs($cashier)
@@ -687,17 +710,21 @@ test('cabang aktif mengatur scope transaksi kasir dan laporan', function () {
         'total' => 18000,
     ]);
 
-    $this->actingAs($cashier)
+    $this->actingAs($owner)
+        ->post(route('branches.switch'), ['branch_id' => $secondBranch->id])
+        ->assertRedirect();
+
+    $this->actingAs($owner)
         ->get(route('reports'))
         ->assertOk()
         ->assertSee('Cabang aktif: Cabang Dua')
         ->assertSee('Kasir Cabang Dua');
 
-    $this->actingAs($cashier)
+    $this->actingAs($owner)
         ->post(route('branches.switch'), ['branch_id' => $defaultBranch->id])
         ->assertRedirect();
 
-    $this->actingAs($cashier)
+    $this->actingAs($owner)
         ->get(route('reports'))
         ->assertOk()
         ->assertSee('Cabang aktif: Cabang Utama')
@@ -705,19 +732,25 @@ test('cabang aktif mengatur scope transaksi kasir dan laporan', function () {
 });
 
 test('stok produk berbeda per cabang dan checkout hanya mengurangi cabang aktif', function () {
+    $owner = User::factory()->create(['role' => 'owner']);
     $cashier = User::factory()->create([
         'name' => 'Kasir Stok Cabang',
         'email' => 'kasir-stok-cabang@example.com',
+        'role' => 'kasir', 'tenant_owner_id' => $owner->id,
     ]);
-    $defaultBranch = Branch::query()->firstOrFail();
+    $this->actingAs($owner);
+    $defaultBranch = app(\App\Support\BranchContext::class)->active();
     $secondBranch = Branch::query()->create([
+        'user_id' => $owner->id,
         'name' => 'Cabang Stok',
         'code' => 'cabang-stok',
         'is_active' => true,
     ]);
     app(BranchInventoryManager::class)->initializeBranch($secondBranch->id);
 
-    $product = Product::query()->where('sku', 'SKU-001')->firstOrFail();
+    $product = Product::withoutGlobalScopes()->where('sku', 'SKU-001')->firstOrFail();
+    $product->update(['user_id' => $owner->id]);
+    app(BranchInventoryManager::class)->forProduct($secondBranch->id, $product);
     $defaultInventory = app(BranchInventoryManager::class)->forProduct($defaultBranch->id, $product);
     $secondInventory = BranchInventory::query()
         ->where('branch_id', $secondBranch->id)
@@ -755,11 +788,17 @@ test('stok produk berbeda per cabang dan checkout hanya mengurangi cabang aktif'
 });
 
 test('checkout mengurangi stok bahan baku sesuai resep produk', function () {
+    $owner = User::factory()->create(['role' => 'owner']);
     $cashier = User::factory()->create([
         'name' => 'Kasir Bahan Baku',
         'email' => 'kasir-bahan-baku@example.com',
+        'role' => 'kasir', 'tenant_owner_id' => $owner->id,
     ]);
-    $product = Product::query()->where('sku', 'SKU-001')->firstOrFail();
+    $this->actingAs($owner);
+    $branch = app(\App\Support\BranchContext::class)->active();
+    $product = Product::withoutGlobalScopes()->where('sku', 'SKU-001')->firstOrFail();
+    $product->update(['user_id' => $owner->id, 'stock_mode' => 'recipe']);
+    app(BranchInventoryManager::class)->forProduct($branch->id, $product)->update(['stock' => $product->stock]);
     $material = RawMaterial::query()->create([
         'code' => 'BB-KOPI-CHECKOUT',
         'name' => 'Kopi bubuk checkout',
@@ -800,15 +839,18 @@ test('laporan nilai stok mengikuti stok cabang aktif', function () {
         'name' => 'Owner Report Cabang',
         'email' => 'owner-report-cabang@example.com',
     ]);
-    $defaultBranch = Branch::query()->firstOrFail();
+    $this->actingAs($owner);
+    $defaultBranch = app(\App\Support\BranchContext::class)->active();
     $secondBranch = Branch::query()->create([
+        'user_id' => $owner->id,
         'name' => 'Cabang Report Stok',
         'code' => 'cabang-report-stok',
         'is_active' => true,
     ]);
     app(BranchInventoryManager::class)->initializeBranch($secondBranch->id);
 
-    $product = Product::query()->where('sku', 'SKU-001')->firstOrFail();
+    $product = Product::withoutGlobalScopes()->where('sku', 'SKU-001')->firstOrFail();
+    $product->update(['user_id' => $owner->id]);
     app(BranchInventoryManager::class)->forProduct($defaultBranch->id, $product)->update(['stock' => 40]);
     app(BranchInventoryManager::class)->forProduct($secondBranch->id, $product)->update(['stock' => 3]);
 

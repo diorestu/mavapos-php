@@ -17,10 +17,21 @@ class CashierShiftSummaryService
             ->selectRaw('COALESCE(SUM(subtotal), 0) as gross_sales')
             ->selectRaw('COALESCE(SUM(discount), 0) as discount_total')
             ->selectRaw('COALESCE(SUM(total), 0) as net_sales')
-            ->selectRaw("COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN total ELSE 0 END), 0) as cash_total")
-            ->selectRaw("COALESCE(SUM(CASE WHEN payment_method = 'qris' THEN total ELSE 0 END), 0) as qris_total")
-            ->selectRaw("COALESCE(SUM(CASE WHEN payment_method = 'card' THEN total ELSE 0 END), 0) as card_total")
             ->first();
+        $paymentTotals = ['cash' => 0, 'qris' => 0, 'card' => 0];
+        (clone $salesQuery)->with('payments')->get()->each(function (PosSale $sale) use (&$paymentTotals): void {
+            if ($sale->payments->isNotEmpty()) {
+                $sale->payments->each(function ($payment) use (&$paymentTotals): void {
+                    $paymentTotals[$payment->payment_method] = ($paymentTotals[$payment->payment_method] ?? 0) + $payment->amount;
+                });
+
+                return;
+            }
+
+            if (array_key_exists($sale->payment_method, $paymentTotals)) {
+                $paymentTotals[$sale->payment_method] += $sale->total;
+            }
+        });
         $salesCount = (int) PosSaleItem::query()
             ->whereHas('sale', fn ($query) => $query->active()->where('cashier_shift_id', $shift->id))
             ->sum('quantity') + (int) (clone $salesQuery)->doesntHave('items')->count();
@@ -28,8 +39,8 @@ class CashierShiftSummaryService
         $shift->update([
             'sales_count' => $salesCount, 'gross_sales' => (int) $totals->gross_sales,
             'discount_total' => (int) $totals->discount_total, 'net_sales' => (int) $totals->net_sales,
-            'cash_total' => (int) $totals->cash_total, 'qris_total' => (int) $totals->qris_total,
-            'card_total' => (int) $totals->card_total,
+            'cash_total' => $paymentTotals['cash'], 'qris_total' => $paymentTotals['qris'],
+            'card_total' => $paymentTotals['card'],
         ]);
 
         return $shift->refresh();

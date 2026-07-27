@@ -112,22 +112,46 @@
             </div>
         </div>
 
-        <div class="mt-3.5 grid grid-cols-3 gap-2">
-            <button type="button" @click="paymentMethod = 'cash'"
+        <div class="mt-3.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <button type="button" @click="selectPaymentMethod('cash')"
                 class="h-9 rounded-lg text-xs font-semibold transition"
                 :class="paymentMethod === 'cash' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.04]'">
                 Tunai
             </button>
-            <button type="button" @click="paymentMethod = 'qris'; paidAmount = ''"
+            <button type="button" @click="selectPaymentMethod('qris')"
                 class="h-9 rounded-lg text-xs font-semibold transition"
                 :class="paymentMethod === 'qris' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.04]'">
                 QRIS
             </button>
-            <button type="button" @click="paymentMethod = 'card'; paidAmount = ''"
+            <button type="button" @click="selectPaymentMethod('card')"
                 class="h-9 rounded-lg text-xs font-semibold transition"
                 :class="paymentMethod === 'card' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.04]'">
                 Kartu
             </button>
+            <button type="button" @click="enableSplitPayment()"
+                class="h-9 rounded-lg text-xs font-semibold transition"
+                :class="paymentMethod === 'split' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.04]'">
+                Split Payment
+            </button>
+        </div>
+
+        <div x-show="paymentMethod === 'split'" class="mt-3.5 space-y-2 animate-fadeIn">
+            <p class="text-[11px] font-semibold text-gray-600 dark:text-gray-300">Bagi pembayaran ke beberapa metode</p>
+            <template x-for="(payment, index) in splitPayments" :key="payment.method">
+                <label class="grid grid-cols-[92px_1fr] items-center gap-2">
+                    <select x-model="payment.method" class="h-9 rounded-lg border border-gray-300 bg-transparent px-2 text-[11px] font-semibold text-gray-700 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-200">
+                        <option value="cash">Tunai</option>
+                        <option value="qris">QRIS</option>
+                        <option value="card">Kartu</option>
+                    </select>
+                    <input type="text" inputmode="numeric" autocomplete="off" :value="formatInputNumber(payment.amount)" @input="onSplitMoneyInput(index, $event)" placeholder="0"
+                        class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-right text-sm font-semibold tabular-nums text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                </label>
+            </template>
+            <div class="flex items-center justify-between text-[11px]">
+                <span class="text-gray-500 dark:text-gray-400">Total tercatat <span class="font-semibold text-gray-800 dark:text-white" x-text="formatRupiah(splitPaid)"></span></span>
+                <span :class="splitRemaining === 0 ? 'text-success-600' : 'text-error-600'" x-text="splitRemaining === 0 ? 'Nominal sudah sesuai' : `Sisa ${formatRupiah(Math.abs(splitRemaining))}`"></span>
+            </div>
         </div>
 
         <div x-show="paymentMethod === 'cash'" class="mt-3.5 space-y-2 animate-fadeIn">
