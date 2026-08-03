@@ -158,14 +158,20 @@ Alpine.data('globalSearch', (endpoint = '') => ({
     },
 }));
 
-Alpine.data('salesDateRange', (initialFrom = '', initialTo = '') => ({
-    dateFrom: initialFrom || '',
-    dateTo: initialTo || '',
+Alpine.data('salesDateRange', (initialFrom = '', initialTo = '', useBrowserToday = false) => ({
+    dateFrom: useBrowserToday ? '' : (initialFrom || ''),
+    dateTo: useBrowserToday ? '' : (initialTo || ''),
     picker: null,
 
     async mount(input) {
         if (!input) {
             return;
+        }
+
+        if (useBrowserToday) {
+            const today = this.toDateValue(new Date());
+            this.dateFrom = today;
+            this.dateTo = today;
         }
 
         this.$nextTick(async () => {
@@ -1855,6 +1861,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     changeModal: false,
     changeCashierUserId: '',
     changeCashierPassword: '',
+    changeOpeningCashAmount: '',
     openingCashAmount: '',
     validatedCashAmount: '',
     validatedCardAmount: '',
@@ -3042,6 +3049,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                 body: JSON.stringify({
                     cashier_user_id: this.changeCashierUserId ? Number(this.changeCashierUserId) : null,
                     cashier_password: this.changeCashierPassword,
+                    opening_cash_amount: this.numberFromInput(this.changeOpeningCashAmount),
                     companion_staff_ids: this.changeCompanionStaffId ? [Number(this.changeCompanionStaffId)] : [],
                 }),
             });
@@ -3052,6 +3060,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             this.changeModal = false;
             this.changeCashierUserId = '';
             this.changeCashierPassword = '';
+            this.changeOpeningCashAmount = '';
             this.changeCompanionStaffId = '';
             notify(payload.message || 'Pergantian shift berhasil dicatat.');
         } finally { this.shiftLoading = false; }

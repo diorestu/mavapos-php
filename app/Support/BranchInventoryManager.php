@@ -22,6 +22,19 @@ class BranchInventoryManager
             : (int) $stock;
     }
 
+    public function stockForVariant(int $branchId, ProductVariant $variant): int
+    {
+        $stock = BranchInventory::query()
+            ->where('branch_id', $branchId)
+            ->where('product_variant_id', $variant->id)
+            ->whereNull('product_id')
+            ->value('stock');
+
+        return $stock === null
+            ? $this->defaultStockForBranch($branchId, (int) $variant->stock)
+            : (int) $stock;
+    }
+
     public function minStockForProduct(int $branchId, Product $product): int
     {
         $minStock = BranchInventory::query()

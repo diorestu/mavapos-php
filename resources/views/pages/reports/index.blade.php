@@ -147,6 +147,44 @@
             </div>
         </section>
 
+        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+            <div class="flex flex-col gap-1 border-b border-gray-100 px-4 py-3 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                    <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Keterangan Transaksi POS</h2>
+                    <p class="text-[11px] text-gray-500 dark:text-gray-400">Memuat diskon, transaksi gratis, dan rincian metode pembayaran split.</p>
+                </div>
+                <div class="text-xs text-gray-500 dark:text-gray-400">{{ number_format($transactions->count(), 0, ',', '.') }} transaksi</div>
+            </div>
+            <div class="max-w-full overflow-x-auto custom-scrollbar">
+                <table class="w-full min-w-[880px]">
+                    <thead>
+                        <tr class="bg-gray-50 text-left dark:bg-gray-900/40">
+                            <th class="px-4 py-2 text-[11px] font-semibold uppercase text-gray-500">Waktu</th>
+                            <th class="px-4 py-2 text-[11px] font-semibold uppercase text-gray-500">Invoice</th>
+                            <th class="px-4 py-2 text-[11px] font-semibold uppercase text-gray-500">Kasir</th>
+                            <th class="px-4 py-2 text-[11px] font-semibold uppercase text-gray-500">Keterangan</th>
+                            <th class="px-4 py-2 text-[11px] font-semibold uppercase text-gray-500">Pembayaran</th>
+                            <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Total</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($transactions as $transaction)
+                            <tr class="border-t border-gray-100 dark:border-gray-800">
+                                <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">{{ $transaction['sold_at']->timezone('Asia/Makassar')->format('d/m/Y H:i') }}</td>
+                                <td class="px-4 py-3 text-xs font-semibold text-gray-800 dark:text-white/90">{{ $transaction['invoice_number'] }}</td>
+                                <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">{{ $transaction['cashier'] }}</td>
+                                <td class="px-4 py-3 text-xs text-gray-700 dark:text-gray-200">{{ $transaction['description'] }}</td>
+                                <td class="px-4 py-3 text-xs text-gray-700 dark:text-gray-200">{{ $transaction['payment_summary'] }}</td>
+                                <td class="px-4 py-3 text-right text-xs font-semibold tabular-nums text-gray-800 dark:text-white/90">{{ $rupiah($transaction['total']) }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="6" class="px-4 py-8 text-center text-sm text-gray-500">Belum ada transaksi POS dalam periode ini.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
         <section class="grid gap-4 xl:grid-cols-2">
             <div class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
                 <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800">

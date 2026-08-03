@@ -142,19 +142,9 @@ class PosController extends Controller
 
             if ($previousShift && $previousShift->closed_at?->isToday()) {
                 $previousShift = app(CashierShiftSummaryService::class)->refresh($previousShift);
-                $expectedCash = $previousShift->opening_cash_amount + $previousShift->cash_total;
-                $expectedCard = $previousShift->card_total;
-
-                if ($validatedCashAmount === null || (int) $validatedCashAmount !== $expectedCash) {
-                    abort(422, 'Validasi cash tidak sesuai rekap sebelumnya. Nominal wajib '.number_format($expectedCash, 0, ',', '.').'.');
-                }
-
-                if ($validatedCardAmount === null || (int) $validatedCardAmount !== $expectedCard) {
-                    abort(422, 'Validasi kartu tidak sesuai rekap sebelumnya. Nominal wajib '.number_format($expectedCard, 0, ',', '.').'.');
-                }
-
-                $openingCashAmount = $expectedCash;
-                $handoverValidatedAt = now();
+                // Rekap shift sebelumnya tetap tersimpan untuk audit, tetapi kas awal
+                // shift baru boleh berbeda karena uang dapat disetor atau dipindahkan.
+                $handoverValidatedAt = ($validatedCashAmount !== null || $validatedCardAmount !== null) ? now() : null;
             }
 
             return CashierShift::query()->create([
@@ -183,6 +173,7 @@ class PosController extends Controller
         $validated = $request->validate([
             'cashier_user_id' => ['nullable', 'integer', 'exists:users,id'],
             'cashier_password' => ['nullable', 'string', 'required_with:cashier_user_id'],
+            'opening_cash_amount' => ['nullable', 'integer', 'min:0', 'max:999999999999'],
             'companion_staff_ids' => ['nullable', 'array', 'max:20'],
             'companion_staff_ids.*' => ['integer', 'distinct', 'exists:users,id'],
         ]);
@@ -207,7 +198,7 @@ class PosController extends Controller
             ->whereIn('id', $validated['companion_staff_ids'] ?? [])
             ->pluck('id')->values()->all();
 
-        $shift = DB::transaction(function () use ($branchId, $companionIds, $currentCashier, $nextCashier): CashierShift {
+        $shift = DB::transaction(function () use ($branchId, $companionIds, $currentCashier, $nextCashier, $validated): CashierShift {
             $previousShift = CashierShift::query()
                 ->where('branch_id', $branchId)
                 ->whereNull('closed_at')
@@ -234,10 +225,10 @@ class PosController extends Controller
                 'branch_id' => $branchId,
                 'previous_cashier_shift_id' => $previousShift->id,
                 'opened_at' => now(),
-                'opening_cash_amount' => $previousShift->opening_cash_amount + $previousShift->cash_total,
-                'validated_cash_amount' => $previousShift->opening_cash_amount + $previousShift->cash_total,
-                'validated_card_amount' => $previousShift->card_total,
-                'handover_validated_at' => now(),
+                'opening_cash_amount' => (int) ($validated['opening_cash_amount'] ?? 0),
+                'validated_cash_amount' => null,
+                'validated_card_amount' => null,
+                'handover_validated_at' => null,
                 'companion_staff_ids' => $companionIds,
             ])->load(['user', 'branch']);
         });

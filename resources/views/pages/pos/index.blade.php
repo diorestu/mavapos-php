@@ -412,6 +412,7 @@
                 </label>
                 <label class="mt-3 block"><span class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Password kasir pengganti</span>
                     <input x-model="changeCashierPassword" type="password" autocomplete="current-password" class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-950 dark:text-white/90" placeholder="Masukkan password" />
+                    <label class="mt-3 block"><span class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Kas awal shift baru</span><input type="text" inputmode="numeric" :value="formatInputNumber(changeOpeningCashAmount)" @input="onMoneyInput('changeOpeningCashAmount', $event)" placeholder="0" class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-right text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-950 dark:text-white/90" /></label>
                 </label>
                 <label class="mt-4 block"><span class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400">Asisten/Rekan kerja (opsional)</span>
                     <select x-model="changeCompanionStaffId" class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-950 dark:text-white/90"><option value="">Sendirian</option><template x-for="staff in availableStaff" :key="staff.id"><option :value="staff.id" x-text="staff.name"></option></template></select>

@@ -10,6 +10,7 @@ use App\Services\AdminSaleEditorService;
 use App\Services\SalesBonusService;
 use App\Services\TransactionVoidService;
 use App\Support\BranchContext;
+use App\Support\LocalTime;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -42,18 +43,19 @@ class SaleController extends Controller
             'search' => ['nullable', 'string', 'max:100'],
         ]);
 
+        $localToday = Carbon::now(LocalTime::TIMEZONE);
         $from = isset($validated['date_from'])
-            ? Carbon::parse($validated['date_from'])->startOfDay()
-            : now()->startOfDay();
+            ? Carbon::parse($validated['date_from'], LocalTime::TIMEZONE)->startOfDay()
+            : $localToday->copy()->startOfDay();
         $to = isset($validated['date_to'])
-            ? Carbon::parse($validated['date_to'])->endOfDay()
-            : now()->endOfDay();
+            ? Carbon::parse($validated['date_to'], LocalTime::TIMEZONE)->endOfDay()
+            : $localToday->copy()->endOfDay();
         $branchId = app(BranchContext::class)->activeId();
 
         $baseQuery = PosSale::query()
             ->with(['user', 'branch', 'shift.user', 'items', 'payments', 'voidedBy'])
             ->where('branch_id', $branchId)
-            ->whereBetween('sold_at', [$from, $to])
+            ->whereBetween('sold_at', [$from->utc(), $to->utc()])
             ->when($validated['cashier_id'] ?? null, fn ($query, $cashierId) => $query->where('user_id', $cashierId))
             ->when($validated['payment_method'] ?? null, function ($query, string $method): void {
                 if ($method === 'split') {
@@ -119,8 +121,8 @@ class SaleController extends Controller
                 ->orderBy('name')
                 ->get(['id', 'name', 'email']),
             'filters' => [
-                'date_from' => $from->toDateString(),
-                'date_to' => $to->toDateString(),
+                'date_from' => $from->setTimezone(LocalTime::TIMEZONE)->toDateString(),
+                'date_to' => $to->setTimezone(LocalTime::TIMEZONE)->toDateString(),
                 'cashier_id' => $validated['cashier_id'] ?? '',
                 'payment_method' => $validated['payment_method'] ?? '',
                 'search' => $validated['search'] ?? '',

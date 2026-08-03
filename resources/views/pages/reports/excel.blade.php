@@ -41,5 +41,23 @@
             </tr>
         @endforeach
     </table>
+
+    <table>
+        <tr>
+            <th>Waktu</th><th>Invoice</th><th>Kasir</th><th>Keterangan Transaksi</th><th>Pembayaran</th><th>Total</th>
+        </tr>
+        @forelse ($transactions as $transaction)
+            <tr>
+                <td>{{ $transaction['sold_at']->timezone('Asia/Makassar')->format('d/m/Y H:i') }}</td>
+                <td>{{ $transaction['invoice_number'] }}</td>
+                <td>{{ $transaction['cashier'] }}</td>
+                <td>{{ $transaction['description'] }}</td>
+                <td>{{ $transaction['payment_summary'] }}</td>
+                <td class="number">{{ $transaction['total'] }}</td>
+            </tr>
+        @empty
+            <tr><td colspan="6">Belum ada transaksi POS dalam periode ini.</td></tr>
+        @endforelse
+    </table>
 </body>
 </html>

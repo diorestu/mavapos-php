@@ -41,7 +41,7 @@
         </div>
 
         <form method="GET" action="{{ route('sales') }}" class="grid gap-2 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-white/[0.03] md:grid-cols-2 xl:grid-cols-[260px_170px_150px_minmax(180px,1fr)_auto_auto]">
-            <label class="block" x-data="salesDateRange('{{ $filters['date_from'] }}', '{{ $filters['date_to'] }}')" x-init="mount($refs.dateRangeInput)" x-destroy="destroy()">
+            <label class="block" x-data="salesDateRange('{{ $filters['date_from'] }}', '{{ $filters['date_to'] }}', {{ request()->filled('date_from') || request()->filled('date_to') ? 'false' : 'true' }})" x-init="mount($refs.dateRangeInput)" x-destroy="destroy()">
                 <span class="mb-1 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Periode</span>
                 <div class="relative">
                     <input x-ref="dateRangeInput" type="text" placeholder="Pilih rentang tanggal" autocomplete="off"

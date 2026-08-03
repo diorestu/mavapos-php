@@ -29,7 +29,7 @@ class ReportController extends Controller
 
     public function download(Request $request): Response
     {
-        $data = $this->reportData($request);
+        $data = $this->reportData($request, includeTransactions: false);
         $fileName = sprintf(
             'laporan-%s-sampai-%s.pdf',
             $data['period']['from']->format('Y-m-d'),
@@ -78,7 +78,7 @@ class ReportController extends Controller
             ->each(function (PosSale $sale) use ($lines): void {
                 foreach ($this->salePayments($sale) as $payment) {
                     $paymentAccount = ['cash' => 'Kas', 'qris' => 'Bank / QRIS', 'card' => 'Bank / Kartu'][$payment['method']] ?? 'Kas';
-                    $lines->push($this->journalLine($sale->sold_at, $sale->invoice_number, 'Penjualan POS', $paymentAccount, 'Penjualan', $payment['amount']));
+                    $lines->push($this->journalLine($sale->sold_at, $sale->invoice_number, $this->journalSaleDescription($sale), $paymentAccount, 'Penjualan', $payment['amount']));
                 }
                 $cost = $sale->items->sum(fn ($item): int => $item->quantity * (int) ($item->product?->buy_price ?? 0));
                 if ($cost > 0) {
@@ -139,7 +139,7 @@ class ReportController extends Controller
         foreach ($sales as $sale) {
             foreach ($this->salePayments($sale) as $payment) {
                 $account = ['cash' => 'Kas', 'qris' => 'Bank / QRIS', 'card' => 'Bank / Kartu'][$payment['method']] ?? 'Kas';
-                $lines[] = $this->journalLine($sale->sold_at, $sale->invoice_number, 'Penjualan POS', $account, 'Penjualan', $payment['amount']);
+                $lines[] = $this->journalLine($sale->sold_at, $sale->invoice_number, $this->journalSaleDescription($sale), $account, 'Penjualan', $payment['amount']);
             }
         }
         foreach ($expenses as $expense) {
@@ -181,7 +181,7 @@ class ReportController extends Controller
             + ['debit' => $amount, 'credit' => $amount];
     }
 
-    private function reportData(Request $request): array
+    private function reportData(Request $request, bool $includeTransactions = true): array
     {
         $validated = $request->validate([
             'date_from' => ['nullable', 'date'],
@@ -251,6 +251,20 @@ class ReportController extends Controller
             ->whereIn('id', $cashierRows->pluck('user_id'))
             ->get()
             ->keyBy('id');
+        $transactions = $includeTransactions
+            ? (clone $posSaleQuery)
+                ->with(['user', 'payments'])
+                ->latest('sold_at')
+                ->get()
+                ->map(fn (PosSale $sale): array => [
+                    'sold_at' => $sale->sold_at,
+                    'invoice_number' => $sale->invoice_number,
+                    'cashier' => $sale->user?->name ?? 'Kasir',
+                    'description' => $this->saleDescription($sale),
+                    'payment_summary' => $this->paymentSummary($sale),
+                    'total' => (int) $sale->total,
+                ])
+            : collect();
 
         return [
             'store' => StoreSetting::current(),
@@ -298,6 +312,7 @@ class ReportController extends Controller
                     'card_total' => (int) $row->card_total,
                 ])
                 ->values(),
+            'transactions' => $transactions,
         ];
     }
 
@@ -310,5 +325,49 @@ class ReportController extends Controller
         return in_array($sale->payment_method, ['cash', 'qris', 'card'], true)
             ? [['method' => $sale->payment_method, 'amount' => $sale->total]]
             : [];
+    }
+
+    private function saleDescription(PosSale $sale): string
+    {
+        if ($sale->payment_method === 'free') {
+            $category = ['owner' => 'Owner', 'influencer' => 'Influencer', 'partnership' => 'Partnership'][$sale->complimentary_category] ?? 'Lainnya';
+
+            return 'Gratis — '.$category.($sale->complimentary_recipient_name ? ': '.$sale->complimentary_recipient_name : '');
+        }
+
+        if ((int) $sale->discount > 0) {
+            return $sale->loyalty_reward === 'fifty_percent'
+                ? 'Diskon Kartu Loyalitas 50%'
+                : 'Diskon Rp'.number_format((int) $sale->discount, 0, ',', '.');
+        }
+
+        return 'Penjualan reguler';
+    }
+
+    private function paymentSummary(PosSale $sale): string
+    {
+        $payments = $this->salePayments($sale);
+
+        if ($payments === []) {
+            return 'Gratis';
+        }
+
+        return collect($payments)
+            ->map(fn (array $payment): string => $this->paymentLabel($payment['method']).' Rp'.number_format((int) $payment['amount'], 0, ',', '.'))
+            ->implode(' + ');
+    }
+
+    private function journalSaleDescription(PosSale $sale): string
+    {
+        $description = $this->saleDescription($sale);
+
+        return $sale->payment_method === 'split'
+            ? 'Penjualan POS — Split Payment: '.$this->paymentSummary($sale)
+            : 'Penjualan POS — '.$description;
+    }
+
+    private function paymentLabel(string $method): string
+    {
+        return ['cash' => 'Tunai', 'qris' => 'QRIS', 'card' => 'Kartu'][$method] ?? ucfirst($method);
     }
 }

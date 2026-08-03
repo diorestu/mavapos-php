@@ -82,6 +82,28 @@ test('cashier can stock in an active product variant', function () {
     expect($inventory->fresh()->stock)->toBe(5);
 });
 
+test('cashier stock in page shows stock for active product variants', function () {
+    $cashier = User::factory()->create(['role' => 'kasir']);
+    $branch = Branch::query()->firstOrFail();
+    $product = Product::query()->where('sku', 'SKU-001')->firstOrFail();
+    $variant = ProductVariant::query()->create([
+        'product_id' => $product->id,
+        'name' => 'Jumbo',
+        'sku' => 'SKU-001-JUMBO',
+        'sell_price' => 5000,
+        'stock' => 7,
+        'min_stock' => 0,
+        'is_active' => true,
+    ]);
+    app(BranchInventoryManager::class)->forVariant($branch->id, $variant)->update(['stock' => 9]);
+
+    $this->actingAs($cashier)
+        ->get(route('cashier-stock-in.index'))
+        ->assertOk()
+        ->assertSee('SKU-001-JUMBO')
+        ->assertSee('9');
+});
+
 test('cashier can stock in raw material from the focused stock-in page', function () {
     $cashier = User::factory()->create(['role' => 'kasir']);
     $this->actingAs($cashier);
