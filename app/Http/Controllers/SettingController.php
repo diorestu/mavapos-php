@@ -42,6 +42,9 @@ class SettingController extends Controller
             'operational_hours' => ['nullable', 'string', 'max:500'],
             'notes' => ['nullable', 'string', 'max:500'],
             'cashier_sop_html' => ['nullable', 'string', 'max:100000'],
+            'sales_bonus_tiers' => ['nullable', 'array', 'max:10'],
+            'sales_bonus_tiers.*.minimum' => ['required', 'integer', 'min:1', 'max:1000000'],
+            'sales_bonus_tiers.*.reward' => ['required', 'integer', 'min:0', 'max:2147483647'],
             'product_categories' => ['nullable', 'string', 'max:1000'],
             'product_units' => ['nullable', 'string', 'max:500'],
             'product_brands' => ['nullable', 'string', 'max:1000'],
@@ -63,6 +66,13 @@ class SettingController extends Controller
         $validated['cashier_sop_html'] = isset($validated['cashier_sop_html'])
             ? strip_tags((string) preg_replace('/<(script|style|iframe|object|embed)\b[^>]*>.*?<\/\1>/is', '', $validated['cashier_sop_html']), '<p><br><strong><b><em><i><u><ol><ul><li><h1><h2><h3><blockquote><a>')
             : null;
+
+        $validated['sales_bonus_tiers'] = collect($validated['sales_bonus_tiers'] ?? [])
+            ->map(fn (array $tier): array => ['minimum' => (int) $tier['minimum'], 'reward' => (int) $tier['reward']])
+            ->unique('minimum')
+            ->sortBy('minimum')
+            ->values()
+            ->all();
 
         $setting = StoreSetting::current();
 

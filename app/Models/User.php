@@ -27,6 +27,8 @@ class User extends Authenticatable
         'password',
         'google_id',
         'role',
+        'basic_salary',
+        'fixed_allowance',
         'trial_ends_at',
         'tenant_owner_id',
     ];
@@ -53,6 +55,8 @@ class User extends Authenticatable
             'password' => 'hashed',
             'trial_ends_at' => 'datetime',
             'tenant_owner_id' => 'integer',
+            'basic_salary' => 'integer',
+            'fixed_allowance' => 'integer',
         ];
     }
 

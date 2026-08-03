@@ -18,6 +18,7 @@ use App\Http\Controllers\ProductCategoryController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductRecipeController;
 use App\Http\Controllers\PurchaseOrderController;
+use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\RawMaterialController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SaleController;
@@ -64,6 +65,9 @@ Route::middleware('auth:web,sanctum')->group(function () {
     Route::post('/branches/active', [BranchController::class, 'switch'])->name('branches.switch');
 
     Route::middleware('role:owner,admin')->group(function () {
+        Route::get('/payrolls', [PayrollController::class, 'index'])->name('payrolls');
+        Route::post('/payrolls/generate', [PayrollController::class, 'generate'])->name('payrolls.generate');
+        Route::patch('/payrolls/users/{user}/salary', [PayrollController::class, 'salary'])->name('payrolls.salary');
         Route::get('/billings', [BillingController::class, 'index'])->name('billings');
         Route::post('/billings', [BillingController::class, 'store'])->name('billings.store');
         Route::post('/billings/{billing}/refresh', [BillingController::class, 'refresh'])->name('billings.refresh');

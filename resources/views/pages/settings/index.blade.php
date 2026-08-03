@@ -25,7 +25,7 @@
 @endphp
 
 @section('content')
-    <div x-data="{ activeTab: 'basic' }" class="space-y-4">
+    <div x-data="{ activeTab: localStorage.getItem('mava.settings.activeTab') || 'basic', setTab(tab) { this.activeTab = tab; localStorage.setItem('mava.settings.activeTab', tab); } }" class="space-y-4">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <nav aria-label="Breadcrumb">
@@ -59,7 +59,7 @@
             @method('PATCH')
 
             <aside class="h-fit rounded-xl border border-gray-200 bg-white p-2 dark:border-gray-800 dark:bg-white/[0.03]">
-                <button type="button" @click="activeTab = 'basic'"
+                <button type="button" @click="setTab('basic')"
                     class="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition"
                     :class="activeTab === 'basic' ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/[0.04]'">
                     <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-current shadow-theme-xs dark:bg-gray-900">
@@ -74,7 +74,7 @@
                     </span>
                 </button>
 
-                <button type="button" @click="activeTab = 'product'"
+                <button type="button" @click="setTab('product')"
                     class="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition"
                     :class="activeTab === 'product' ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/[0.04]'">
                     <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-current shadow-theme-xs dark:bg-gray-900">
@@ -89,21 +89,28 @@
                     </span>
                 </button>
 
-                <button type="button" @click="activeTab = 'sop'"
+                <button type="button" @click="setTab('sop')"
                     class="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition"
                     :class="activeTab === 'sop' ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/[0.04]'">
                     <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-current shadow-theme-xs dark:bg-gray-900">✎</span>
                     <span>SOP Kasir<span class="block text-[11px] font-normal opacity-75">Per cabang aktif</span></span>
                 </button>
 
-                <button type="button" @click="activeTab = 'data'"
+                <button type="button" @click="setTab('bonus')"
+                    class="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition"
+                    :class="activeTab === 'bonus' ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/[0.04]'">
+                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-current shadow-theme-xs dark:bg-gray-900">%</span>
+                    <span>Bonus Penjualan<span class="block text-[11px] font-normal opacity-75">Target harian kasir</span></span>
+                </button>
+
+                <button type="button" @click="setTab('data')"
                     class="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition"
                     :class="activeTab === 'data' ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/[0.04]'">
                     <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-current shadow-theme-xs dark:bg-gray-900">⇄</span>
                     <span>Data Toko<span class="block text-[11px] font-normal opacity-75">Export & import SQL</span></span>
                 </button>
 
-                <button type="button" @click="activeTab = 'receipt'"
+                <button type="button" @click="setTab('receipt')"
                     class="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition"
                     :class="activeTab === 'receipt' ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/[0.04]'">
                     <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-current shadow-theme-xs dark:bg-gray-900">
@@ -118,7 +125,7 @@
                     </span>
                 </button>
 
-                <button type="button" @click="activeTab = 'api'"
+                <button type="button" @click="setTab('api')"
                     class="mt-1 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm font-medium transition"
                     :class="activeTab === 'api' ? 'bg-brand-50 text-brand-600 dark:bg-brand-500/15 dark:text-brand-400' : 'text-gray-600 hover:bg-gray-50 dark:text-gray-400 dark:hover:bg-white/[0.04]'">
                     <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white text-current shadow-theme-xs dark:bg-gray-900">
@@ -278,6 +285,29 @@
                                 Simpan SOP Custom
                             </button>
                         </div>
+                    </div>
+                </section>
+
+                <section x-show="activeTab === 'bonus'" x-cloak class="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+                    <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+                        <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Skema Bonus Penjualan Harian</h2>
+                        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Bonus per orang berdasarkan jumlah item/cup terjual hari ini. Kosongkan semua baris untuk menonaktifkan bonus.</p>
+                    </div>
+                    <div class="space-y-4 p-4">
+                        <div class="grid grid-cols-[1fr_1fr_auto] gap-3 text-[11px] font-semibold uppercase text-gray-500"><span>Minimal item/cup terjual</span><span>Reward per orang (Rp)</span><span></span></div>
+                        @foreach (old('sales_bonus_tiers', $setting->sales_bonus_tiers ?: \App\Models\StoreSetting::defaults()['sales_bonus_tiers']) as $index => $tier)
+                            <div class="grid grid-cols-[1fr_1fr_auto] items-start gap-3">
+                                <input type="number" min="1" name="sales_bonus_tiers[{{ $index }}][minimum]" value="{{ $tier['minimum'] ?? '' }}" class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                                <div x-data="{ numeric: @js((string) ($tier['reward'] ?? '')), display: '' }" x-init="display = numeric ? new Intl.NumberFormat('id-ID').format(Number(numeric)) : ''">
+                                    <input type="text" inputmode="numeric" x-model="display" @input="numeric = display.replace(/[^0-9]/g, ''); display = numeric ? new Intl.NumberFormat('id-ID').format(Number(numeric)) : ''; $refs.numeric.value = numeric" class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" aria-label="Reward per orang">
+                                    <input type="hidden" name="sales_bonus_tiers[{{ $index }}][reward]" x-ref="numeric" :value="numeric">
+                                </div>
+                                <span class="pt-2 text-xs text-gray-400">per orang</span>
+                            </div>
+                        @endforeach
+                        @error('sales_bonus_tiers.*.minimum')<span class="block text-xs text-error-500">{{ $message }}</span>@enderror
+                        @error('sales_bonus_tiers.*.reward')<span class="block text-xs text-error-500">{{ $message }}</span>@enderror
+                        <div class="flex justify-end border-t border-gray-100 pt-4 dark:border-gray-800"><button type="submit" class="inline-flex h-10 items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600">Simpan Skema Bonus</button></div>
                     </div>
                 </section>
 

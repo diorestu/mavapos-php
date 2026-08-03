@@ -44,10 +44,10 @@ class SaleController extends Controller
         ]);
 
         $localToday = Carbon::now(LocalTime::TIMEZONE);
-        $from = isset($validated['date_from'])
+        $from = !empty($validated['date_from'])
             ? Carbon::parse($validated['date_from'], LocalTime::TIMEZONE)->startOfDay()
             : $localToday->copy()->startOfDay();
-        $to = isset($validated['date_to'])
+        $to = !empty($validated['date_to'])
             ? Carbon::parse($validated['date_to'], LocalTime::TIMEZONE)->endOfDay()
             : $localToday->copy()->endOfDay();
         $branchId = app(BranchContext::class)->activeId();
@@ -105,6 +105,7 @@ class SaleController extends Controller
             ->paginate(12)
             ->withQueryString();
 
+        // Capaian personal mengikuti tanggal yang sedang ditampilkan pada filter penjualan.
         $bonus = app(SalesBonusService::class)->forBranchDay($branchId, $from);
         $bonus['staff'] = User::query()->whereIn('id', $bonus['staffIds'])->orderBy('name')->get(['id', 'name']);
         $bonus['staffBreakdown'] = collect($bonus['staffBreakdown'])->map(function (array $row) use ($bonus): array {
@@ -112,6 +113,8 @@ class SaleController extends Controller
 
             return $row;
         })->values();
+        $eligibleStaffIds = $bonus['staffBreakdown']->filter(fn (array $row): bool => $row['targetReached'])->pluck('userId');
+        $bonus['staff'] = $bonus['staff']->whereIn('id', $eligibleStaffIds)->values();
 
         return view('pages.sales.index', [
             'title' => 'Penjualan',

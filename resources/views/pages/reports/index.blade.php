@@ -103,6 +103,43 @@
         <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
             <div class="flex flex-col gap-1 border-b border-gray-100 px-4 py-3 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
                 <div>
+                    <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Total Penjualan Harian per Orang</h2>
+                    <p class="text-[11px] text-gray-500 dark:text-gray-400">Setiap baris menunjukkan total transaksi bersih satu kasir pada satu tanggal.</p>
+                </div>
+            </div>
+            <div class="max-w-full overflow-x-auto custom-scrollbar">
+                <table class="w-full min-w-[680px]">
+                    <thead><tr class="bg-gray-50 text-left dark:bg-gray-900/40">
+                        <th class="px-4 py-2 text-[11px] font-semibold uppercase text-gray-500">Tanggal</th>
+                        <th class="px-4 py-2 text-[11px] font-semibold uppercase text-gray-500">Kasir</th>
+                        <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Transaksi</th>
+                        <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Penjualan</th>
+                        <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Tunai</th>
+                        <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">QRIS</th>
+                        <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Kartu</th>
+                    </tr></thead>
+                    <tbody>
+                        @forelse ($dailyCashierRevenues as $daily)
+                            <tr class="border-t border-gray-100 dark:border-gray-800">
+                                <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">{{ \Illuminate\Support\Carbon::parse($daily['date'])->format('d/m/Y') }}</td>
+                                <td class="px-4 py-3 text-xs font-semibold text-gray-800 dark:text-white/90">{{ $daily['cashier'] }}</td>
+                                <td class="px-4 py-3 text-right text-xs tabular-nums text-gray-700 dark:text-gray-300">{{ number_format($daily['sales_count'], 0, ',', '.') }}</td>
+                                <td class="px-4 py-3 text-right text-xs font-semibold tabular-nums text-gray-800 dark:text-white/90">{{ $rupiah($daily['net_sales']) }}</td>
+                                <td class="px-4 py-3 text-right text-xs tabular-nums text-gray-600 dark:text-gray-300">{{ $rupiah($daily['cash_total']) }}</td>
+                                <td class="px-4 py-3 text-right text-xs tabular-nums text-gray-600 dark:text-gray-300">{{ $rupiah($daily['qris_total']) }}</td>
+                                <td class="px-4 py-3 text-right text-xs tabular-nums text-gray-600 dark:text-gray-300">{{ $rupiah($daily['card_total']) }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="7" class="px-4 py-8 text-center text-sm text-gray-500">Belum ada penjualan pada periode ini.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+            <div class="flex flex-col gap-1 border-b border-gray-100 px-4 py-3 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
+                <div>
                     <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Pendapatan per Kasir</h2>
                     <p class="text-[11px] text-gray-500 dark:text-gray-400">Berdasarkan transaksi POS dalam periode filter laporan.</p>
                 </div>

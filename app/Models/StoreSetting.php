@@ -32,6 +32,7 @@ class StoreSetting extends Model
         'operational_hours',
         'notes',
         'cashier_sop_html',
+        'sales_bonus_tiers',
         'product_categories',
         'product_units',
         'product_brands',
@@ -81,6 +82,7 @@ class StoreSetting extends Model
             'receipt_show_cashier' => 'boolean',
             'printer_auto_print' => 'boolean',
             'printer_close_after_print' => 'boolean',
+            'sales_bonus_tiers' => 'array',
         ];
     }
 
@@ -146,6 +148,12 @@ class StoreSetting extends Model
             'receipt_show_cashier' => true,
             'printer_auto_print' => false,
             'printer_close_after_print' => false,
+            'sales_bonus_tiers' => [
+                ['minimum' => 41, 'reward' => 25000],
+                ['minimum' => 61, 'reward' => 50000],
+                ['minimum' => 81, 'reward' => 75000],
+                ['minimum' => 101, 'reward' => 100000],
+            ],
             'printer_connection_mode' => 'imin_inner_printer',
             'printer_bluetooth_service_uuid' => null,
             'printer_bluetooth_characteristic_uuid' => null,

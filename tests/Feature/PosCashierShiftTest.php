@@ -152,7 +152,7 @@ test('data tenant tetap terisolasi meski dua owner memiliki waktu trial sama', f
     expect(Product::query()->pluck('sku')->all())->toBe(['TENANT-TWO']);
 });
 
-test('laporan penjualan menampilkan bonus sama rata untuk seluruh staff yang bertugas', function () {
+test('laporan penjualan menghitung bonus berdasarkan penjualan personal staff', function () {
     $owner = User::factory()->create(['role' => 'owner']);
     $staff = User::factory()->create(['role' => 'kasir', 'tenant_owner_id' => $owner->id]);
     $this->actingAs($owner);
@@ -170,7 +170,16 @@ test('laporan penjualan menampilkan bonus sama rata untuk seluruh staff yang ber
         ]);
     }
 
-    $this->actingAs($owner)->get(route('sales'))->assertOk()->assertViewHas('bonus', fn ($bonus): bool => $bonus['salesCount'] === 41 && $bonus['staffBreakdown'][0]['salesCount'] > 0)->assertSee('Capaian per Orang')->assertSee('Target Tercapai')->assertSee('Rp25.000')->assertSee($owner->name)->assertSee($staff->name);
+    $today = now()->setTimezone(\App\Support\LocalTime::TIMEZONE)->toDateString();
+    $this->actingAs($owner)->get(route('sales', ['date_from' => $today, 'date_to' => $today]))->assertOk()->assertViewHas('bonus', function ($bonus) use ($owner, $staff): bool {
+        $rows = collect($bonus['staffBreakdown'])->keyBy('userId');
+
+        return $bonus['salesCount'] === 41
+            && $rows[$owner->id]['salesCount'] === 21
+            && $rows[$owner->id]['bonus'] === 0
+            && $rows[$staff->id]['salesCount'] === 20
+            && $rows[$staff->id]['bonus'] === 0;
+    })->assertSee('Capaian per Orang')->assertDontSee('Target Tercapai')->assertSee('Rp0')->assertSee($owner->name)->assertSee($staff->name);
 });
 
 test('buka shift mencatat staff pendamping dari tenant yang sama', function () {

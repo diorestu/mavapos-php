@@ -6,6 +6,7 @@ use App\Models\Billing;
 use App\Models\CashierShift;
 use App\Models\NotificationRead;
 use App\Models\PosSale;
+use App\Models\PurchaseOrder;
 use App\Models\Product;
 use App\Models\StockMovement;
 use App\Models\User;
@@ -95,6 +96,29 @@ class ActivityNotificationService
                 'tone' => 'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-400',
                 'icon' => 'Rp',
                 'attention' => false,
+            ]);
+
+        $voidActivities = PosSale::query()
+            ->whereNotNull('voided_at')
+            ->with(['user', 'voidedBy'])
+            ->latest('voided_at')
+            ->limit($limit)
+            ->get()
+            ->map(fn (PosSale $sale): array => [
+                'key' => 'sale-voided:'.$sale->id.':'.optional($sale->voided_at)->timestamp,
+                'type' => 'Transaksi Batal',
+                'title' => 'Transaksi '.$sale->invoice_number.' dibatalkan',
+                'description' => ($sale->voidedBy?->name ?? 'User').' membatalkan transaksi '.$this->formatRupiah($sale->total).'. Alasan: '.($sale->void_reason ?: 'Tidak dicantumkan').'.',
+                'time' => $sale->voided_at?->diffForHumans(),
+                'timestamp' => $sale->voided_at,
+                'url' => route('sales', [
+                    'search' => $sale->invoice_number,
+                    'date_from' => $sale->sold_at?->toDateString(),
+                    'date_to' => $sale->sold_at?->toDateString(),
+                ]),
+                'tone' => 'bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-400',
+                'icon' => 'VOID',
+                'attention' => true,
             ]);
 
         $shiftActivities = CashierShift::query()
@@ -187,12 +211,33 @@ class ActivityNotificationService
                 'attention' => $billing->payment_status !== 'completed',
             ]);
 
+        $purchaseOrderActivities = PurchaseOrder::query()
+            ->where('status', 'cancelled')
+            ->with(['user', 'supplier'])
+            ->latest('updated_at')
+            ->limit($limit)
+            ->get()
+            ->map(fn (PurchaseOrder $order): array => [
+                'key' => 'purchase-order-cancelled:'.$order->id.':'.optional($order->updated_at)->timestamp,
+                'type' => 'Purchase Order',
+                'title' => 'PO '.$order->po_number.' dibatalkan',
+                'description' => ($order->user?->name ?? 'User').' membatalkan pesanan'.($order->supplier?->name ? ' dari '.$order->supplier->name : '').'.',
+                'time' => $order->updated_at?->diffForHumans(),
+                'timestamp' => $order->updated_at,
+                'url' => route('purchase-orders.index'),
+                'tone' => 'bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-400',
+                'icon' => 'PO',
+                'attention' => true,
+            ]);
+
         return collect()
             ->merge($saleActivities)
+            ->merge($voidActivities)
             ->merge($shiftActivities)
             ->merge($stockActivities)
             ->merge($lowStockActivities)
             ->merge($billingActivities)
+            ->merge($purchaseOrderActivities)
             ->filter(fn (array $activity): bool => $activity['timestamp'] !== null)
             ->sortByDesc('timestamp')
             ->take($limit)

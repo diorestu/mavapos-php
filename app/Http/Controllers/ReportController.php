@@ -240,13 +240,35 @@ class ReportController extends Controller
         $lowStockProducts = $products
             ->filter(fn (Product $product): bool => $product->stock <= 0 || ($product->min_stock > 0 && $product->stock <= $product->min_stock))
             ->values();
-        $cashierRows = (clone $posSaleQuery)->with('payments')->get()->groupBy('user_id')->map(function ($sales, $userId) {
+        $cashierSales = (clone $posSaleQuery)->with('payments')->get();
+        $cashierRows = $cashierSales->groupBy('user_id')->map(function ($sales, $userId) {
             $payments = $sales->reduce(function (array $totals, PosSale $sale): array {
                 foreach ($this->salePayments($sale) as $payment) $totals[$payment['method']] += $payment['amount'];
                 return $totals;
             }, ['cash' => 0, 'qris' => 0, 'card' => 0]);
             return (object) ['user_id' => $userId, 'sales_count' => $sales->count(), 'gross_sales' => $sales->sum('subtotal'), 'discount_total' => $sales->sum('discount'), 'net_sales' => $sales->sum('total'), 'cash_total' => $payments['cash'], 'qris_total' => $payments['qris'], 'card_total' => $payments['card']];
         })->sortByDesc('net_sales')->values();
+        $dailyCashierRows = $cashierSales
+            ->groupBy(fn (PosSale $sale): string => $sale->sold_at->timezone('Asia/Makassar')->toDateString())
+            ->sortKeysDesc()
+            ->flatMap(fn ($sales, string $date) => $sales->groupBy('user_id')->map(function ($userSales, $userId) use ($date): object {
+                $payments = $userSales->reduce(function (array $totals, PosSale $sale): array {
+                    foreach ($this->salePayments($sale) as $payment) $totals[$payment['method']] += $payment['amount'];
+                    return $totals;
+                }, ['cash' => 0, 'qris' => 0, 'card' => 0]);
+
+                return (object) [
+                    'date' => $date,
+                    'user_id' => $userId,
+                    'sales_count' => $userSales->count(),
+                    'net_sales' => $userSales->sum('total'),
+                    'cash_total' => $payments['cash'],
+                    'qris_total' => $payments['qris'],
+                    'card_total' => $payments['card'],
+                ];
+            })->values())
+            ->sortByDesc(fn (object $row): string => $row->date)
+            ->values();
         $users = User::query()
             ->whereIn('id', $cashierRows->pluck('user_id'))
             ->get()
@@ -306,6 +328,17 @@ class ReportController extends Controller
                     'sales_count' => (int) $row->sales_count,
                     'gross_sales' => (int) $row->gross_sales,
                     'discount_total' => (int) $row->discount_total,
+                    'net_sales' => (int) $row->net_sales,
+                    'cash_total' => (int) $row->cash_total,
+                    'qris_total' => (int) $row->qris_total,
+                    'card_total' => (int) $row->card_total,
+                ])
+                ->values(),
+            'dailyCashierRevenues' => $dailyCashierRows
+                ->map(fn (object $row): array => [
+                    'date' => $row->date,
+                    'cashier' => $users->get($row->user_id)?->name ?? 'Kasir',
+                    'sales_count' => (int) $row->sales_count,
                     'net_sales' => (int) $row->net_sales,
                     'cash_total' => (int) $row->cash_total,
                     'qris_total' => (int) $row->qris_total,

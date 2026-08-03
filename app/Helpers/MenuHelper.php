@@ -31,6 +31,12 @@ class MenuHelper
                 'title' => 'Operasional',
                 'items' => [
                     [
+                        'icon' => 'reports',
+                        'name' => 'Penggajian & Payslip',
+                        'path' => '/payrolls',
+                        'roles' => ['owner', 'admin'],
+                    ],
+                    [
                         'icon' => 'pos',
                         'name' => 'Kasir',
                         'path' => '/pos',
