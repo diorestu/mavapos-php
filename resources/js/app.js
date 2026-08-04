@@ -159,20 +159,21 @@ Alpine.data('globalSearch', (endpoint = '') => ({
 }));
 
 Alpine.data('salesDateRange', (initialFrom = '', initialTo = '', useBrowserToday = false) => ({
-    dateFrom: useBrowserToday ? '' : (initialFrom || ''),
-    dateTo: useBrowserToday ? '' : (initialTo || ''),
+    dateFrom: initialFrom || '',
+    dateTo: initialTo || '',
     picker: null,
+    pageshowHandler: null,
 
     async mount(input) {
         if (!input) {
             return;
         }
 
-        if (useBrowserToday) {
-            const today = this.toDateValue(new Date());
-            this.dateFrom = today;
-            this.dateTo = today;
-        }
+        // Chrome dapat memulihkan nilai input teks lama saat reload. Selalu
+        // sinkronkan tampilan picker dari tanggal server sebelum inisialisasi.
+        input.value = this.formatDisplayRange(this.dateFrom, this.dateTo);
+        this.pageshowHandler = () => this.syncPickerDate();
+        window.addEventListener('pageshow', this.pageshowHandler);
 
         this.$nextTick(async () => {
             const flatpickr = await window.loadFlatpickr();
@@ -189,12 +190,30 @@ Alpine.data('salesDateRange', (initialFrom = '', initialTo = '', useBrowserToday
                     this.dateTo = selectedDates[1] ? this.toDateValue(selectedDates[1]) : this.dateFrom;
                 },
             });
+            this.syncPickerDate();
         });
     },
 
     destroy() {
+        if (this.pageshowHandler) {
+            window.removeEventListener('pageshow', this.pageshowHandler);
+            this.pageshowHandler = null;
+        }
         this.picker?.destroy();
         this.picker = null;
+    },
+
+    syncPickerDate() {
+        if (!this.picker || !this.dateFrom) return;
+        const dates = [this.toPickerDate(this.dateFrom)];
+        if (this.dateTo && this.dateTo !== this.dateFrom) dates.push(this.toPickerDate(this.dateTo));
+        this.picker.setDate(dates, false);
+        this.picker.jumpToDate(dates[0]);
+    },
+
+    toPickerDate(value) {
+        const [year, month, day] = value.split('-').map(Number);
+        return new Date(year, month - 1, day);
     },
 
     toDateValue(date) {
@@ -203,6 +222,22 @@ Alpine.data('salesDateRange', (initialFrom = '', initialTo = '', useBrowserToday
         const day = String(date.getDate()).padStart(2, '0');
 
         return `${year}-${month}-${day}`;
+    },
+
+    formatDisplayRange(from, to) {
+        const format = (value) => {
+            if (!value) return '';
+            const [year, month, day] = value.split('-').map(Number);
+            return new Intl.DateTimeFormat('en-GB', {
+                day: '2-digit',
+                month: 'short',
+                year: 'numeric',
+                timeZone: 'UTC',
+            }).format(new Date(Date.UTC(year, month - 1, day)));
+        };
+        const start = format(from);
+        const end = format(to);
+        return start && end && start !== end ? `${start} sampai ${end}` : start;
     },
 }));
 
