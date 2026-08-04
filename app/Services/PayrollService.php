@@ -13,20 +13,35 @@ class PayrollService
     {
         $bonus = app(SalesBonusService::class)->forUserMonth($user->id, $branchId, $month);
         $basic = (int) $user->basic_salary;
-        $allowance = (int) $user->fixed_allowance;
-        return ['basic_salary' => $basic, 'fixed_allowance' => $allowance, 'sales_count' => $bonus['salesCount'], 'sales_bonus' => $bonus['bonus'], 'total_amount' => $basic + $allowance + $bonus['bonus']];
+        return ['basic_salary' => $basic, 'fixed_allowance' => 0, 'sales_count' => $bonus['salesCount'], 'sales_bonus' => $bonus['bonus'], 'total_amount' => $basic + $bonus['bonus']];
     }
 
     public function generate(Carbon $month): int
     {
         $branchId = app(BranchContext::class)->activeId();
-        $users = User::query()->where('tenant_owner_id', auth()->user()->tenantOwnerId())->whereNotIn('role', ['owner', 'admin'])->get();
+        $users = User::query()->where('tenant_owner_id', auth()->user()->tenantOwnerId())->where('role', 'kasir')->get();
         foreach ($users as $user) {
             Payroll::query()->updateOrCreate(
                 ['user_id' => $user->id, 'branch_id' => $branchId, 'period_month' => $month->copy()->startOfMonth()->toDateString()],
                 ['user_id' => $user->id, 'branch_id' => $branchId, 'period_month' => $month->copy()->startOfMonth()->toDateString()] + $this->calculate($user, $branchId, $month)
             );
         }
+        return $users->count();
+    }
+
+    public function syncDailyBonus(Carbon $month): int
+    {
+        $branchId = app(BranchContext::class)->activeId();
+        $users = User::query()->where('tenant_owner_id', auth()->user()->tenantOwnerId())->where('role', 'kasir')->get();
+
+        foreach ($users as $user) {
+            $calculated = $this->calculate($user, $branchId, $month);
+            Payroll::query()->updateOrCreate(
+                ['user_id' => $user->id, 'branch_id' => $branchId, 'period_month' => $month->copy()->startOfMonth()->toDateString()],
+                $calculated
+            );
+        }
+
         return $users->count();
     }
 }

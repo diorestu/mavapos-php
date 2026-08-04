@@ -19,7 +19,7 @@ class PayrollController extends Controller
         $month = Carbon::createFromFormat('Y-m', $request->input('month', now()->format('Y-m')))->startOfMonth();
         $branchId = app(BranchContext::class)->activeId();
         $payrolls = Payroll::query()->with('user')->where('branch_id', $branchId)->whereDate('period_month', $month)->orderByDesc('total_amount')->get();
-        $users = User::query()->where('tenant_owner_id', $request->user()->tenantOwnerId())->whereNotIn('role', ['owner', 'admin'])->orderBy('name')->get();
+        $users = User::query()->where('tenant_owner_id', $request->user()->tenantOwnerId())->where('role', 'kasir')->orderBy('name')->get();
         $tab = $request->input('tab', 'payslip');
         $bonusTable = $tab === 'bonus'
             ? app(SalesBonusService::class)->monthlyPersonalBonus($branchId, $month, $users)
@@ -34,11 +34,18 @@ class PayrollController extends Controller
         return back()->with('status', $count.' payslip berhasil dibuat/diperbarui.');
     }
 
+    public function syncBonus(Request $request, PayrollService $service): RedirectResponse
+    {
+        $month = Carbon::createFromFormat('Y-m', $request->input('month', now()->format('Y-m')))->startOfMonth();
+        $count = $service->syncDailyBonus($month);
+        return back()->with('status', 'Bonus harian '.$count.' staff berhasil disinkronkan ke payslip.');
+    }
+
     public function salary(Request $request, User $user): RedirectResponse
     {
-        abort_if(in_array($user->role, ['owner', 'admin'], true), 422, 'Gaji hanya dapat diatur untuk staf non-admin.');
-        $data = $request->validate(['basic_salary' => ['required', 'integer', 'min:0'], 'fixed_allowance' => ['required', 'integer', 'min:0']]);
-        $user->update($data);
-        return back()->with('status', 'Komponen gaji '.$user->name.' berhasil disimpan.');
+        abort_unless($user->role === 'kasir', 422, 'Gaji hanya dapat diatur untuk staff kasir.');
+        $data = $request->validate(['basic_salary' => ['required', 'integer', 'min:0']]);
+        $user->update(['basic_salary' => $data['basic_salary'], 'fixed_allowance' => 0]);
+        return back()->with('status', 'Gaji pokok '.$user->name.' berhasil disimpan.');
     }
 }

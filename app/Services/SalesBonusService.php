@@ -6,6 +6,7 @@ use App\Models\CashierShift;
 use App\Models\PosSale;
 use App\Models\PosSaleItem;
 use App\Models\StoreSetting;
+use App\Support\LocalTime;
 use Illuminate\Support\Carbon;
 
 class SalesBonusService
@@ -38,8 +39,9 @@ class SalesBonusService
 
     public function forBranchDay(int $branchId, Carbon $day): array
     {
-        $from = $day->copy()->startOfDay();
-        $to = $day->copy()->endOfDay();
+        $localDay = $day->copy()->setTimezone(LocalTime::TIMEZONE);
+        $from = $localDay->copy()->startOfDay()->utc();
+        $to = $localDay->copy()->endOfDay()->utc();
         $salesQuery = PosSale::query()->active()->where('branch_id', $branchId)->whereBetween('sold_at', [$from, $to]);
         $salesCount = (int) PosSaleItem::query()
             ->whereHas('sale', fn ($query) => $query->active()->where('branch_id', $branchId)->whereBetween('sold_at', [$from, $to]))
@@ -64,27 +66,23 @@ class SalesBonusService
         $legacySalesByStaff->each(function ($count, $staffId) use ($salesByStaff): void {
             $salesByStaff[$staffId] = (int) ($salesByStaff->get($staffId) ?? 0) + (int) $count;
         });
-        $staffBreakdown = $staffIds->map(function ($staffId) use ($salesByStaff, $tiers): array {
+        $orderedTiers = collect($tiers)->sortBy('minimum')->values();
+        $tierIndex = $bonusTier ? $orderedTiers->search(fn (array $tier): bool => (int) $tier['minimum'] === (int) $bonusTier['minimum']) + 1 : 0;
+        $staffBreakdown = $staffIds->map(function ($staffId) use ($salesByStaff, $bonus, $tierIndex): array {
             $staffSalesCount = (int) ($salesByStaff->get($staffId) ?? 0);
-            $orderedTiers = collect($tiers)->sortBy('minimum')->values();
-            $staffTier = $orderedTiers
-                ->sortByDesc('minimum')
-                ->first(fn (array $tier): bool => $staffSalesCount >= (int) $tier['minimum']);
-            $staffBonus = (int) ($staffTier['reward'] ?? 0);
-            $tierIndex = $staffTier ? $orderedTiers->search(fn (array $tier): bool => (int) $tier['minimum'] === (int) $staffTier['minimum']) + 1 : 0;
 
             return [
                 'userId' => (int) $staffId,
                 'salesCount' => $staffSalesCount,
-                'targetReached' => $staffBonus > 0,
-                'bonus' => $staffBonus,
+                'targetReached' => $bonus > 0,
+                'bonus' => $bonus,
                 'tier' => $tierIndex,
             ];
         })->values();
 
         return [
             'salesCount' => $salesCount,
-            'targetReached' => $staffBreakdown->contains(fn (array $row): bool => $row['targetReached']),
+            'targetReached' => $bonus > 0,
             'bonusPerPerson' => $bonus,
             'staffCount' => $staffIds->count(),
             'totalBonus' => $staffBreakdown->sum('bonus'),
@@ -100,8 +98,12 @@ class SalesBonusService
         $sales = PosSale::query()->active()->where('branch_id', $branchId)->where('user_id', $userId)->whereBetween('sold_at', [$from, $to]);
         $count = (int) PosSaleItem::query()->whereHas('sale', fn ($q) => $q->active()->where('branch_id', $branchId)->where('user_id', $userId)->whereBetween('sold_at', [$from, $to]))->sum('quantity')
             + (int) (clone $sales)->doesntHave('items')->count();
-        $tiers = StoreSetting::current()->sales_bonus_tiers ?: StoreSetting::defaults()['sales_bonus_tiers'];
-        $tier = collect($tiers)->sortByDesc('minimum')->first(fn (array $row): bool => $count >= (int) $row['minimum']);
-        return ['salesCount' => $count, 'bonus' => (int) ($tier['reward'] ?? 0)];
+        $bonus = 0;
+        for ($date = $month->copy()->startOfMonth(); $date->lte($month->copy()->endOfMonth()); $date->addDay()) {
+            $row = collect($this->forBranchDay($branchId, $date)['staffBreakdown'])->firstWhere('userId', $userId);
+            $bonus += (int) ($row['bonus'] ?? 0);
+        }
+
+        return ['salesCount' => $count, 'bonus' => $bonus];
     }
 }

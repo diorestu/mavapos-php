@@ -152,9 +152,10 @@ test('data tenant tetap terisolasi meski dua owner memiliki waktu trial sama', f
     expect(Product::query()->pluck('sku')->all())->toBe(['TENANT-TWO']);
 });
 
-test('laporan penjualan menghitung bonus berdasarkan penjualan personal staff', function () {
+test('laporan penjualan membagikan bonus tim kepada seluruh staff yang hadir', function () {
     $owner = User::factory()->create(['role' => 'owner']);
     $staff = User::factory()->create(['role' => 'kasir', 'tenant_owner_id' => $owner->id]);
+    $offStaff = User::factory()->create(['role' => 'kasir', 'tenant_owner_id' => $owner->id]);
     $this->actingAs($owner);
     $branch = app(\App\Support\BranchContext::class)->active();
     CashierShift::query()->create(['user_id' => $owner->id, 'branch_id' => $branch->id, 'opened_at' => now()->startOfDay()]);
@@ -171,15 +172,49 @@ test('laporan penjualan menghitung bonus berdasarkan penjualan personal staff', 
     }
 
     $today = now()->setTimezone(\App\Support\LocalTime::TIMEZONE)->toDateString();
-    $this->actingAs($owner)->get(route('sales', ['date_from' => $today, 'date_to' => $today]))->assertOk()->assertViewHas('bonus', function ($bonus) use ($owner, $staff): bool {
+    $this->actingAs($owner)->get(route('sales', ['date_from' => $today, 'date_to' => $today]))->assertOk()->assertViewHas('bonus', function ($bonus) use ($owner, $staff, $offStaff): bool {
         $rows = collect($bonus['staffBreakdown'])->keyBy('userId');
 
         return $bonus['salesCount'] === 41
             && $rows[$owner->id]['salesCount'] === 21
-            && $rows[$owner->id]['bonus'] === 0
+            && $rows[$owner->id]['bonus'] === 25000
             && $rows[$staff->id]['salesCount'] === 20
-            && $rows[$staff->id]['bonus'] === 0;
-    })->assertSee('Capaian per Orang')->assertDontSee('Target Tercapai')->assertSee('Rp0')->assertSee($owner->name)->assertSee($staff->name);
+            && $rows[$staff->id]['bonus'] === 25000
+            && ! $rows->has($offStaff->id);
+    })->assertSee('Capaian per Orang')->assertSee('Target Tercapai')->assertSee('Rp25.000')->assertSee($owner->name)->assertSee($staff->name);
+});
+
+test('sync bonus harian memperbarui payslip dari bonus tim bulan aktif', function () {
+    $owner = User::factory()->create(['role' => 'owner']);
+    $staff = User::factory()->create(['role' => 'kasir', 'tenant_owner_id' => $owner->id, 'basic_salary' => 3000000, 'fixed_allowance' => 500000]);
+    $warehouse = User::factory()->create(['role' => 'warehouse', 'tenant_owner_id' => $owner->id, 'basic_salary' => 4000000]);
+    $this->actingAs($owner);
+    $branch = app(\App\Support\BranchContext::class)->active();
+    $shift = CashierShift::query()->create(['user_id' => $staff->id, 'branch_id' => $branch->id, 'opened_at' => now()->startOfDay()]);
+
+    foreach (range(1, 41) as $number) {
+        PosSale::query()->create([
+            'cashier_shift_id' => $shift->id,
+            'branch_id' => $branch->id,
+            'user_id' => $staff->id,
+            'invoice_number' => 'SYNC-BONUS-'.str_pad((string) $number, 3, '0', STR_PAD_LEFT),
+            'payment_method' => 'cash', 'subtotal' => 10000, 'total' => 10000, 'sold_at' => now(),
+        ]);
+    }
+
+    $month = now()->setTimezone(\App\Support\LocalTime::TIMEZONE)->format('Y-m');
+    $this->post(route('payrolls.sync-bonus'), ['month' => $month])->assertRedirect();
+
+    $this->assertDatabaseHas('payrolls', [
+        'user_id' => $staff->id,
+        'branch_id' => $branch->id,
+        'basic_salary' => 3000000,
+        'fixed_allowance' => 0,
+        'sales_count' => 41,
+        'sales_bonus' => 25000,
+        'total_amount' => 3025000,
+    ]);
+    $this->assertDatabaseMissing('payrolls', ['user_id' => $warehouse->id]);
 });
 
 test('buka shift mencatat staff pendamping dari tenant yang sama', function () {

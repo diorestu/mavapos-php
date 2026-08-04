@@ -67,6 +67,7 @@ Route::middleware('auth:web,sanctum')->group(function () {
     Route::middleware('role:owner,admin')->group(function () {
         Route::get('/payrolls', [PayrollController::class, 'index'])->name('payrolls');
         Route::post('/payrolls/generate', [PayrollController::class, 'generate'])->name('payrolls.generate');
+        Route::post('/payrolls/sync-bonus', [PayrollController::class, 'syncBonus'])->name('payrolls.sync-bonus');
         Route::patch('/payrolls/users/{user}/salary', [PayrollController::class, 'salary'])->name('payrolls.salary');
         Route::get('/billings', [BillingController::class, 'index'])->name('billings');
         Route::post('/billings', [BillingController::class, 'store'])->name('billings.store');
