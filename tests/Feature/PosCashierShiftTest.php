@@ -154,34 +154,41 @@ test('data tenant tetap terisolasi meski dua owner memiliki waktu trial sama', f
 
 test('laporan penjualan membagikan bonus tim kepada seluruh staff yang hadir', function () {
     $owner = User::factory()->create(['role' => 'owner']);
-    $staff = User::factory()->create(['role' => 'kasir', 'tenant_owner_id' => $owner->id]);
+    $cashier = User::factory()->create(['role' => 'kasir', 'tenant_owner_id' => $owner->id]);
+    $assistant = User::factory()->create(['role' => 'kasir', 'tenant_owner_id' => $owner->id]);
     $offStaff = User::factory()->create(['role' => 'kasir', 'tenant_owner_id' => $owner->id]);
     $this->actingAs($owner);
     $branch = app(\App\Support\BranchContext::class)->active();
     CashierShift::query()->create(['user_id' => $owner->id, 'branch_id' => $branch->id, 'opened_at' => now()->startOfDay()]);
-    CashierShift::query()->create(['user_id' => $staff->id, 'branch_id' => $branch->id, 'opened_at' => now()->startOfDay()]);
+    $shift = CashierShift::query()->create([
+        'user_id' => $cashier->id,
+        'branch_id' => $branch->id,
+        'opened_at' => now()->startOfDay(),
+        'companion_staff_ids' => [$assistant->id],
+    ]);
 
     foreach (range(1, 41) as $number) {
         PosSale::query()->create([
-            'cashier_shift_id' => $number % 2 ? CashierShift::query()->where('user_id', $owner->id)->latest('id')->value('id') : CashierShift::query()->where('user_id', $staff->id)->latest('id')->value('id'),
+            'cashier_shift_id' => $shift->id,
             'branch_id' => $branch->id,
-            'user_id' => $number % 2 ? $owner->id : $staff->id,
+            'user_id' => $number % 2 ? $cashier->id : $assistant->id,
             'invoice_number' => 'BONUS-'.str_pad((string) $number, 3, '0', STR_PAD_LEFT),
             'payment_method' => 'cash', 'subtotal' => 10000, 'total' => 10000, 'sold_at' => now(),
         ]);
     }
 
     $today = now()->setTimezone(\App\Support\LocalTime::TIMEZONE)->toDateString();
-    $this->actingAs($owner)->get(route('sales', ['date_from' => $today, 'date_to' => $today]))->assertOk()->assertViewHas('bonus', function ($bonus) use ($owner, $staff, $offStaff): bool {
+    $this->actingAs($owner)->get(route('sales', ['date_from' => $today, 'date_to' => $today]))->assertOk()->assertViewHas('bonus', function ($bonus) use ($owner, $cashier, $assistant, $offStaff): bool {
         $rows = collect($bonus['staffBreakdown'])->keyBy('userId');
 
         return $bonus['salesCount'] === 41
-            && $rows[$owner->id]['salesCount'] === 21
-            && $rows[$owner->id]['bonus'] === 25000
-            && $rows[$staff->id]['salesCount'] === 20
-            && $rows[$staff->id]['bonus'] === 25000
+            && $rows[$cashier->id]['salesCount'] === 21
+            && $rows[$cashier->id]['bonus'] === 25000
+            && $rows[$assistant->id]['salesCount'] === 20
+            && $rows[$assistant->id]['bonus'] === 25000
+            && ! $rows->has($owner->id)
             && ! $rows->has($offStaff->id);
-    })->assertSee('Capaian per Orang')->assertSee('Target Tercapai')->assertSee('Rp25.000')->assertSee($owner->name)->assertSee($staff->name);
+    })->assertSee('Capaian per Orang')->assertSee('Target Tercapai')->assertSee('Rp25.000')->assertSee($cashier->name)->assertSee($assistant->name);
 });
 
 test('sync bonus harian memperbarui payslip dari bonus tim bulan aktif', function () {
@@ -215,6 +222,15 @@ test('sync bonus harian memperbarui payslip dari bonus tim bulan aktif', functio
         'total_amount' => 3025000,
     ]);
     $this->assertDatabaseMissing('payrolls', ['user_id' => $warehouse->id]);
+});
+
+test('penggajian dan payslip hanya dapat diakses owner', function () {
+    $owner = User::factory()->create(['role' => 'owner']);
+    $admin = User::factory()->create(['role' => 'admin', 'tenant_owner_id' => $owner->id]);
+
+    $this->actingAs($admin)->get(route('payrolls'))->assertForbidden();
+    $this->actingAs($admin)->get(route('dashboard'))->assertOk()->assertDontSee('Penggajian &amp; Payslip', false);
+    $this->actingAs($owner)->get(route('payrolls'))->assertOk();
 });
 
 test('buka shift mencatat staff pendamping dari tenant yang sama', function () {

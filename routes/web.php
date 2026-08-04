@@ -65,10 +65,10 @@ Route::middleware('auth:web,sanctum')->group(function () {
     Route::post('/branches/active', [BranchController::class, 'switch'])->name('branches.switch');
 
     Route::middleware('role:owner,admin')->group(function () {
-        Route::get('/payrolls', [PayrollController::class, 'index'])->name('payrolls');
-        Route::post('/payrolls/generate', [PayrollController::class, 'generate'])->name('payrolls.generate');
-        Route::post('/payrolls/sync-bonus', [PayrollController::class, 'syncBonus'])->name('payrolls.sync-bonus');
-        Route::patch('/payrolls/users/{user}/salary', [PayrollController::class, 'salary'])->name('payrolls.salary');
+        Route::get('/payrolls', [PayrollController::class, 'index'])->middleware('role:owner')->name('payrolls');
+        Route::post('/payrolls/generate', [PayrollController::class, 'generate'])->middleware('role:owner')->name('payrolls.generate');
+        Route::post('/payrolls/sync-bonus', [PayrollController::class, 'syncBonus'])->middleware('role:owner')->name('payrolls.sync-bonus');
+        Route::patch('/payrolls/users/{user}/salary', [PayrollController::class, 'salary'])->middleware('role:owner')->name('payrolls.salary');
         Route::get('/billings', [BillingController::class, 'index'])->name('billings');
         Route::post('/billings', [BillingController::class, 'store'])->name('billings.store');
         Route::post('/billings/{billing}/refresh', [BillingController::class, 'refresh'])->name('billings.refresh');

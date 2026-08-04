@@ -34,7 +34,7 @@ class MenuHelper
                         'icon' => 'reports',
                         'name' => 'Penggajian & Payslip',
                         'path' => '/payrolls',
-                        'roles' => ['owner', 'admin'],
+                        'roles' => ['owner'],
                     ],
                     [
                         'icon' => 'pos',

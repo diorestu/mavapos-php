@@ -6,6 +6,7 @@ use App\Models\CashierShift;
 use App\Models\PosSale;
 use App\Models\PosSaleItem;
 use App\Models\StoreSetting;
+use App\Models\User;
 use App\Support\LocalTime;
 use Illuminate\Support\Carbon;
 
@@ -54,7 +55,8 @@ class SalesBonusService
         $shifts = CashierShift::query()->where('branch_id', $branchId)
             ->where('opened_at', '<=', $to)
             ->where(fn ($query) => $query->whereNull('closed_at')->orWhere('closed_at', '>=', $from))->get(['user_id', 'companion_staff_ids']);
-        $staffIds = $shifts->flatMap(fn ($shift) => [$shift->user_id, ...($shift->companion_staff_ids ?? [])])->unique()->values();
+        $shiftStaffIds = $shifts->flatMap(fn ($shift) => [$shift->user_id, ...($shift->companion_staff_ids ?? [])])->unique()->values();
+        $staffIds = User::query()->whereIn('id', $shiftStaffIds)->where('role', 'kasir')->pluck('id')->values();
         $salesByStaff = PosSaleItem::query()
             ->whereHas('sale', fn ($query) => $query->active()->where('branch_id', $branchId)->whereBetween('sold_at', [$from, $to])->whereIn('user_id', $staffIds))
             ->join('pos_sales', 'pos_sale_items.pos_sale_id', '=', 'pos_sales.id')
