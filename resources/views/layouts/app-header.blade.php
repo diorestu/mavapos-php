@@ -50,8 +50,8 @@
 
             <!-- Logo (mobile only) -->
             <a href="/" class="xl:hidden">
-                <img class="dark:hidden" src="/images/logo/logo.svg" alt="Logo" />
-                <img class="hidden dark:block" src="/images/logo/logo-dark.svg" alt="Logo" />
+                <img data-testid="mobile-mavapos-logo" src="{{ asset('logo.png') }}" alt="MavaPOS"
+                    class="h-7 w-auto object-contain" />
             </a>
 
             <!-- Application Menu Toggle (mobile only) -->

@@ -133,6 +133,18 @@ test('dashboard toko menampilkan ringkasan dan grafik berbahasa indonesia', func
         ->assertDontSee('Recent Orders');
 });
 
+test('header mobile menggunakan logo mavapos', function () {
+    $user = User::factory()->create();
+
+    $this->actingAs($user)
+        ->get('/')
+        ->assertOk()
+        ->assertSee('data-testid="mobile-mavapos-logo"', false)
+        ->assertSee('src="'.asset('logo.png').'"', false)
+        ->assertDontSee('src="/images/logo/logo.svg"', false)
+        ->assertDontSee('src="/images/logo/logo-dark.svg"', false);
+});
+
 test('dashboard toko menyinkronkan grafik dan ringkasan dari database', function () {
     $user = User::query()->where('email', 'test@example.com')->firstOrFail();
 
