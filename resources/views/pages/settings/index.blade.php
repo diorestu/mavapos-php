@@ -365,6 +365,23 @@
                             @endforeach
                         </div>
 
+                        <div class="border-t border-gray-100 pt-5 dark:border-gray-800">
+                            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Field di Halaman Kasir</h3>
+                            <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Pilih informasi dan metode pembayaran yang ingin ditampilkan kepada kasir.</p>
+                            <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+                                @foreach ([
+                                    'cashier_buyer_nationality_enabled' => 'Kewarganegaraan Pembeli',
+                                    'cashier_loyalty_card_enabled' => 'Kartu Loyalitas',
+                                    'cashier_split_payment_enabled' => 'Split Payment',
+                                ] as $field => $label)
+                                    <label class="flex min-h-11 items-center justify-between gap-3 rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-800">
+                                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $label }}</span>
+                                        <input type="checkbox" name="{{ $field }}" value="1" @checked(old($field, $setting->{$field} ?? true)) class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500/20">
+                                    </label>
+                                @endforeach
+                            </div>
+                        </div>
+
                         <div class="rounded-xl border border-gray-200 dark:border-gray-800">
                             <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
                                 <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Khusus F&B</h3>
@@ -383,7 +400,45 @@
                                 @endforeach
                             </div>
                         </div>
+
                     </div>
+                </section>
+
+                <section x-show="activeTab === 'receipt'" x-cloak class="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]" x-data="{ labelType: @js(old('printer_label_type', $setting->printer_label_type ?? 'none')) }">
+                        <div class="rounded-xl border border-gray-200 dark:border-gray-800">
+                            <div class="flex flex-col gap-3 border-b border-gray-100 px-4 py-3 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
+                                <div>
+                                    <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Printer Label</h3>
+                                    <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Atur printer label Bluetooth per cabang. Preset ECO80BT hanya diterapkan saat tipe tersebut dipilih.</p>
+                                </div>
+                                <a href="{{ route('print-test') }}" class="inline-flex h-9 items-center justify-center rounded-lg border border-brand-200 px-3 text-xs font-semibold text-brand-600 hover:bg-brand-50 dark:border-brand-500/30 dark:text-brand-400">Test Printing</a>
+                            </div>
+                            <div class="grid grid-cols-1 gap-4 p-4 lg:grid-cols-2">
+                                <label class="block lg:col-span-2">
+                                    <span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Tipe Printer Label</span>
+                                    <select name="printer_label_type" x-model="labelType" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                                        <option value="none">Tidak digunakan</option>
+                                        <option value="eco80bt">Blueprint ECO80BT</option>
+                                        <option value="custom">Printer Label Custom</option>
+                                    </select>
+                                </label>
+
+                                <div x-show="labelType === 'eco80bt'" class="rounded-lg border border-success-200 bg-success-50 p-3 text-xs leading-5 text-success-700 dark:border-success-500/30 dark:bg-success-500/10 dark:text-success-300 lg:col-span-2">
+                                    Preset tersimpan: CPCL, struk continuous 80 mm, panjang dinamis, gap 0 mm, font 0 size 2, serta UUID Bluetooth ECO80BT.
+                                </div>
+
+                                <template x-if="labelType === 'custom'">
+                                    <div class="contents">
+                                        <label class="block"><span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Bahasa Printer</span><select name="printer_label_language" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"><option value="cpcl" @selected(old('printer_label_language', $setting->printer_label_language) === 'cpcl')>CPCL</option><option value="tspl" @selected(old('printer_label_language', $setting->printer_label_language) === 'tspl')>TSPL</option></select></label>
+                                        <label class="block"><span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Template</span><select name="printer_label_template" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"><option value="eco80bt_label" @selected(old('printer_label_template', $setting->printer_label_template) === 'eco80bt_label')>Label 80 × 100 mm</option><option value="receipt_80mm" @selected(old('printer_label_template', $setting->printer_label_template) === 'receipt_80mm')>Struk 80 mm</option><option value="custom_80mm" @selected(old('printer_label_template', $setting->printer_label_template) === 'custom_80mm')>Custom 80 mm</option></select></label>
+                                        <label class="block"><span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Lebar (mm)</span><input name="printer_label_width_mm" type="number" min="20" max="120" value="{{ old('printer_label_width_mm', $setting->printer_label_width_mm) }}" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"></label>
+                                        <label class="block"><span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Tinggi (mm)</span><input name="printer_label_height_mm" type="number" min="10" max="500" value="{{ old('printer_label_height_mm', $setting->printer_label_height_mm) }}" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"></label>
+                                        <label class="block"><span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Gap (mm)</span><input name="printer_label_gap_mm" type="number" min="0" max="30" value="{{ old('printer_label_gap_mm', $setting->printer_label_gap_mm) }}" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"></label>
+                                        <div class="grid grid-cols-2 gap-3"><label class="block"><span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Font CPCL</span><input name="printer_label_font" type="number" min="0" max="7" value="{{ old('printer_label_font', $setting->printer_label_font) }}" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"></label><label class="block"><span class="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">Size</span><input name="printer_label_font_size" type="number" min="0" max="7" value="{{ old('printer_label_font_size', $setting->printer_label_font_size) }}" class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-4 text-sm dark:border-gray-700 dark:bg-gray-900 dark:text-white/90"></label></div>
+                                    </div>
+                                </template>
+                            </div>
+                        </div>
                 </section>
 
                 <section x-show="activeTab === 'receipt'" x-cloak

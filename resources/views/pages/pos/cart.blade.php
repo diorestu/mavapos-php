@@ -77,7 +77,7 @@
                 <input x-model="customerPhone" type="tel" maxlength="30" placeholder="08xxxxxxxxxx" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-2.5 text-xs text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
             </label>
         </div>
-        <label class="mb-3 block">
+        <label x-show="cashierFeatures.buyerNationality" class="mb-3 block">
             <span class="mb-1 block text-[10px] font-semibold text-gray-500 dark:text-gray-400">Kewarganegaraan pembeli <span class="text-error-500">*</span></span>
             <select x-model="buyerNationality" class="h-9 w-full rounded-lg border border-gray-300 bg-transparent px-2.5 text-xs text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                 <option value="">Pilih Local atau Foreigner</option>
@@ -96,7 +96,7 @@
                     :disabled="loyaltyReward"
                     class="h-8 w-28 rounded-lg border border-gray-300 bg-transparent px-2.5 text-right text-xs tabular-nums text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
             </label>
-            <label class="block text-xs">
+            <label x-show="cashierFeatures.loyaltyCard" class="block text-xs">
                 <span class="mb-1 block text-gray-500 dark:text-gray-400">Kartu Loyalitas</span>
                 <span class="mb-2 flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-300"><input x-model="loyaltyStamp" type="checkbox" class="rounded border-gray-300 text-brand-500 focus:ring-brand-500" /> Tambahkan stempel sesuai jumlah cup (1 cup = 1 stempel)</span>
                 <select x-model="loyaltyReward" @change="discount = ''" class="h-8 w-full rounded-lg border border-gray-300 bg-transparent px-2 text-xs text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
@@ -128,14 +128,14 @@
                 :class="paymentMethod === 'card' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.04]'">
                 Kartu
             </button>
-            <button type="button" @click="enableSplitPayment()"
+            <button x-show="cashierFeatures.splitPayment" type="button" @click="enableSplitPayment()"
                 class="h-9 rounded-lg text-xs font-semibold transition"
                 :class="paymentMethod === 'split' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.04]'">
                 Split Payment
             </button>
         </div>
 
-        <div x-show="paymentMethod === 'split'" class="mt-3.5 space-y-2 animate-fadeIn">
+        <div x-show="cashierFeatures.splitPayment && paymentMethod === 'split'" class="mt-3.5 space-y-2 animate-fadeIn">
             <p class="text-[11px] font-semibold text-gray-600 dark:text-gray-300">Bagi pembayaran ke beberapa metode</p>
             <template x-for="(payment, index) in splitPayments" :key="payment.method">
                 <label class="grid grid-cols-[92px_1fr] items-center gap-2">

@@ -87,6 +87,14 @@ class CashierShiftSummaryService
                 'connection_mode' => $setting->printer_connection_mode,
                 'bluetooth_service_uuid' => $setting->printer_bluetooth_service_uuid,
                 'bluetooth_characteristic_uuid' => $setting->printer_bluetooth_characteristic_uuid,
+                'label_type' => $setting->printer_label_type,
+                'label_language' => $setting->printer_label_language,
+                'label_template' => $setting->printer_label_template,
+                'label_width_mm' => $setting->printer_label_width_mm,
+                'label_height_mm' => $setting->printer_label_height_mm,
+                'label_gap_mm' => $setting->printer_label_gap_mm,
+                'label_font' => $setting->printer_label_font,
+                'label_font_size' => $setting->printer_label_font_size,
             ],
         ];
     }

@@ -163,7 +163,23 @@ Route::middleware('auth:web,sanctum')->group(function () {
     });
     Route::middleware('role:owner,admin')->group(function () {
         Route::get('/print-test', function () {
-            return view('pages.print-test', ['title' => 'Test Printing']);
+            $setting = StoreSetting::current();
+
+            return view('pages.print-test', [
+                'title' => 'Test Printing',
+                'printerSettings' => [
+                    'type' => $setting->printer_label_type,
+                    'language' => $setting->printer_label_language,
+                    'template' => $setting->printer_label_template,
+                    'widthMm' => $setting->printer_label_width_mm,
+                    'heightMm' => $setting->printer_label_height_mm,
+                    'gapMm' => $setting->printer_label_gap_mm,
+                    'font' => $setting->printer_label_font,
+                    'fontSize' => $setting->printer_label_font_size,
+                    'serviceUuid' => $setting->printer_bluetooth_service_uuid,
+                    'characteristicUuid' => $setting->printer_bluetooth_characteristic_uuid,
+                ],
+            ]);
         })->name('print-test');
     });
 

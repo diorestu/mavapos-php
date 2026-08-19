@@ -92,6 +92,11 @@ class PosController extends Controller
             'categories' => $categoriesPayload,
             'items' => $itemsPayload,
             'cashierSopHtml' => StoreSetting::current()->cashier_sop_html,
+            'cashierFeatures' => StoreSetting::current()->only([
+                'cashier_buyer_nationality_enabled',
+                'cashier_loyalty_card_enabled',
+                'cashier_split_payment_enabled',
+            ]),
             'availableStaff' => User::query()->where('tenant_owner_id', auth()->user()->tenantOwnerId())->whereKeyNot($cashier->id)->whereIn('role', ['owner', 'admin', 'kasir'])->orderBy('name')->get(['id', 'name', 'role']),
         ]);
     }
@@ -514,6 +519,14 @@ class PosController extends Controller
                     'connection_mode' => $setting->printer_connection_mode,
                     'bluetooth_service_uuid' => $setting->printer_bluetooth_service_uuid,
                     'bluetooth_characteristic_uuid' => $setting->printer_bluetooth_characteristic_uuid,
+                    'label_type' => $setting->printer_label_type,
+                    'label_language' => $setting->printer_label_language,
+                    'label_template' => $setting->printer_label_template,
+                    'label_width_mm' => $setting->printer_label_width_mm,
+                    'label_height_mm' => $setting->printer_label_height_mm,
+                    'label_gap_mm' => $setting->printer_label_gap_mm,
+                    'label_font' => $setting->printer_label_font,
+                    'label_font_size' => $setting->printer_label_font_size,
                 ],
                 'cashier' => $sale->shift?->user?->name,
                 'customer' => $sale->customer ? [

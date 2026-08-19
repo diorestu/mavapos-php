@@ -12,6 +12,7 @@
         @js($lastClosedShift),
         @js($cashierSopHtml),
         @js($availableStaff),
+        @js($cashierFeatures),
         {
             startShift: @js(route('pos.shift.start')),
             changeShift: @js(route('pos.shift.change')),
@@ -20,7 +21,7 @@
             displayPush: @js(route('display.push')),
             displayStand: @js(route('display.stand')),
         }
-    )" class="space-y-4">
+        )" class="space-y-4">
         <div class="hidden">
             <div class="min-w-0">
                 <nav aria-label="Breadcrumb">

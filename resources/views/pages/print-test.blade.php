@@ -16,7 +16,7 @@
                     </ol>
                 </nav>
                 <h1 class="mt-1 text-xl font-semibold text-gray-800 dark:text-white/90">Test Printing</h1>
-                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Uji koneksi printer thermal Web Bluetooth dan IMIN InnerPrinter dari browser kasir.</p>
+                <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">Diagnosa koneksi printer thermal BLE, Bluetooth Classic, dan IMIN InnerPrinter dari browser kasir.</p>
             </div>
         </div>
 
@@ -75,7 +75,7 @@
             </div>
         </section>
 
-        <section x-data="bluetoothPrinterTest()" class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
+        <section x-data="bluetoothPrinterTest(@js($printerSettings ?? []))" class="grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
             <div class="space-y-4">
                 <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
                     <div class="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -106,12 +106,29 @@
                             <input x-model="characteristicUuid" type="text" autocomplete="off"
                                 class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                         </label>
+                        <label class="block">
+                            <span class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Bahasa Printer</span>
+                            <select x-model="printLanguage" class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                                <option value="cpcl">CPCL - Blueprint ECO80BT</option>
+                                <option value="tspl">TSPL - Printer Label</option>
+                                <option value="escpos">ESC/POS - Printer Struk</option>
+                            </select>
+                        </label>
+                        <label class="block">
+                            <span class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Template Kertas</span>
+                            <select x-model="paperTemplate" class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                                <option value="eco80bt_label">ECO80BT Label 80 × 100 mm</option>
+                                <option value="receipt_80mm">Struk Thermal 80 mm</option>
+                                <option value="custom_80mm">Custom 80 mm</option>
+                            </select>
+                            <span x-show="paperTemplate === 'eco80bt_label' || paperTemplate === 'receipt_80mm'" class="mt-1 block text-[10px] text-success-600 dark:text-success-400" x-text="`Layout aktif: ${labelWidthMm} mm · ${printerType === 'eco80bt' ? 576 : Math.round(labelWidthMm * 8)} dots · font ${labelFont} size ${labelFontSize}`"></span>
+                        </label>
                     </div>
 
                     <div class="mt-4 grid gap-3 md:grid-cols-[1fr_120px_120px]">
                         <label class="block">
                             <span class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Nama Printer</span>
-                            <input x-model="namePrefix" type="text" placeholder="RPP, MTP, POS"
+                            <input x-model="namePrefix" type="text" placeholder="ECO, Blueprint, RPP"
                                 class="h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-xs text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                         </label>
                         <label class="block">
@@ -131,7 +148,7 @@
                     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Konten Test Print</h2>
-                            <p class="text-[11px] text-gray-500 dark:text-gray-400">Teks ini dikirim sebagai ESC/POS plain text dengan inisialisasi, feed, dan cut.</p>
+                            <p class="text-[11px] text-gray-500 dark:text-gray-400">Layout test print menyesuaikan bahasa printer: label kecil untuk TSPL/CPCL, struk monospaced untuk ESC/POS.</p>
                         </div>
                         <button type="button" @click="printSample()" :disabled="!characteristic || isBusy"
                             class="inline-flex h-9 items-center justify-center rounded-lg bg-gray-900 px-3 text-xs font-semibold text-white shadow-theme-xs transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-50 dark:bg-white dark:text-gray-900">
@@ -159,6 +176,17 @@
                         <div class="flex items-center justify-between gap-3">
                             <dt class="text-gray-500 dark:text-gray-400">Device</dt>
                             <dd class="max-w-[180px] truncate font-semibold text-gray-800 dark:text-white/90" x-text="deviceName"></dd>
+                        </div>
+                        <div class="border-t border-gray-100 pt-2 dark:border-gray-800">
+                            <dt class="text-gray-500 dark:text-gray-400">Diagnosis</dt>
+                            <dd class="mt-1 leading-relaxed text-gray-700 dark:text-gray-300" x-text="diagnosis || 'Hubungkan printer untuk memulai diagnosis.'"></dd>
+                        </div>
+                        <div class="border-t border-gray-100 pt-2 dark:border-gray-800">
+                            <dt class="text-gray-500 dark:text-gray-400">BLE Services</dt>
+                            <dd class="mt-1 space-y-1 font-mono text-[10px] text-gray-700 dark:text-gray-300">
+                                <template x-for="service in discoveredServices" :key="service"><div x-text="service"></div></template>
+                                <span x-show="discoveredServices.length === 0">Belum ditemukan</span>
+                            </dd>
                         </div>
                     </dl>
                 </div>

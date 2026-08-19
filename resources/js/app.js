@@ -8,6 +8,35 @@ import 'quill/dist/quill.snow.css';
 window.Alpine = Alpine;
 window.Quill = Quill;
 
+const BLUETOOTH_PRINTER_STORAGE_KEY = 'mava.bluetooth-printer-device';
+
+function rememberBluetoothPrinter(device) {
+    if (!device?.id) return;
+
+    try {
+        localStorage.setItem(BLUETOOTH_PRINTER_STORAGE_KEY, JSON.stringify({
+            id: device.id,
+            name: device.name || '',
+        }));
+    } catch (error) {
+        // Printing can continue even when browser storage is unavailable.
+    }
+}
+
+async function getRememberedBluetoothPrinter() {
+    if (!navigator.bluetooth?.getDevices) return null;
+
+    try {
+        const stored = JSON.parse(localStorage.getItem(BLUETOOTH_PRINTER_STORAGE_KEY) || 'null');
+        if (!stored?.id) return null;
+
+        const devices = await navigator.bluetooth.getDevices();
+        return devices.find((device) => device.id === stored.id) || null;
+    } catch (error) {
+        return null;
+    }
+}
+
 let apexChartsLoader;
 window.loadApexCharts = async () => {
     if (!window.ApexCharts) {
@@ -241,15 +270,32 @@ Alpine.data('salesDateRange', (initialFrom = '', initialTo = '', useBrowserToday
     },
 }));
 
-Alpine.data('bluetoothPrinterTest', () => ({
-    serviceUuid: '000018f0-0000-1000-8000-00805f9b34fb',
-    characteristicUuid: '00002af1-0000-1000-8000-00805f9b34fb',
+Alpine.data('bluetoothPrinterTest', (initialSettings = {}) => ({
+    serviceUuid: initialSettings.serviceUuid || '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+    characteristicUuid: initialSettings.characteristicUuid || '49535343-8841-43f4-a8d4-ecbe34729bb3',
+    serviceCandidates: [
+        '000018f0-0000-1000-8000-00805f9b34fb',
+        '0000ff00-0000-1000-8000-00805f9b34fb',
+        '0000ffe0-0000-1000-8000-00805f9b34fb',
+        '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+    ],
     namePrefix: '',
+    printerType: initialSettings.type || 'none',
+    printLanguage: initialSettings.language || 'cpcl',
+    paperTemplate: initialSettings.template || (initialSettings.type === 'eco80bt' ? 'receipt_80mm' : 'eco80bt_label'),
+    labelWidthMm: Number(initialSettings.widthMm || 80),
+    labelHeightMm: Number(initialSettings.heightMm || 100),
+    labelGapMm: Number(initialSettings.gapMm ?? 3),
+    labelFont: Number(initialSettings.font ?? 0),
+    labelFontSize: Number(initialSettings.fontSize ?? 2),
     chunkSize: 120,
     chunkDelay: 50,
     device: null,
     server: null,
     characteristic: null,
+    discoveredServices: [],
+    discoveredCharacteristics: [],
+    diagnosis: '',
     isBusy: false,
     logs: [],
     receiptText: [
@@ -279,6 +325,10 @@ Alpine.data('bluetoothPrinterTest', () => ({
         '        Kunjungan Anda          ',
     ].join('\n'),
 
+    init() {
+        this.connectRememberedPrinter();
+    },
+
     get isSupported() {
         return Boolean(navigator.bluetooth);
     },
@@ -305,6 +355,28 @@ Alpine.data('bluetoothPrinterTest', () => ({
         this.logs = this.logs.slice(0, 80);
     },
 
+    async connectRememberedPrinter() {
+        if (!this.isSupported || this.isBusy) return false;
+        const remembered = await getRememberedBluetoothPrinter();
+        if (!remembered) return false;
+
+        this.isBusy = true;
+        try {
+            this.disconnect(false);
+            this.log(`Memulihkan printer ${remembered.name || remembered.id}...`);
+            await this.connectBluetoothDevice(remembered);
+            this.log('Printer tersimpan terhubung kembali.');
+            return true;
+        } catch (error) {
+            this.characteristic = null;
+            this.server = null;
+            this.log(`Auto-connect gagal: ${error.message || error}`);
+            return false;
+        } finally {
+            this.isBusy = false;
+        }
+    },
+
     async connect() {
         if (!this.isSupported) {
             this.log('Web Bluetooth tidak tersedia di browser ini.');
@@ -316,34 +388,100 @@ Alpine.data('bluetoothPrinterTest', () => ({
 
         try {
             this.disconnect(false);
-            const filters = this.namePrefix.trim()
-                ? [{ namePrefix: this.namePrefix.trim() }]
-                : undefined;
-            const requestOptions = filters
-                ? { filters, optionalServices: [this.serviceUuid] }
-                : { acceptAllDevices: true, optionalServices: [this.serviceUuid] };
+            const remembered = await getRememberedBluetoothPrinter();
+            if (remembered) {
+                this.log(`Menggunakan printer tersimpan ${remembered.name || remembered.id}...`);
+                await this.connectBluetoothDevice(remembered);
+            } else {
+                const filters = this.namePrefix.trim()
+                    ? [{ namePrefix: this.namePrefix.trim() }]
+                    : undefined;
+                const optionalServices = [...new Set([this.serviceUuid, ...this.serviceCandidates])];
+                const requestOptions = filters
+                    ? { filters, optionalServices }
+                    : { acceptAllDevices: true, optionalServices };
 
-            this.log('Membuka pemilih perangkat Bluetooth...');
-            this.device = await navigator.bluetooth.requestDevice(requestOptions);
-            this.device.addEventListener('gattserverdisconnected', () => {
-                this.characteristic = null;
-                this.server = null;
-                this.log('Printer terputus.');
-            });
-
-            this.log(`Menghubungkan ke ${this.deviceName}...`);
-            this.server = await this.device.gatt.connect();
-            const service = await this.server.getPrimaryService(this.serviceUuid);
-            this.characteristic = await service.getCharacteristic(this.characteristicUuid);
-            this.log('Printer siap menerima data.');
+                this.log('Membuka pemilih perangkat Bluetooth...');
+                const device = await navigator.bluetooth.requestDevice(requestOptions);
+                rememberBluetoothPrinter(device);
+                await this.connectBluetoothDevice(device);
+            }
             notify('Printer Bluetooth terhubung.');
         } catch (error) {
             this.characteristic = null;
             this.server = null;
-            this.log(`Gagal konek: ${error.message || error}`);
-            notify(error.message || 'Gagal menghubungkan printer.', 'error');
+            const message = error.message || String(error);
+            if (message.includes('GATT server is disconnected') || message.includes('GATT server terputus')) {
+                this.diagnosis = 'Koneksi GATT terputus sebelum service terbaca. Pada Blueprint ECO 80BT, ini biasanya berarti mode Bluetooth printer bukan BLE GATT browser; gunakan Android print bridge atau USB.';
+                this.log('GATT disconnected sebelum service discovery. Reconnect tidak berhasil atau printer bukan BLE GATT.');
+            } else if (message.includes('No Services matching UUID')) {
+                this.diagnosis = 'Device terdeteksi, tetapi service BLE yang dipilih tidak tersedia. Printer kemungkinan memakai Bluetooth Classic/SPP atau UUID proprietary.';
+                this.log('Device terdeteksi, tetapi service BLE tidak cocok. Jika ini ECO 80BT, gunakan Android print bridge atau USB.');
+            } else {
+                this.diagnosis = message;
+                this.log(`Gagal konek: ${message}`);
+            }
+            notify(this.diagnosis, 'error');
         } finally {
             this.isBusy = false;
+        }
+    },
+
+    async connectBluetoothDevice(device) {
+        this.device = device;
+        this.device.addEventListener('gattserverdisconnected', () => {
+            this.characteristic = null;
+            this.server = null;
+            this.log('Printer terputus.');
+        }, { once: true });
+
+        this.log(`Menghubungkan ke ${this.deviceName}...`);
+        this.server = await this.device.gatt.connect();
+        if (!this.device.gatt.connected) {
+            this.log('Koneksi GATT terputus setelah connect; mencoba reconnect...');
+            this.server = await this.device.gatt.connect();
+        }
+        await this.discoverServices();
+        if (!this.device.gatt.connected) {
+            throw new Error('GATT server terputus sebelum service dapat dibaca. Printer kemungkinan bukan BLE GATT yang kompatibel dengan browser.');
+        }
+        const service = await this.server.getPrimaryService(this.serviceUuid);
+        this.characteristic = await service.getCharacteristic(this.characteristicUuid);
+        this.diagnosis = 'BLE GATT siap menerima data.';
+        this.log('Printer siap menerima data.');
+    },
+
+    async discoverServices() {
+        this.discoveredServices = [];
+        this.discoveredCharacteristics = [];
+        const candidates = [...new Set([this.serviceUuid, ...this.serviceCandidates])];
+
+        for (const uuid of candidates) {
+            try {
+                const service = await this.server.getPrimaryService(uuid);
+                const characteristics = await service.getCharacteristics();
+                const entries = characteristics.map((item) => ({
+                    uuid: item.uuid,
+                    properties: Object.keys(item.properties || {}).filter((key) => item.properties[key]),
+                }));
+                this.discoveredServices.push(uuid);
+                this.discoveredCharacteristics.push(...entries.map((item) => ({ ...item, service: uuid })));
+                this.log(`Service ditemukan: ${uuid} (${entries.length} characteristic)`);
+            } catch (error) {
+                // The browser exposes only services declared as optional and supported by the device.
+            }
+        }
+
+        if (this.discoveredServices.length === 0) {
+            this.diagnosis = 'Tidak ada BLE GATT service yang dapat diakses. Kemungkinan besar printer menggunakan Bluetooth Classic/SPP.';
+            throw new Error(this.diagnosis);
+        }
+
+        const writable = this.discoveredCharacteristics.find((item) => item.properties.includes('write') || item.properties.includes('writeWithoutResponse'));
+        if (writable && (!this.discoveredServices.includes(this.serviceUuid) || !this.discoveredCharacteristics.some((item) => item.uuid === this.characteristicUuid))) {
+            this.serviceUuid = writable.service;
+            this.characteristicUuid = writable.uuid;
+            this.log(`Characteristic tulis dipilih otomatis: ${writable.uuid}`);
         }
     },
 
@@ -370,7 +508,7 @@ Alpine.data('bluetoothPrinterTest', () => ({
         this.isBusy = true;
 
         try {
-            const payload = this.buildEscPosPayload(this.receiptText);
+            const payload = this.buildPayload(this.receiptText);
             await this.writeInChunks(payload);
             this.log(`Print terkirim (${payload.length} bytes).`);
             notify('Test print berhasil dikirim.');
@@ -382,13 +520,132 @@ Alpine.data('bluetoothPrinterTest', () => ({
         }
     },
 
+    buildPayload(text) {
+        if (this.printLanguage === 'tspl') {
+            return this.buildTsplPayload(text);
+        }
+
+        if (this.printLanguage === 'cpcl') {
+            return this.buildCpclPayload(text);
+        }
+
+        return this.buildEscPosPayload(text);
+    },
+
+    buildTsplPayload(text) {
+        const encoder = new TextEncoder();
+        const lines = String(text || '').split(/\r?\n/).filter(Boolean).slice(0, 12);
+        const body = lines.map((line, index) => `TEXT 24,${28 + (index * 30)},"1",0,1,1,"${String(line).replace(/["\\]/g, '')}"`).join('\r\n');
+        const command = `SIZE 78 mm,100 mm\r\nGAP 3 mm,0 mm\r\nDENSITY 8\r\nDIRECTION 1\r\nCLS\r\n${body}\r\nPRINT 1,1\r\n`;
+        return encoder.encode(command);
+    },
+
+    buildCpclPayload(text) {
+        const encoder = new TextEncoder();
+        const isReceipt = this.paperTemplate === 'receipt_80mm';
+        const isEightyMillimeter = ['eco80bt_label', 'receipt_80mm'].includes(this.paperTemplate);
+        const leftMargin = isEightyMillimeter ? 0 : 8;
+        const printWidth = this.printerType === 'eco80bt'
+            ? 576
+            : Math.max(160, Math.round(this.labelWidthMm * 8));
+        const font = Number(this.labelFont ?? 0);
+        const fontSize = Number(this.labelFontSize ?? 2);
+        const characterWidth = this.cpclCharacterWidth(font, fontSize);
+        const sourceLines = String(text || '').split(/\r?\n/).filter(Boolean);
+        const maxChars = Math.max(12, Math.floor((printWidth - leftMargin) / characterWidth));
+        const centerLine = (value) => {
+            const clean = String(value).trim().slice(0, maxChars);
+            const left = Math.max(0, Math.floor((maxChars - clean.length) / 2));
+            return `${' '.repeat(left)}${clean}`;
+        };
+        const formatReceiptLine = (line) => {
+            const value = String(line).trim();
+            if (/^=+$/.test(value)) return '='.repeat(maxChars);
+            if (/^-+$/.test(value)) return '-'.repeat(maxChars);
+            if (/MAVAPOS|TEST PRINT|Terima kasih|Kunjungan Anda|Jl\. Contoh/i.test(value)) return centerLine(value);
+            if (/^\d+\s*x\s*Rp/i.test(value)) return value.slice(0, maxChars);
+
+            const amount = value.match(/^(.*?)(-?Rp[\d.]+)$/i);
+            if (amount) {
+                const left = amount[1].trim().slice(0, maxChars);
+                const right = amount[2];
+                const spaces = Math.max(1, maxChars - left.length - right.length);
+                return `${left}${' '.repeat(spaces)}${right}`;
+            }
+
+            return value.slice(0, maxChars);
+        };
+        const wrappedLines = sourceLines.flatMap((line) => {
+            const value = isEightyMillimeter ? formatReceiptLine(line) : String(line);
+            if (!value.length) return [''];
+            const chunks = [];
+            for (let index = 0; index < value.length; index += maxChars) {
+                chunks.push(value.slice(index, index + maxChars));
+            }
+            return chunks;
+        });
+        const lines = isEightyMillimeter
+            ? wrappedLines.slice(0, 30)
+            : wrappedLines.slice(0, 30);
+        const lineHeight = Math.max(18, this.cpclCharacterHeight(font, fontSize) + 5);
+        const height = isReceipt
+            ? Math.max(180, Math.min(1200, 48 + (lines.length * lineHeight)))
+            : Math.max(80, Math.round(this.labelHeightMm * 8));
+        const rightMargin = 16;
+        const body = lines.map((line, index) => {
+            const y = 24 + (index * lineHeight);
+            const clean = String(line).replace(/["\\]/g, '').trim();
+
+            if (/^[-=]+$/.test(clean)) {
+                return `LINE ${leftMargin} ${y + 9} ${printWidth - 1} ${y + 9} 2`;
+            }
+
+            if (/MAVAPOS|TEST PRINT|Terima kasih|Kunjungan Anda|Jl\. Contoh/i.test(clean)) {
+                const centerX = Math.max(leftMargin, Math.floor((printWidth - (clean.length * characterWidth)) / 2));
+                return `TEXT ${font} ${fontSize} ${centerX} ${y} ${clean}`;
+            }
+
+            if (/^\d+\s*x\s*Rp/i.test(clean)) {
+                return `LEFT\nTEXT ${font} ${fontSize} ${leftMargin} ${y} ${clean}`;
+            }
+
+            const amount = clean.match(/^(.*?)(-?Rp[\d.]+)$/i);
+            if (amount) {
+                const label = amount[1].trim();
+                const nominal = amount[2];
+                const nominalX = Math.max(leftMargin, printWidth - rightMargin - (nominal.length * characterWidth));
+                return `TEXT ${font} ${fontSize} ${leftMargin} ${y} ${label}\nTEXT ${font} ${fontSize} ${nominalX} ${y} ${nominal}`;
+            }
+
+            return `TEXT ${font} ${fontSize} ${leftMargin} ${y} ${clean}`;
+        }).join('\n');
+        return encoder.encode(`! 0 200 200 ${height} 1\nPW ${printWidth}\n${body}\nFORM\nPRINT\n`);
+    },
+
+    cpclCharacterWidth(font, size) {
+        if (font === 0) return [8, 16, 8, 16, 32, 16, 32][size] || 8;
+        if (font === 2) return 20;
+        if (font === 6) return 28;
+        if (font === 7) return 12;
+        return 16;
+    },
+
+    cpclCharacterHeight(font, size) {
+        if (font === 0) return [9, 9, 18, 18, 18, 36, 36][size] || 18;
+        if (font === 2) return size === 1 ? 24 : 12;
+        if (font === 6) return 27;
+        if (font === 7) return size === 1 ? 48 : 24;
+        return 24;
+    },
+
     buildEscPosPayload(text) {
         const encoder = new TextEncoder();
         const init = [0x1b, 0x40];
         const alignLeft = [0x1b, 0x61, 0x00];
         const feed = [0x0a, 0x0a, 0x0a];
         const cut = [0x1d, 0x56, 0x42, 0x00];
-        const body = Array.from(encoder.encode(`${text}\n`));
+        const lines = String(text || '').split(/\r?\n/).map((line) => line.slice(0, 42)).join('\n');
+        const body = Array.from(encoder.encode(`${lines}\n`));
 
         return new Uint8Array([...init, ...alignLeft, ...body, ...feed, ...cut]);
     },
@@ -1880,7 +2137,7 @@ Alpine.data('salesVoidManager', (endpointTemplate = '') => ({
     },
 }));
 
-Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShift = null, blockingShift = null, lastClosedShift = null, initialSopHtml = '', availableStaff = [], endpoints = {}) => ({
+Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShift = null, blockingShift = null, lastClosedShift = null, initialSopHtml = '', availableStaff = [], cashierFeatures = {}, endpoints = {}) => ({
     items: initialItems,
     categories: initialCategories,
     shift: initialShift,
@@ -1889,6 +2146,11 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     endpoints,
     cashierSopHtml: initialSopHtml,
     availableStaff,
+    cashierFeatures: {
+        buyerNationality: cashierFeatures.cashier_buyer_nationality_enabled !== false,
+        loyaltyCard: cashierFeatures.cashier_loyalty_card_enabled !== false,
+        splitPayment: cashierFeatures.cashier_split_payment_enabled !== false,
+    },
     sopModal: false,
     showMobileCart: false,
     startModal: !initialShift && !blockingShift,
@@ -2075,7 +2337,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             ? this.splitRemaining === 0 && this.splitMethodsAreUnique
             : (this.paymentMethod !== 'cash' || this.paid >= this.total);
 
-        return Boolean(this.shift) && !this.checkoutLoading && this.cart.length > 0 && Boolean(this.buyerNationality) && (!(this.loyaltyStamp || this.loyaltyReward) || Boolean(this.customerPhone.trim())) && paymentComplete;
+        return Boolean(this.shift) && !this.checkoutLoading && this.cart.length > 0 && (!this.cashierFeatures.buyerNationality || Boolean(this.buyerNationality)) && (!this.cashierFeatures.loyaltyCard || (!(this.loyaltyStamp || this.loyaltyReward) || Boolean(this.customerPhone.trim()))) && paymentComplete;
     },
 
     normalize(value) {
@@ -2553,10 +2815,14 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             throw new Error('UUID printer Bluetooth belum diatur di Pengaturan.');
         }
 
-        const device = await navigator.bluetooth.requestDevice({
-            acceptAllDevices: true,
-            optionalServices: [serviceUuid],
-        });
+        let device = await getRememberedBluetoothPrinter();
+        if (!device) {
+            device = await navigator.bluetooth.requestDevice({
+                acceptAllDevices: true,
+                optionalServices: [serviceUuid],
+            });
+            rememberBluetoothPrinter(device);
+        }
         const server = await device.gatt.connect();
         const service = await server.getPrimaryService(serviceUuid);
         const characteristic = await service.getCharacteristic(characteristicUuid);
@@ -2570,6 +2836,10 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     },
 
     buildBluetoothReceiptPayload(receipt) {
+        if (receipt.printer?.label_language === 'cpcl' && receipt.printer?.label_type !== 'none') {
+            return this.buildCpclBluetoothReceiptPayload(receipt);
+        }
+
         const receiptOptions = receipt.receipt || {};
         const store = receipt.store || {};
         const width = receiptOptions.paper_width === '80' ? 48 : 32;
@@ -2614,6 +2884,74 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         const body = Array.from(encoder.encode(`${lines.join('\n')}\n`));
 
         return new Uint8Array([...init, ...alignLeft, ...body, ...feed, ...cut]);
+    },
+
+    buildCpclBluetoothReceiptPayload(receipt) {
+        const printer = receipt.printer || {};
+        const receiptOptions = receipt.receipt || {};
+        const store = receipt.store || {};
+        const font = Number(printer.label_font ?? 0);
+        const fontSize = Number(printer.label_font_size ?? 2);
+        const charWidth = font === 0 ? ([8, 16, 8, 16, 32, 16, 32][fontSize] || 8) : 16;
+        const printWidth = printer.label_type === 'eco80bt' ? 576 : Math.round(Number(printer.label_width_mm || 80) * 8);
+        const columns = Math.max(12, Math.floor(printWidth / charWidth));
+        const lines = [];
+
+        lines.push({ center: store.name || 'MavaPOS' });
+        [store.tagline, receiptOptions.show_store_address !== false ? store.address : '', store.instagram]
+            .filter(Boolean)
+            .forEach((line) => lines.push({ center: line }));
+        lines.push({ divider: true });
+        lines.push({ text: `No Nota: ${receipt.invoice_number || '-'}` });
+        lines.push({ text: `Tanggal : ${receipt.sold_at || '-'}` });
+        if (receiptOptions.show_cashier !== false) lines.push({ text: `Kasir   : ${receipt.cashier || '-'}` });
+        lines.push({ text: `Bayar   : ${this.paymentLabel(receipt.payment_method)}` });
+        lines.push({ divider: true });
+
+        (receipt.items || []).forEach((item) => {
+            lines.push({ left: item.name || '-', right: this.formatRupiah(Number(item.line_total || 0)) });
+            lines.push({ text: `${Number(item.quantity || 0)} x ${this.formatRupiah(Number(item.unit_price || 0))}` });
+        });
+
+        lines.push({ divider: true });
+        lines.push({ left: 'Subtotal', right: this.formatRupiah(receipt.subtotal) });
+        if (Number(receipt.discount || 0) > 0) lines.push({ left: 'Diskon', right: `-${this.formatRupiah(receipt.discount)}` });
+        lines.push({ divider: true });
+        lines.push({ left: 'TOTAL BAYAR', right: this.formatRupiah(receipt.total) });
+        lines.push({ left: 'Dibayar', right: this.formatRupiah(receipt.paid_amount) });
+        lines.push({ left: 'Kembali', right: this.formatRupiah(receipt.change_amount) });
+        lines.push({ divider: true });
+        this.wrapReceiptText(receiptOptions.footer_note || 'Terima kasih atas kunjungan Anda.', columns)
+            .forEach((line) => lines.push({ center: line }));
+
+        const lineHeight = font === 0 && fontSize === 2 ? 23 : 29;
+        const rightMargin = 16;
+        const content = lines.map((line, index) => {
+            const y = 20 + (index * lineHeight);
+            if (line.divider) return `LINE 0 ${y + 8} ${printWidth - 1} ${y + 8} 2`;
+            if (line.center) {
+                const text = this.escapeCpclText(line.center);
+                const centerX = Math.max(0, Math.floor((printWidth - (text.length * charWidth)) / 2));
+                return `TEXT ${font} ${fontSize} ${centerX} ${y} ${text}`;
+            }
+            if (line.right !== undefined) {
+                const right = String(line.right);
+                const rightText = this.escapeCpclText(right);
+                const rightX = Math.max(0, printWidth - rightMargin - (rightText.length * charWidth));
+                return `TEXT ${font} ${fontSize} 0 ${y} ${this.escapeCpclText(line.left)}\nTEXT ${font} ${fontSize} ${rightX} ${y} ${rightText}`;
+            }
+            return `TEXT ${font} ${fontSize} 0 ${y} ${this.escapeCpclText(String(line.text || '').slice(0, columns))}`;
+        }).join('\n');
+        const dynamicHeight = 48 + (lines.length * lineHeight);
+        const height = printer.label_template === 'receipt_80mm'
+            ? dynamicHeight
+            : Math.max(dynamicHeight, Math.round(Number(printer.label_height_mm || 100) * 8));
+
+        return new TextEncoder().encode(`! 0 200 200 ${height} 1\nPW ${printWidth}\n${content}\nFORM\nPRINT\n`);
+    },
+
+    escapeCpclText(value) {
+        return String(value || '').replace(/["\\]/g, '');
     },
 
     async writeBluetoothChunks(characteristic, payload) {

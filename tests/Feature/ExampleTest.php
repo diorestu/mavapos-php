@@ -1578,6 +1578,52 @@ test('pengguna dapat update pengaturan struk dan printer', function () {
     ]);
 });
 
+test('preset printer label eco80bt hanya disimpan ketika tipe eco80bt dipilih', function () {
+    $user = User::factory()->create(['role' => 'owner']);
+
+    $this->actingAs($user)
+        ->patch('/settings', [
+            'store_name' => 'Mava Mart',
+            'printer_label_type' => 'eco80bt',
+        ])
+        ->assertRedirect('/settings');
+
+    $this->assertDatabaseHas('store_settings', [
+        'printer_label_type' => 'eco80bt',
+        'printer_label_language' => 'cpcl',
+        'printer_label_template' => 'receipt_80mm',
+        'printer_label_width_mm' => 80,
+        'printer_label_height_mm' => 100,
+        'printer_label_gap_mm' => 0,
+        'printer_label_font' => 0,
+        'printer_label_font_size' => 2,
+        'printer_bluetooth_service_uuid' => '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+        'printer_bluetooth_characteristic_uuid' => '49535343-8841-43f4-a8d4-ecbe34729bb3',
+    ]);
+});
+
+test('preset eco80bt tidak disimpan ketika printer label tidak digunakan', function () {
+    $user = User::factory()->create(['role' => 'owner']);
+
+    $this->actingAs($user)
+        ->patch('/settings', [
+            'store_name' => 'Mava Mart',
+            'printer_label_type' => 'none',
+        ])
+        ->assertRedirect('/settings');
+
+    $this->assertDatabaseHas('store_settings', [
+        'printer_label_type' => 'none',
+        'printer_label_language' => null,
+        'printer_label_template' => null,
+        'printer_label_width_mm' => null,
+        'printer_label_height_mm' => null,
+        'printer_label_gap_mm' => null,
+        'printer_label_font' => null,
+        'printer_label_font_size' => null,
+    ]);
+});
+
 test('pengguna dapat memilih mode printer imin inner printer', function () {
     $user = User::factory()->create(['role' => 'owner']);
 
@@ -1626,6 +1672,14 @@ test('payload checkout membawa pengaturan struk dan printer toko', function () {
         'printer_connection_mode' => 'imin_inner_printer',
         'printer_bluetooth_service_uuid' => 'service-test',
         'printer_bluetooth_characteristic_uuid' => 'char-test',
+        'printer_label_type' => 'custom',
+        'printer_label_language' => 'cpcl',
+        'printer_label_template' => 'receipt_80mm',
+        'printer_label_width_mm' => 80,
+        'printer_label_height_mm' => 100,
+        'printer_label_gap_mm' => 3,
+        'printer_label_font' => 0,
+        'printer_label_font_size' => 2,
     ]);
 
     $this->actingAs($user)
@@ -1653,7 +1707,15 @@ test('payload checkout membawa pengaturan struk dan printer toko', function () {
         ->assertJsonPath('sale.printer.close_after_print', true)
         ->assertJsonPath('sale.printer.connection_mode', 'imin_inner_printer')
         ->assertJsonPath('sale.printer.bluetooth_service_uuid', 'service-test')
-        ->assertJsonPath('sale.printer.bluetooth_characteristic_uuid', 'char-test');
+        ->assertJsonPath('sale.printer.bluetooth_characteristic_uuid', 'char-test')
+        ->assertJsonPath('sale.printer.label_type', 'custom')
+        ->assertJsonPath('sale.printer.label_language', 'cpcl')
+        ->assertJsonPath('sale.printer.label_template', 'receipt_80mm')
+        ->assertJsonPath('sale.printer.label_width_mm', 80)
+        ->assertJsonPath('sale.printer.label_height_mm', 100)
+        ->assertJsonPath('sale.printer.label_gap_mm', 3)
+        ->assertJsonPath('sale.printer.label_font', 0)
+        ->assertJsonPath('sale.printer.label_font_size', 2);
 });
 
 test('template print nota memakai typography kecil dan item rata kiri kanan', function () {
@@ -1672,6 +1734,29 @@ test('template print nota memakai typography kecil dan item rata kiri kanan', fu
         ->and($script)->toContain('colAlign')
         ->and($script)->toContain("['', 6, 0]")
         ->and($script)->not->toContain("['', 4, 0]");
+});
+
+test('payload cpcl tidak membungkus teks dengan tanda kutip literal', function () {
+    $script = file_get_contents(resource_path('js/app.js'));
+
+    expect($script)
+        ->toContain("if (/^\\d+\\s*x\\s*Rp/i.test(clean))")
+        ->toContain('const rightMargin = 16;')
+        ->toContain('const centerX = Math.max(leftMargin, Math.floor((printWidth - (clean.length * characterWidth)) / 2));')
+        ->toContain('const nominalX = Math.max(leftMargin, printWidth - rightMargin - (nominal.length * characterWidth));')
+        ->not->toContain('TEXT ${font} ${fontSize} 0 ${y} "${this.escapeCpclText(line.center)}"')
+        ->not->toContain('RIGHT\\nTEXT ${font} ${fontSize} 0 ${y}');
+});
+
+test('printer bluetooth yang pernah dipilih digunakan kembali tanpa dialog', function () {
+    $script = file_get_contents(resource_path('js/app.js'));
+
+    expect($script)
+        ->toContain("const BLUETOOTH_PRINTER_STORAGE_KEY = 'mava.bluetooth-printer-device';")
+        ->toContain('navigator.bluetooth.getDevices()')
+        ->toContain('rememberBluetoothPrinter(device)')
+        ->toContain('getRememberedBluetoothPrinter()')
+        ->toContain('connectRememberedPrinter()');
 });
 
 test('layout tidak merender directive pwa sebagai teks', function () {

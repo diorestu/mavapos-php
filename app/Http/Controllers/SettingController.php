@@ -59,6 +59,14 @@ class SettingController extends Controller
             'printer_connection_mode' => ['nullable', 'in:browser,bluetooth,imin_inner_printer'],
             'printer_bluetooth_service_uuid' => ['nullable', 'string', 'max:120'],
             'printer_bluetooth_characteristic_uuid' => ['nullable', 'string', 'max:120'],
+            'printer_label_type' => ['nullable', 'in:none,eco80bt,custom'],
+            'printer_label_language' => ['nullable', 'in:cpcl,tspl'],
+            'printer_label_template' => ['nullable', 'in:eco80bt_label,receipt_80mm,custom_80mm'],
+            'printer_label_width_mm' => ['nullable', 'integer', 'min:20', 'max:120'],
+            'printer_label_height_mm' => ['nullable', 'integer', 'min:10', 'max:500'],
+            'printer_label_gap_mm' => ['nullable', 'integer', 'min:0', 'max:30'],
+            'printer_label_font' => ['nullable', 'integer', 'min:0', 'max:7'],
+            'printer_label_font_size' => ['nullable', 'integer', 'min:0', 'max:7'],
         ]);
 
         unset($validated['logo']);
@@ -93,6 +101,27 @@ class SettingController extends Controller
         $validated['sku_mode'] = $validated['sku_mode'] ?? 'manual';
         $validated['receipt_paper_width'] = $validated['receipt_paper_width'] ?? '58';
         $validated['printer_connection_mode'] = $validated['printer_connection_mode'] ?? 'imin_inner_printer';
+
+        $validated['printer_label_type'] = $validated['printer_label_type'] ?? 'none';
+        if ($validated['printer_label_type'] === 'eco80bt') {
+            $validated = array_merge($validated, [
+                'printer_connection_mode' => 'bluetooth',
+                'receipt_paper_width' => '80',
+                'printer_label_language' => 'cpcl',
+                'printer_label_template' => 'receipt_80mm',
+                'printer_label_width_mm' => 80,
+                'printer_label_height_mm' => 100,
+                'printer_label_gap_mm' => 0,
+                'printer_label_font' => 0,
+                'printer_label_font_size' => 2,
+                'printer_bluetooth_service_uuid' => '49535343-fe7d-4ae5-8fa9-9fafd205e455',
+                'printer_bluetooth_characteristic_uuid' => '49535343-8841-43f4-a8d4-ecbe34729bb3',
+            ]);
+        } elseif ($validated['printer_label_type'] === 'none') {
+            foreach (['printer_label_language', 'printer_label_template', 'printer_label_width_mm', 'printer_label_height_mm', 'printer_label_gap_mm', 'printer_label_font', 'printer_label_font_size'] as $field) {
+                $validated[$field] = null;
+            }
+        }
 
         $setting->update($validated);
 
@@ -132,6 +161,9 @@ class SettingController extends Controller
             'receipt_show_cashier',
             'printer_auto_print',
             'printer_close_after_print',
+            'cashier_buyer_nationality_enabled',
+            'cashier_loyalty_card_enabled',
+            'cashier_split_payment_enabled',
         ];
     }
 }

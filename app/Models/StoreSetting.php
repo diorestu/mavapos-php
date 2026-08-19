@@ -62,6 +62,17 @@ class StoreSetting extends Model
         'printer_connection_mode',
         'printer_bluetooth_service_uuid',
         'printer_bluetooth_characteristic_uuid',
+        'printer_label_type',
+        'printer_label_language',
+        'printer_label_template',
+        'printer_label_width_mm',
+        'printer_label_height_mm',
+        'printer_label_gap_mm',
+        'printer_label_font',
+        'printer_label_font_size',
+        'cashier_buyer_nationality_enabled',
+        'cashier_loyalty_card_enabled',
+        'cashier_split_payment_enabled',
     ];
 
     protected function casts(): array
@@ -82,6 +93,14 @@ class StoreSetting extends Model
             'receipt_show_cashier' => 'boolean',
             'printer_auto_print' => 'boolean',
             'printer_close_after_print' => 'boolean',
+            'printer_label_width_mm' => 'integer',
+            'printer_label_height_mm' => 'integer',
+            'printer_label_gap_mm' => 'integer',
+            'printer_label_font' => 'integer',
+            'printer_label_font_size' => 'integer',
+            'cashier_buyer_nationality_enabled' => 'boolean',
+            'cashier_loyalty_card_enabled' => 'boolean',
+            'cashier_split_payment_enabled' => 'boolean',
             'sales_bonus_tiers' => 'array',
         ];
     }
@@ -157,6 +176,17 @@ class StoreSetting extends Model
             'printer_connection_mode' => 'imin_inner_printer',
             'printer_bluetooth_service_uuid' => null,
             'printer_bluetooth_characteristic_uuid' => null,
+            'printer_label_type' => 'none',
+            'printer_label_language' => null,
+            'printer_label_template' => null,
+            'printer_label_width_mm' => null,
+            'printer_label_height_mm' => null,
+            'printer_label_gap_mm' => null,
+            'printer_label_font' => null,
+            'printer_label_font_size' => null,
+            'cashier_buyer_nationality_enabled' => true,
+            'cashier_loyalty_card_enabled' => true,
+            'cashier_split_payment_enabled' => true,
         ];
     }
 }
