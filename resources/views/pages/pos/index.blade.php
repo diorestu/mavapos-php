@@ -306,8 +306,9 @@
         </div>
 
         <div x-cloak x-show="startModal" x-transition.opacity.duration.200ms class="fixed inset-0 z-99999 flex items-center justify-center bg-gray-950/50 p-4">
-            <div @click.outside="shift ? startModal = false : null" x-transition:enter="ease-out duration-200" x-transition:enter-start="translate-y-2 scale-95 opacity-0" x-transition:enter-end="translate-y-0 scale-100 opacity-100" x-transition:leave="ease-in duration-150" x-transition:leave-start="translate-y-0 scale-100 opacity-100" x-transition:leave-end="translate-y-2 scale-95 opacity-0" class="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-5 shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
-                <div class="flex items-start gap-3">
+            <div @click.outside="shift ? startModal = false : null" x-transition:enter="ease-out duration-200" x-transition:enter-start="translate-y-2 scale-95 opacity-0" x-transition:enter-end="translate-y-0 scale-100 opacity-100" x-transition:leave="ease-in duration-150" x-transition:leave-start="translate-y-0 scale-100 opacity-100" x-transition:leave-end="translate-y-2 scale-95 opacity-0" class="flex max-h-[calc(100vh-2rem)] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-theme-xl dark:border-gray-800 dark:bg-gray-900">
+                <div class="shrink-0 border-b border-gray-100 p-5 dark:border-gray-800">
+                    <div class="flex items-start gap-3">
                     <div class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-brand-50 text-brand-500 dark:bg-brand-500/15">
                         <svg class="h-5 w-5" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
                             <path d="M10 4V10L14 12" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" />
@@ -318,9 +319,11 @@
                         <h2 class="text-base font-semibold text-gray-900 dark:text-white">Mulai shift kasir?</h2>
                         <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">Kasir masuk wajib cocokkan cash dan kartu dari rekap sesi sebelumnya sebelum transaksi.</p>
                     </div>
+                    </div>
                 </div>
 
-                <div x-show="lastClosedShift" class="mt-4 rounded-xl border border-warning-200 bg-warning-50 p-3 text-xs dark:border-warning-500/20 dark:bg-warning-500/10">
+                <div class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 py-4">
+                <div x-show="lastClosedShift" class="rounded-xl border border-warning-200 bg-warning-50 p-3 text-xs dark:border-warning-500/20 dark:bg-warning-500/10">
                     <div class="flex items-start justify-between gap-3">
                         <div>
                             <p class="font-semibold text-warning-800 dark:text-warning-200">Validasi rekap sebelumnya</p>
@@ -388,7 +391,10 @@
                 </div>
                 <p x-show="shiftError" class="mt-3 rounded-lg border border-error-200 bg-error-50 px-3 py-2 text-xs text-error-700 dark:border-error-500/20 dark:bg-error-500/10 dark:text-error-300" x-text="shiftError"></p>
 
-                <div class="mt-5 grid gap-2 sm:grid-cols-2">
+                </div>
+
+                <div class="shrink-0 border-t border-gray-100 bg-white p-5 dark:border-gray-800 dark:bg-gray-900">
+                <div class="grid gap-2 sm:grid-cols-2">
                     <button type="button" @click="startShift()" :disabled="shiftLoading"
                         class="inline-flex h-10 items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-60">
                         <span x-show="!shiftLoading">Ya, mulai shift</span>
@@ -397,6 +403,7 @@
                     <a href="{{ route('dashboard') }}" class="inline-flex h-10 items-center justify-center rounded-lg border border-gray-200 px-4 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.04]">
                         Tidak, kembali
                     </a>
+                </div>
                 </div>
             </div>
         </div>
