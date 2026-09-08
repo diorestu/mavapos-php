@@ -1837,7 +1837,7 @@ test('owner dapat menonaktifkan user staf dan tidak dapat menonaktifkan diri sen
         ->assertRedirect('/users')
         ->assertSessionHas('success', 'User staf berhasil dinonaktifkan.');
 
-    $this->assertDatabaseMissing('users', ['id' => $cashier->id]);
+    $this->assertSoftDeleted('users', ['id' => $cashier->id]);
 
     $this->actingAs($owner)
         ->delete("/users/{$owner->id}")
@@ -1845,6 +1845,23 @@ test('owner dapat menonaktifkan user staf dan tidak dapat menonaktifkan diri sen
         ->assertSessionHasErrors('user');
 
     $this->assertDatabaseHas('users', ['id' => $owner->id]);
+});
+
+test('user yang dinonaktifkan tidak dapat masuk kembali', function () {
+    $owner = User::factory()->create(['role' => 'owner']);
+    $cashier = User::factory()->create([
+        'role' => 'kasir',
+        'email' => 'kasir-nonaktif@example.com',
+        'password' => 'password123',
+    ]);
+
+    $this->actingAs($owner)->delete("/users/{$cashier->id}");
+    $this->post('/logout');
+
+    $this->post('/signin', [
+        'email' => 'kasir-nonaktif@example.com',
+        'password' => 'password123',
+    ])->assertSessionHasErrors('email');
 });
 
 test('dashboard menampilkan status trial dan subscription expired', function () {
