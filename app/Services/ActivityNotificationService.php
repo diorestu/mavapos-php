@@ -10,6 +10,7 @@ use App\Models\PurchaseOrder;
 use App\Models\Product;
 use App\Models\StockMovement;
 use App\Models\User;
+use App\Support\BranchContext;
 use Illuminate\Support\Collection;
 
 class ActivityNotificationService
@@ -69,6 +70,8 @@ class ActivityNotificationService
 
     public function buildActivities(int $limit = 50): Collection
     {
+        $branchId = app(BranchContext::class)->activeId();
+
         $lowStockProducts = Product::query()
             ->where('min_stock', '>', 0)
             ->whereColumn('stock', '<=', 'min_stock')
@@ -78,6 +81,7 @@ class ActivityNotificationService
 
         $saleActivities = PosSale::query()->active()
             ->with('user')
+            ->where('branch_id', $branchId)
             ->latest('sold_at')
             ->limit($limit)
             ->get()
@@ -100,6 +104,7 @@ class ActivityNotificationService
 
         $voidActivities = PosSale::query()
             ->whereNotNull('voided_at')
+            ->where('branch_id', $branchId)
             ->with(['user', 'voidedBy'])
             ->latest('voided_at')
             ->limit($limit)
@@ -123,6 +128,7 @@ class ActivityNotificationService
 
         $shiftActivities = CashierShift::query()
             ->with('user')
+            ->where('branch_id', $branchId)
             ->latest('opened_at')
             ->limit($limit)
             ->get()

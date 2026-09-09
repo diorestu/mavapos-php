@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Helpers\MenuHelper;
 use App\Models\PosSale;
 use App\Models\Product;
+use App\Support\BranchContext;
 use App\Support\LocalTime;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -95,8 +96,11 @@ class GlobalSearchController extends Controller
 
     private function saleResults(string $keyword): array
     {
+        $branchId = app(BranchContext::class)->activeId();
+
         return PosSale::query()->active()
             ->with(['user', 'items'])
+            ->where('branch_id', $branchId)
             ->where(function ($query) use ($keyword): void {
                 $query->where('invoice_number', 'like', "%{$keyword}%")
                     ->orWhereHas('user', fn ($userQuery) => $userQuery->where('name', 'like', "%{$keyword}%"))
