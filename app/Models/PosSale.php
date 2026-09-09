@@ -29,6 +29,9 @@ class PosSale extends Model
         'voided_at',
         'voided_by_user_id',
         'void_reason',
+        'transferred_from_branch_id',
+        'transferred_at',
+        'transfer_reason',
     ];
 
     protected function casts(): array
@@ -43,6 +46,8 @@ class PosSale extends Model
             'sold_at' => 'datetime',
             'voided_at' => 'datetime',
             'voided_by_user_id' => 'integer',
+            'transferred_from_branch_id' => 'integer',
+            'transferred_at' => 'datetime',
         ];
     }
 

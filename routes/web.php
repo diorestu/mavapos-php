@@ -140,6 +140,7 @@ Route::middleware('auth:web,sanctum')->group(function () {
         });
 
         Route::middleware('role:owner,admin')->group(function () {
+            Route::post('/sales/{sale}/transfer', [SaleController::class, 'transfer'])->name('sales.transfer');
             Route::post('/cashier-shifts/{cashierShift}/force-close', [CashierShiftController::class, 'forceClose'])->name('cashier-shifts.force-close');
             Route::get('/customers', [CustomerController::class, 'index'])->name('customers');
             Route::post('/customers', [CustomerController::class, 'store'])->name('customers.store');

@@ -4,11 +4,14 @@ namespace App\Http\Controllers;
 
 use App\Models\PosSale;
 use App\Models\PosSaleItem;
+use App\Models\CashierShift;
+use App\Models\Branch;
 use App\Models\Product;
 use App\Models\User;
 use App\Services\AdminSaleEditorService;
 use App\Services\SalesBonusService;
 use App\Services\TransactionVoidService;
+use App\Services\SaleBranchTransferService;
 use App\Support\BranchContext;
 use App\Support\LocalTime;
 use Illuminate\Http\JsonResponse;
@@ -142,7 +145,24 @@ class SaleController extends Controller
                 'foreigner_buyers' => (int) ($buyerNationalityCounts->get('foreigner') ?? 0),
             ],
             'bonus' => $bonus,
+            'transferBranches' => Branch::query()->where('user_id', auth()->user()->tenantOwnerId())->where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'transferShifts' => CashierShift::query()->with(['branch', 'user'])->where('branch_id', '!=', $branchId)->whereNotNull('branch_id')->whereHas('branch', fn ($query) => $query->where('user_id', auth()->user()->tenantOwnerId()))->latest('opened_at')->limit(100)->get(),
         ]);
+    }
+
+    public function transfer(Request $request, PosSale $sale, SaleBranchTransferService $service): JsonResponse
+    {
+        $validated = $request->validate([
+            'target_shift_id' => ['required', 'integer', 'exists:cashier_shifts,id'],
+            'reason' => ['required', 'string', 'max:500'],
+        ]);
+        $sale = $service->transfer($sale, app(BranchContext::class)->activeId(), (int) $validated['target_shift_id'], $request->user(), $validated['reason']);
+
+        if ($request->expectsJson()) {
+            return response()->json(['message' => 'Transaksi '.$sale->invoice_number.' berhasil dipindahkan ke '.$sale->branch?->name.'.']);
+        }
+
+        return redirect()->route('sales')->with('success', 'Transaksi '.$sale->invoice_number.' berhasil dipindahkan ke '.$sale->branch?->name.'.');
     }
 
     public function void(Request $request, PosSale $sale, TransactionVoidService $service): JsonResponse

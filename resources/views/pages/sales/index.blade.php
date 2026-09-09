@@ -40,6 +40,12 @@
             </div>
         </div>
 
+        @if (session('success'))
+            <div class="rounded-lg border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-700 dark:border-success-500/20 dark:bg-success-500/10 dark:text-success-300">
+                {{ session('success') }}
+            </div>
+        @endif
+
         <form method="GET" action="{{ route('sales') }}" class="grid gap-2 rounded-xl border border-gray-200 bg-white p-3 dark:border-gray-800 dark:bg-white/[0.03] md:grid-cols-2 xl:grid-cols-[260px_170px_150px_minmax(180px,1fr)_auto_auto]">
             <label class="block" x-data="salesDateRange('{{ $filters['date_from'] }}', '{{ $filters['date_to'] }}', false)" x-init="mount($refs.dateRangeInput)" x-destroy="destroy()">
                 <span class="mb-1 block text-[11px] font-medium text-gray-500 dark:text-gray-400">Periode</span>
@@ -268,6 +274,22 @@
                                     @endif
                                     @if (! $sale->voided_at && $currentUser?->hasRole('admin'))
                                         <a href="{{ route('sales.edit', $sale) }}" class="mt-2 block text-[11px] font-semibold text-brand-600 hover:text-brand-700">Edit Transaksi</a>
+                                    @endif
+                                    @if (! $sale->voided_at && $currentUser?->hasRole(['owner', 'admin']) && $transferShifts->isNotEmpty())
+                                        <details class="mt-2 text-left">
+                                            <summary class="cursor-pointer text-[11px] font-semibold text-warning-700">Pindah Cabang</summary>
+                                            <form method="POST" action="{{ route('sales.transfer', $sale) }}" class="mt-2 space-y-1" onsubmit="return confirm('Pindahkan transaksi ini ke shift cabang tujuan?')">
+                                                @csrf
+                                                <select name="target_shift_id" required class="h-8 w-full rounded border border-gray-200 px-1 text-[10px] dark:border-gray-700 dark:bg-gray-900">
+                                                    <option value="">Pilih shift tujuan</option>
+                                                    @foreach ($transferShifts as $transferShift)
+                                                        <option value="{{ $transferShift->id }}">{{ $transferShift->branch?->name }} · {{ $transferShift->user?->name }} · {{ $transferShift->opened_at?->timezone('Asia/Makassar')->format('d/m H:i') }}</option>
+                                                    @endforeach
+                                                </select>
+                                                <input name="reason" required maxlength="500" placeholder="Alasan pemindahan" class="h-8 w-full rounded border border-gray-200 px-2 text-[10px] dark:border-gray-700 dark:bg-gray-900">
+                                                <button class="w-full rounded bg-warning-500 px-2 py-1 text-[10px] font-semibold text-white">Pindahkan</button>
+                                            </form>
+                                        </details>
                                     @endif
                                 </td>
                                 <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">
