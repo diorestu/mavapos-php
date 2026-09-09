@@ -44,6 +44,16 @@
                         </select>
                     </div>
                     <div>
+                        <label class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Bertugas di cabang</label>
+                        <select name="branch_id" class="h-10 w-full rounded-lg border border-gray-200 bg-transparent px-3 pr-9 text-sm text-gray-800 outline-none focus:border-brand-500 dark:border-gray-800 dark:text-white/90">
+                            <option value="">Tidak ditetapkan</option>
+                            @foreach ($branches as $branch)
+                                <option value="{{ $branch->id }}" @selected((string) old('branch_id') === (string) $branch->id)>{{ $branch->name }}</option>
+                            @endforeach
+                        </select>
+                        <p class="mt-1 text-[11px] text-gray-500">Wajib diisi untuk kasir.</p>
+                    </div>
+                    <div>
                         <label class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Password</label>
                         <input name="password" type="password" class="h-10 w-full rounded-lg border border-gray-200 bg-transparent px-3 text-sm text-gray-800 outline-none focus:border-brand-500 dark:border-gray-800 dark:text-white/90">
                     </div>
@@ -87,6 +97,12 @@
                                     <select name="role" class="h-9 rounded-lg border border-gray-200 bg-transparent px-3 pr-9 text-xs text-gray-800 outline-none focus:border-brand-500 dark:border-gray-800 dark:text-white/90">
                                         @foreach ($roles as $value => $label)
                                             <option value="{{ $value }}" @selected($user->role === $value)>{{ $label }}</option>
+                                        @endforeach
+                                    </select>
+                                    <select name="branch_id" class="h-9 rounded-lg border border-gray-200 bg-transparent px-3 pr-9 text-xs text-gray-800 outline-none focus:border-brand-500 dark:border-gray-800 dark:text-white/90">
+                                        <option value="">Tidak ditetapkan</option>
+                                        @foreach ($branches as $branch)
+                                            <option value="{{ $branch->id }}" @selected((int) $user->branch_id === $branch->id)>{{ $branch->name }}</option>
                                         @endforeach
                                     </select>
                                     <input name="password" type="password" placeholder="Password baru opsional" class="h-9 rounded-lg border border-gray-200 bg-transparent px-3 text-xs text-gray-800 outline-none focus:border-brand-500 dark:border-gray-800 dark:text-white/90">

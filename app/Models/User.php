@@ -6,6 +6,7 @@ namespace App\Models;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
@@ -32,6 +33,7 @@ class User extends Authenticatable
         'fixed_allowance',
         'trial_ends_at',
         'tenant_owner_id',
+        'branch_id',
     ];
 
     /**
@@ -58,6 +60,7 @@ class User extends Authenticatable
             'tenant_owner_id' => 'integer',
             'basic_salary' => 'integer',
             'fixed_allowance' => 'integer',
+            'branch_id' => 'integer',
         ];
     }
 
@@ -105,6 +108,11 @@ class User extends Authenticatable
     public function cashierShifts(): HasMany
     {
         return $this->hasMany(CashierShift::class);
+    }
+
+    public function branch(): BelongsTo
+    {
+        return $this->belongsTo(Branch::class);
     }
 
     public function posSales(): HasMany

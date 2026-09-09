@@ -17,6 +17,10 @@ class BranchContext
         $user = auth()->user();
         $ownerId = $user?->tenantOwnerId();
 
+        if ($user?->role === 'kasir' && $user->branch_id) {
+            $branchId = $user->branch_id;
+        }
+
         $branch = $branchId
             ? Branch::withoutGlobalScope('tenant')->whereKey($branchId)->where('is_active', true)->first()
             : null;
@@ -53,6 +57,10 @@ class BranchContext
     {
         $user = auth()->user();
         $ownerId = $user?->tenantOwnerId();
+
+        if ($user?->role === 'kasir' && $user->branch_id && $user->branch_id !== $branchId) {
+            abort(403, 'Kasir hanya dapat bertugas di cabang yang ditetapkan.');
+        }
 
         $query = Branch::withoutGlobalScope('tenant')->whereKey($branchId)->where('is_active', true);
         if ($ownerId) {

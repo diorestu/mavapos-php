@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Branch;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -22,6 +23,7 @@ class UserController extends Controller
     {
         $user = auth()->user();
         $users = User::query()
+            ->with('branch')
             ->where(function ($query) use ($user) {
                 $query->where('tenant_owner_id', $user->tenantOwnerId());
             })
@@ -32,6 +34,7 @@ class UserController extends Controller
             'title' => 'Manajemen User',
             'roles' => self::ROLES,
             'users' => $users,
+            'branches' => Branch::query()->where('user_id', $user->tenantOwnerId())->where('is_active', true)->orderBy('name')->get(),
         ]);
     }
 
@@ -42,6 +45,7 @@ class UserController extends Controller
             'email' => ['required', 'email', 'max:255', 'unique:users,email'],
             'role' => ['required', Rule::in(array_keys(self::ROLES))],
             'password' => ['required', 'string', 'min:8', 'confirmed'],
+            'branch_id' => ['required_if:role,kasir', 'nullable', 'integer', Rule::exists('branches', 'id')->where('user_id', $request->user()?->tenantOwnerId())],
         ]);
 
         User::query()->create([
@@ -51,6 +55,7 @@ class UserController extends Controller
             'password' => $validated['password'],
             'trial_ends_at' => $request->user()?->trial_ends_at,
             'tenant_owner_id' => $request->user()?->tenantOwnerId(),
+            'branch_id' => $validated['role'] === 'kasir' ? ($validated['branch_id'] ?? null) : null,
         ]);
 
         return redirect()
@@ -65,12 +70,14 @@ class UserController extends Controller
             'email' => ['required', 'email', 'max:255', Rule::unique('users', 'email')->ignore($user->id)],
             'role' => ['required', Rule::in(array_keys(self::ROLES))],
             'password' => ['nullable', 'string', 'min:8', 'confirmed'],
+            'branch_id' => ['required_if:role,kasir', 'nullable', 'integer', Rule::exists('branches', 'id')->where('user_id', $request->user()?->tenantOwnerId())],
         ]);
 
         $user->fill([
             'name' => $validated['name'],
             'email' => $validated['email'],
             'role' => $validated['role'],
+            'branch_id' => $validated['role'] === 'kasir' ? ($validated['branch_id'] ?? null) : null,
         ]);
 
         if (! empty($validated['password'])) {
