@@ -9,6 +9,7 @@ use App\Models\ProductVariant;
 use App\Models\RawMaterial;
 use App\Models\StockMovement;
 use App\Models\User;
+use App\Models\Customer;
 use App\Support\BranchInventoryManager;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -20,7 +21,7 @@ class AdminSaleEditorService
     public function update(PosSale $sale, int $branchId, User $actor, array $data): PosSale
     {
         return DB::transaction(function () use ($sale, $branchId, $actor, $data): PosSale {
-            $sale = PosSale::query()->with(['items.product', 'items.productVariant', 'rawMaterialUsages', 'payments', 'shift'])
+            $sale = PosSale::query()->with(['items.product', 'items.productVariant', 'rawMaterialUsages', 'payments', 'shift', 'customer'])
                 ->whereKey($sale->id)->where('branch_id', $branchId)->lockForUpdate()->firstOrFail();
             abort_if($sale->voided_at, 422, 'Transaksi yang sudah di-void tidak dapat diedit.');
 
@@ -45,7 +46,13 @@ class AdminSaleEditorService
             }
 
             $isFree = $data['payment_method'] === 'free';
-            $discount = $isFree ? $subtotal : min((int) ($data['discount'] ?? 0), $subtotal);
+            $customer = ! empty($data['customer_id']) ? Customer::query()->whereKey($data['customer_id'])->lockForUpdate()->firstOrFail() : null;
+            $loyaltyReward = $isFree ? null : ($data['loyalty_reward'] ?? null);
+            if ($sale->loyalty_reward && $sale->customer) {
+                $this->restoreReward($sale->customer, $sale->loyalty_reward);
+            }
+            $loyaltyDiscount = $this->loyaltyDiscount($customer, $loyaltyReward, $lines, $subtotal);
+            $discount = $isFree ? $subtotal : ($loyaltyReward ? $loyaltyDiscount : min((int) ($data['discount'] ?? 0), $subtotal));
             $total = $subtotal - $discount;
             $paid = $data['payment_method'] === 'cash' ? (int) ($data['paid_amount'] ?? 0) : $total;
             if ($data['payment_method'] === 'cash' && $paid < $total) {
@@ -58,6 +65,8 @@ class AdminSaleEditorService
 
             $sale->update([
                 'payment_method' => $data['payment_method'],
+                'customer_id' => $customer?->id,
+                'loyalty_reward' => $loyaltyReward,
                 'complimentary_category' => $isFree ? ($data['complimentary_category'] ?? null) : null,
                 'complimentary_recipient_name' => $isFree ? ($data['complimentary_recipient_name'] ?? null) : null,
                 'buyer_nationality' => $data['buyer_nationality'] ?? null,
@@ -67,6 +76,9 @@ class AdminSaleEditorService
             $sale->payments()->delete();
             if ($data['payment_method'] === 'split') {
                 $sale->payments()->createMany($payments->map(fn (array $payment): array => ['payment_method' => $payment['method'], 'amount' => $payment['amount']])->all());
+            }
+            if ($customer && $loyaltyReward) {
+                $this->consumeReward($customer, $loyaltyReward);
             }
 
             foreach ($lines as $line) {
@@ -86,6 +98,31 @@ class AdminSaleEditorService
 
             return $sale->refresh()->load(['items', 'payments']);
         });
+    }
+
+    private function loyaltyDiscount(?Customer $customer, ?string $reward, array $lines, int $subtotal): int
+    {
+        if (! $reward) return 0;
+        abort_if(! $customer, 422, 'Pelanggan wajib dipilih untuk menggunakan voucher.');
+        if ($reward === 'fifty_percent') {
+            abort_unless($customer->loyalty_fifty_reward_available, 422, 'Voucher diskon 50% pelanggan sudah tidak tersedia.');
+            return (int) floor($subtotal / 2);
+        }
+        abort_unless($customer->loyalty_free_reward_available, 422, 'Voucher gratis 1 cup pelanggan sudah tidak tersedia.');
+        return min(array_map(fn (array $line): int => $line['sellable']['price'], $lines));
+    }
+
+    private function restoreReward(Customer $customer, string $reward): void
+    {
+        if ($reward === 'fifty_percent') $customer->update(['loyalty_fifty_reward_available' => true]);
+        if ($reward === 'free_cup') $customer->update(['loyalty_stamp_count' => $customer->loyalty_stamp_count + 10, 'loyalty_fifty_reward_available' => true, 'loyalty_free_reward_available' => true]);
+        $customer->refresh();
+    }
+
+    private function consumeReward(Customer $customer, string $reward): void
+    {
+        if ($reward === 'fifty_percent') $customer->update(['loyalty_fifty_reward_available' => false]);
+        if ($reward === 'free_cup') $customer->update(['loyalty_stamp_count' => max(0, $customer->loyalty_stamp_count - 10), 'loyalty_fifty_reward_available' => false, 'loyalty_free_reward_available' => false]);
     }
 
     private function restorePreviousState(PosSale $sale, int $branchId, User $actor, string $reason): void

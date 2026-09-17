@@ -38,7 +38,8 @@ test('POS menampilkan SOP custom dari cabang aktif', function () {
 
     $this->get(route('pos'))
         ->assertOk()
-        ->assertSee('Hitung kas awal', false);
+        ->assertSee('Hitung kas awal', false)
+        ->assertSee('max-h-[calc(100vh-2rem)] w-full max-w-2xl overflow-y-auto', false);
 });
 
 test('laporan jurnal menampilkan pasangan debit kredit transaksi cabang aktif', function () {

@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\CashierShift;
+use App\Models\Customer;
 use App\Models\PosSale;
 use App\Models\Product;
 use App\Models\ProductRecipeItem;
@@ -54,6 +55,24 @@ test('admin can edit sale items and the inventory, recipe usage, and shift summa
         ->and($shift->net_sales)->toBe(40000)
         ->and($shift->cash_total)->toBe(0)
         ->and($shift->qris_total)->toBe(40000);
+});
+
+test('editing a voucher sale restores the customer reward when voucher is removed', function () {
+    $admin = User::factory()->create(['role' => 'admin']);
+    $branch = app(BranchContext::class)->active();
+    $product = Product::query()->create(['user_id' => $admin->id, 'sku' => 'EDIT-VOUCHER', 'name' => 'Produk Voucher', 'buy_price' => 5000, 'sell_price' => 20000, 'stock' => 5, 'min_stock' => 0]);
+    app(BranchInventoryManager::class)->forProduct($branch->id, $product)->update(['stock' => 5]);
+    $customer = Customer::query()->create(['user_id' => $admin->id, 'code' => 'EDIT-VOUCHER-CUSTOMER', 'name' => 'Pelanggan Voucher', 'phone' => '081299991111', 'status' => 'aktif', 'loyalty_fifty_reward_available' => true]);
+
+    $this->actingAs($admin)->postJson(route('pos.shift.start'))->assertOk();
+    $checkout = $this->postJson(route('pos.checkout'), ['items' => [['id' => 'product-EDIT-VOUCHER', 'quantity' => 1]], 'payment_method' => 'qris', 'customer_name' => $customer->name, 'customer_phone' => $customer->phone, 'loyalty_reward' => 'fifty_percent'])->assertOk();
+    $sale = PosSale::query()->where('invoice_number', $checkout->json('sale.invoice_number'))->firstOrFail();
+
+    $this->putJson(route('sales.update', $sale), ['items' => [['id' => 'product-EDIT-VOUCHER', 'quantity' => 1]], 'payment_method' => 'qris', 'customer_id' => $customer->id, 'loyalty_reward' => null, 'reason' => 'Voucher salah diterapkan'])->assertOk();
+
+    expect($sale->fresh()->loyalty_reward)->toBeNull()
+        ->and($sale->fresh()->discount)->toBe(0)
+        ->and($customer->fresh()->loyalty_fifty_reward_available)->toBeTrue();
 });
 
 test('admin can edit operational cashier shift data but cannot overwrite calculated sales totals', function () {
