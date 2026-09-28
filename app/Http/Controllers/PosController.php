@@ -75,7 +75,13 @@ class PosController extends Controller
             ->values();
 
         if ($request->wantsJson()) {
+            $activeBranch = app(BranchContext::class)->active();
             return response()->json([
+                'branch' => [
+                    'id' => $activeBranch->id,
+                    'name' => $activeBranch->name,
+                    'code' => $activeBranch->code,
+                ],
                 'activeShift' => $activeShiftPayload,
                 'blockingShift' => $blockingShiftPayload,
                 'lastClosedShift' => $lastClosedShiftPayload,

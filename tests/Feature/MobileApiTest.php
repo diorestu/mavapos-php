@@ -29,3 +29,11 @@ test('mobile api dapat memulai shift dan checkout', function () {
         ->assertOk()
         ->assertJsonPath('sale.total', 18000);
 });
+
+test('mobile api dapat memuat produk tanpa branch_id untuk branch default', function () {
+    $user = User::factory()->create(['role' => 'owner']);
+    $this->actingAs($user, 'sanctum');
+    Branch::query()->create(['user_id' => $user->id, 'name' => 'Default Mobile', 'code' => 'default-mobile', 'is_active' => true]);
+
+    $this->getJson('/api/mobile/v1/pos')->assertOk()->assertJsonStructure(['items', 'categories']);
+});
