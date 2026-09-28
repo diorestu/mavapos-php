@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsureSubscriptionAccess;
 use App\Http\Middleware\EnsureUserRole;
+use App\Http\Middleware\EnsureSuperAdmin;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
@@ -18,6 +19,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => EnsureUserRole::class,
             'subscription' => EnsureSubscriptionAccess::class,
+            'superadmin' => EnsureSuperAdmin::class,
         ]);
         $middleware->validateCsrfTokens(except: [
             'pakasir/webhook',

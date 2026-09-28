@@ -25,6 +25,7 @@ use App\Http\Controllers\SaleController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\StockTransferController;
 use App\Http\Controllers\SupplierController;
+use App\Http\Controllers\SuperAdminMembershipController;
 use App\Http\Controllers\UserController;
 use App\Models\StoreSetting;
 use Illuminate\Support\Facades\Route;
@@ -43,6 +44,10 @@ Route::post('/pakasir/webhook', [BillingController::class, 'webhook'])->name('pa
 
 Route::get('/', function () {
     if (auth()->check()) {
+        if (auth()->user()->hasRole('superadmin')) {
+            return redirect()->route('superadmin.memberships');
+        }
+
         return app(DashboardController::class)->index();
     }
 
@@ -63,6 +68,9 @@ Route::middleware('auth:web,sanctum')->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications');
     Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
     Route::post('/branches/active', [BranchController::class, 'switch'])->name('branches.switch');
+    Route::middleware('superadmin')->prefix('superadmin')->name('superadmin.')->group(function () {
+        Route::get('/memberships', [SuperAdminMembershipController::class, 'index'])->name('memberships');
+    });
 
     Route::middleware('role:owner,admin')->group(function () {
         Route::get('/payrolls', [PayrollController::class, 'index'])->middleware('role:owner')->name('payrolls');

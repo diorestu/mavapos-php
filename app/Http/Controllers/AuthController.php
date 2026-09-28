@@ -59,7 +59,7 @@ class AuthController extends Controller
             ]);
         }
 
-        return redirect()->intended(route('dashboard'));
+        return redirect()->intended($user->hasRole('superadmin') ? route('superadmin.memberships') : route('dashboard'));
     }
 
     public function redirectToGoogle(): SymfonyRedirectResponse
@@ -100,7 +100,7 @@ class AuthController extends Controller
 
         request()->session()->regenerate();
 
-        return redirect()->intended(route('dashboard'));
+        return redirect()->intended($user->hasRole('superadmin') ? route('superadmin.memberships') : route('dashboard'));
     }
 
     public function showSignUp(): View

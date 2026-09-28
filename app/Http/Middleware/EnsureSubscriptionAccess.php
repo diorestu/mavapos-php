@@ -15,6 +15,10 @@ class EnsureSubscriptionAccess
     {
         $user = $request->user();
 
+        if ($user?->hasRole('superadmin')) {
+            return $next($request);
+        }
+
         if ($user?->isTrialActive() || $this->hasActiveSubscription()) {
             return $next($request);
         }
