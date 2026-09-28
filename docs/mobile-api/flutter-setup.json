@@ -1,0 +1,103 @@
+{
+  "name": "MavaPOS Mobile API",
+  "version": "v1",
+  "baseUrl": "https://your-mavapos-domain.com/api/mobile/v1",
+  "authentication": {
+    "type": "bearer",
+    "login": {
+      "method": "POST",
+      "path": "/login",
+      "body": {
+        "email": "kasir@example.com",
+        "password": "your-password"
+      }
+    },
+    "header": "Authorization: Bearer {token}",
+    "requiredHeaders": {
+      "Accept": "application/json",
+      "Content-Type": "application/json"
+    }
+  },
+  "endpoints": {
+    "me": {
+      "method": "GET",
+      "path": "/me"
+    },
+    "logout": {
+      "method": "POST",
+      "path": "/logout"
+    },
+    "pos": {
+      "method": "GET",
+      "path": "/pos",
+      "query": {
+        "branch_id": "optional for owner/admin"
+      }
+    },
+    "startShift": {
+      "method": "POST",
+      "path": "/shifts/start",
+      "body": {
+        "branch_id": 1,
+        "opening_cash_amount": 0,
+        "opening_note": ""
+      }
+    },
+    "closeShift": {
+      "method": "POST",
+      "path": "/shifts/close",
+      "body": {
+        "closing_note": ""
+      }
+    },
+    "checkout": {
+      "method": "POST",
+      "path": "/checkout",
+      "body": {
+        "branch_id": 1,
+        "items": [
+          {
+            "id": "product-SKU-001",
+            "quantity": 1
+          }
+        ],
+        "payment_method": "cash",
+        "paid_amount": 20000,
+        "customer_name": "",
+        "customer_phone": "",
+        "buyer_nationality": "local",
+        "loyalty_stamp": false,
+        "loyalty_reward": null,
+        "discount": 0
+      }
+    }
+  },
+  "roles": {
+    "owner": {
+      "branchSelection": "request branch_id or default branch",
+      "canCheckout": true
+    },
+    "admin": {
+      "branchSelection": "request branch_id or default branch",
+      "canCheckout": true
+    },
+    "kasir": {
+      "branchSelection": "assigned branch only",
+      "canCheckout": true
+    }
+  },
+  "errors": {
+    "401": "Token tidak valid atau sudah dicabut",
+    "402": "Subscription tidak aktif",
+    "403": "Role atau cabang tidak diizinkan",
+    "422": "Validasi payload gagal",
+    "419": "CSRF tidak diperlukan untuk endpoint mobile",
+    "429": "Terlalu banyak request"
+  },
+  "flutterNotes": {
+    "tokenStorage": "Simpan token secara aman menggunakan flutter_secure_storage",
+    "printer": "Bluetooth Classic/SPP tidak dapat digunakan langsung oleh Web Bluetooth; gunakan native Android bridge atau plugin Bluetooth Classic",
+    "contentType": "application/json",
+    "dateTime": "ISO-8601"
+  }
+}
