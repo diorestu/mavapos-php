@@ -514,10 +514,10 @@ class PosController extends Controller
                 ],
                 'receipt' => [
                     'footer_note' => $setting->receipt_footer_note,
-                    'paper_width' => $setting->receipt_paper_width,
-                    'show_logo' => $setting->receipt_show_logo,
-                    'show_store_address' => $setting->receipt_show_store_address,
-                    'show_cashier' => $setting->receipt_show_cashier,
+                    'paper_width' => (int) ($setting->receipt_paper_width ?: 58),
+                    'show_logo' => (bool) $setting->receipt_show_logo,
+                    'show_store_address' => (bool) $setting->receipt_show_store_address,
+                    'show_cashier' => (bool) $setting->receipt_show_cashier,
                 ],
                 'printer' => [
                     'auto_print' => $setting->printer_auto_print,

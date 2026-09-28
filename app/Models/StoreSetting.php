@@ -88,6 +88,7 @@ class StoreSetting extends Model
             'kitchen_notes_enabled' => 'boolean',
             'dine_in_takeaway_enabled' => 'boolean',
             'serving_time_enabled' => 'boolean',
+            'receipt_paper_width' => 'integer',
             'receipt_show_logo' => 'boolean',
             'receipt_show_store_address' => 'boolean',
             'receipt_show_cashier' => 'boolean',
