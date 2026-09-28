@@ -70,6 +70,9 @@ Route::middleware('auth:web,sanctum')->group(function () {
     Route::post('/branches/active', [BranchController::class, 'switch'])->name('branches.switch');
     Route::middleware('superadmin')->prefix('superadmin')->name('superadmin.')->group(function () {
         Route::get('/memberships', [SuperAdminMembershipController::class, 'index'])->name('memberships');
+        Route::post('/memberships/{user}/extend', [SuperAdminMembershipController::class, 'extend'])->name('memberships.extend');
+        Route::post('/memberships/{user}/bypass', [SuperAdminMembershipController::class, 'bypass'])->name('memberships.bypass');
+        Route::delete('/memberships/{user}/override', [SuperAdminMembershipController::class, 'revoke'])->name('memberships.override.revoke');
     });
 
     Route::middleware('role:owner,admin')->group(function () {

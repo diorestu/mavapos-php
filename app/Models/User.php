@@ -34,6 +34,9 @@ class User extends Authenticatable
         'trial_ends_at',
         'tenant_owner_id',
         'branch_id',
+        'subscription_override_until',
+        'subscription_override_reason',
+        'subscription_override_by',
     ];
 
     /**
@@ -61,6 +64,8 @@ class User extends Authenticatable
             'basic_salary' => 'integer',
             'fixed_allowance' => 'integer',
             'branch_id' => 'integer',
+            'subscription_override_until' => 'datetime',
+            'subscription_override_by' => 'integer',
         ];
     }
 

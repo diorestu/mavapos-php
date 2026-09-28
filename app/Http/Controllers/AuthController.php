@@ -59,7 +59,9 @@ class AuthController extends Controller
             ]);
         }
 
-        return redirect()->intended($user->hasRole('superadmin') ? route('superadmin.memberships') : route('dashboard'));
+        $authenticatedUser = $request->user();
+
+        return redirect()->intended($authenticatedUser->hasRole('superadmin') ? route('superadmin.memberships') : route('dashboard'));
     }
 
     public function redirectToGoogle(): SymfonyRedirectResponse

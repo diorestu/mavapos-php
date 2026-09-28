@@ -19,7 +19,7 @@ class EnsureSubscriptionAccess
             return $next($request);
         }
 
-        if ($user?->isTrialActive() || $this->hasActiveSubscription()) {
+        if ($user?->isTrialActive() || $user?->subscription_override_until?->isFuture() || $this->hasActiveSubscription()) {
             return $next($request);
         }
 
