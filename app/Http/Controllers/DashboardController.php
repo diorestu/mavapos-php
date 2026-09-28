@@ -108,6 +108,15 @@ class DashboardController extends Controller
     {
         $user = auth()->user();
 
+        if ($user?->subscription_override_until?->isFuture()) {
+            return [
+                'label' => 'Akses diperpanjang',
+                'description' => 'Akses operasional diberikan sampai '.$user->subscription_override_until->toDateString().'.',
+                'tone' => 'success',
+                'showAction' => false,
+            ];
+        }
+
         $billing = Billing::query()
             ->whereIn('payment_status', ['completed', 'paid'])
             ->whereNotNull('paid_at')

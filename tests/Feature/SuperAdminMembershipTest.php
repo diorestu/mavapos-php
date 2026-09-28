@@ -46,6 +46,7 @@ test('superadmin dapat memperpanjang dan mencabut override subscription member',
     expect($owner->fresh()->subscription_override_until)->not->toBeNull();
 
     $this->actingAs($owner->fresh())->get(route('reports'))->assertOk();
+    $this->actingAs($owner->fresh())->get(route('dashboard'))->assertOk()->assertSee('Akses diperpanjang');
 
     $this->actingAs($superadmin)->post(route('superadmin.memberships.bypass', $owner->id), ['reason' => 'Akses support'])->assertRedirect();
     $this->delete(route('superadmin.memberships.override.revoke', $owner->id))->assertRedirect();
