@@ -2253,7 +2253,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     get filteredItems() {
         const keyword = this.normalize(this.query);
 
-        return this.items.filter((item) => {
+        const filtered = this.items.filter((item) => {
             const matchesKeyword = !keyword ||
                 this.normalize(item.name).includes(keyword) ||
                 this.normalize(item.sku).includes(keyword) ||
@@ -2265,8 +2265,21 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                 ));
             const matchesCategory = !this.activeCategory || item.category === this.activeCategory;
 
-            const hasStock = item.stockMode === 'recipe' || Number(item.stock) > 0 || (item.variants && item.variants.some((v) => item.stockMode === 'recipe' || Number(v.stock) > 0));
-            return matchesKeyword && matchesCategory && hasStock;
+            return matchesKeyword && matchesCategory;
+        });
+
+        if (this.activeCategory) {
+            return filtered;
+        }
+
+        const hasStock = (item) => item.stockMode === 'recipe' || Number(item.stock) > 0 || (item.variants && item.variants.some((v) => item.stockMode === 'recipe' || Number(v.stock) > 0));
+
+        return filtered.sort((a, b) => {
+            const availability = Number(hasStock(b)) - Number(hasStock(a));
+            if (availability !== 0) return availability;
+
+            const category = this.normalize(a.categoryName).localeCompare(this.normalize(b.categoryName), 'id');
+            return category || this.normalize(a.name).localeCompare(this.normalize(b.name), 'id');
         });
     },
 
