@@ -1,5 +1,10 @@
 @php
     $currentUser = auth()->user();
+    $profileInitials = collect(preg_split('/\s+/', trim((string) ($currentUser?->name ?? 'Pengguna'))))
+        ->filter()
+        ->take(2)
+        ->map(fn ($part) => mb_strtoupper(mb_substr($part, 0, 1)))
+        ->implode('');
 @endphp
 
 <div class="relative" x-data="{
@@ -18,7 +23,11 @@
         type="button"
     >
         <span class="mr-2.5 h-[38px] w-[38px] overflow-hidden rounded-full">
-            <img src="/images/user/owner.png" alt="Pengguna" />
+            @if ($currentUser?->profile_photo_path)
+                <img src="{{ Storage::disk('public')->url($currentUser->profile_photo_path) }}" alt="{{ $currentUser->name }}" class="h-full w-full object-cover" />
+            @else
+                <span class="flex h-full w-full items-center justify-center bg-brand-500 text-xs font-bold text-white">{{ $profileInitials }}</span>
+            @endif
         </span>
 
        <span class="block mr-1 text-[13px] font-medium">{{ $currentUser?->name ?? 'Pengguna' }}</span>

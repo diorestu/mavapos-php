@@ -18,6 +18,7 @@ use App\Http\Controllers\ProductCategoryController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductRecipeController;
 use App\Http\Controllers\PurchaseOrderController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\RawMaterialController;
 use App\Http\Controllers\ReportController;
@@ -68,6 +69,7 @@ Route::middleware('auth:web,sanctum')->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications');
     Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
     Route::post('/branches/active', [BranchController::class, 'switch'])->name('branches.switch');
+    Route::post('/profile/photo', [ProfileController::class, 'updatePhoto'])->name('profile.photo.update');
     Route::middleware('superadmin')->prefix('superadmin')->name('superadmin.')->group(function () {
         Route::get('/memberships', [SuperAdminMembershipController::class, 'index'])->name('memberships');
         Route::post('/memberships/{user}/extend', [SuperAdminMembershipController::class, 'extend'])->name('memberships.extend');

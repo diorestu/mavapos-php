@@ -14,6 +14,7 @@
     $joinedAt = $user->created_at ? $user->created_at->timezone(config('app.timezone'))->format('d M Y') : null;
     $verifiedAt = $user->email_verified_at ? $user->email_verified_at->timezone(config('app.timezone'))->format('d M Y, H:i') : null;
     $fallback = fn ($value, $label = '-') => filled($value) ? $value : $label;
+    $profileInitials = collect(preg_split('/\s+/', trim((string) $user->name)))->filter()->take(2)->map(fn ($part) => mb_strtoupper(mb_substr($part, 0, 1)))->implode('');
 @endphp
 
 @section('content')
@@ -48,7 +49,11 @@
                 <div class="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                     <div class="flex flex-col gap-4 sm:flex-row sm:items-center">
                         <div class="flex h-20 w-20 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-700 dark:bg-gray-900">
-                            <img src="{{ $logoUrl }}" alt="{{ $setting->store_name }}" class="h-full w-full object-cover">
+                            @if ($user->profile_photo_path)
+                                <img src="{{ Storage::disk('public')->url($user->profile_photo_path) }}" alt="{{ $user->name }}" class="h-full w-full object-cover">
+                            @else
+                                <span class="flex h-full w-full items-center justify-center bg-brand-500 text-2xl font-bold text-white">{{ $profileInitials }}</span>
+                            @endif
                         </div>
 
                         <div>
@@ -183,6 +188,18 @@
                     </section>
                 </aside>
             </div>
+        </section>
+
+        <section class="rounded-xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
+            <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Foto Profil</h2>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">JPG, PNG, atau WEBP maksimal 2 MB. Jika kosong, header memakai inisial nama.</p>
+            @if (session('success'))<p class="mt-3 text-sm text-success-600">{{ session('success') }}</p>@endif
+            <form method="POST" action="{{ route('profile.photo.update') }}" enctype="multipart/form-data" class="mt-4 flex flex-col gap-3 sm:flex-row sm:items-end">
+                @csrf
+                <label class="block flex-1 text-xs font-medium text-gray-700 dark:text-gray-300">Pilih foto<input type="file" name="profile_photo" accept="image/jpeg,image/png,image/webp" required class="mt-1 block w-full rounded-lg border border-gray-300 px-3 py-2 text-xs dark:border-gray-700 dark:bg-gray-900"></label>
+                <button class="h-10 rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white hover:bg-brand-600">Simpan Foto</button>
+            </form>
+            @error('profile_photo')<p class="mt-2 text-xs text-error-600">{{ $message }}</p>@enderror
         </section>
     </div>
 @endsection
