@@ -13,6 +13,28 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
+test('editing a physical fifth stamp sale preserves its entered discount and consumed reward', function () {
+    $cashier = User::factory()->create(['role' => 'admin']);
+    $this->actingAs($cashier);
+    $branch = app(BranchContext::class)->active();
+    $product = Product::query()->create(['user_id' => $cashier->id, 'sku' => 'EDIT-PHYSICAL', 'name' => 'Kopi', 'buy_price' => 5000, 'sell_price' => 20000, 'stock' => 10, 'min_stock' => 0]);
+    app(BranchInventoryManager::class)->forProduct($branch->id, $product)->update(['stock' => 10]);
+    $customer = Customer::query()->create(['user_id' => $cashier->id, 'code' => 'EDIT-PHYSICAL', 'name' => 'Pelanggan', 'phone' => '08123456789', 'status' => 'aktif']);
+    $this->postJson(route('pos.shift.start'), ['opening_cash_amount' => 100000])->assertOk();
+    $checkout = $this->postJson(route('pos.checkout'), ['items' => [['id' => 'product-EDIT-PHYSICAL', 'quantity' => 1]], 'payment_method' => 'qris', 'customer_phone' => $customer->phone, 'discount' => 7000, 'loyalty_reward' => 'physical_fifth'])->assertOk();
+    $sale = PosSale::query()->where('invoice_number', $checkout->json('sale.invoice_number'))->firstOrFail();
+
+    $edit = ['items' => [['id' => 'product-EDIT-PHYSICAL', 'quantity' => 2]], 'payment_method' => 'qris', 'customer_id' => $customer->id, 'loyalty_reward' => 'physical_fifth', 'discount' => 8000, 'reason' => 'Koreksi jumlah'];
+    $this->putJson(route('sales.update', $sale), $edit)->assertOk();
+    expect($sale->fresh()->discount)->toBe(8000)
+        ->and($sale->fresh()->total)->toBe(32000)
+        ->and($customer->fresh()->loyalty_stamp_count)->toBe(5)
+        ->and($customer->fresh()->loyalty_fifty_reward_available)->toBeFalse();
+
+    $this->putJson(route('sales.update', $sale), [...$edit, 'loyalty_reward' => null, 'discount' => 0])->assertOk();
+    expect($customer->fresh()->loyalty_fifty_reward_available)->toBeTrue();
+});
+
 test('admin can edit sale items and the inventory, recipe usage, and shift summary follow the change', function () {
     $cashier = User::factory()->create(['role' => 'admin']);
     $admin = $cashier;

@@ -193,7 +193,7 @@ class SaleController extends Controller
             'paid_amount' => ['nullable', 'integer', 'min:0'],
             'buyer_nationality' => ['nullable', 'in:local,foreigner'],
             'customer_id' => ['nullable', 'integer', 'exists:customers,id'],
-            'loyalty_reward' => ['nullable', 'in:fifty_percent,free_cup'],
+            'loyalty_reward' => ['nullable', 'in:fifty_percent,free_cup,physical_fifth'],
             'reason' => ['required', 'string', 'max:500'],
         ]);
         $sale = $service->update($sale, app(BranchContext::class)->activeId(), $request->user(), $validated);

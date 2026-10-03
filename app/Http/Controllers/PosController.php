@@ -316,7 +316,7 @@ class PosController extends Controller
             'customer_phone' => ['nullable', 'string', 'max:30'],
             'buyer_nationality' => ['nullable', 'in:local,foreigner'],
             'loyalty_stamp' => ['nullable', 'boolean'],
-            'loyalty_reward' => ['nullable', 'in:fifty_percent,free_cup'],
+            'loyalty_reward' => ['nullable', 'in:fifty_percent,free_cup,physical_fifth'],
         ]);
         $branchId = app(BranchContext::class)->activeId();
 
@@ -364,13 +364,18 @@ class PosController extends Controller
             }
             $customer = $this->saveCustomer($customerData);
             $loyaltyReward = $isComplimentary ? null : ($validated['loyalty_reward'] ?? null);
-            $loyaltyStamp = ! $isComplimentary && (bool) ($validated['loyalty_stamp'] ?? false);
+            $physicalFifth = $loyaltyReward === 'physical_fifth';
+            $loyaltyStamp = ! $isComplimentary && ! $physicalFifth && (bool) ($validated['loyalty_stamp'] ?? false);
             $loyaltyDiscount = 0;
 
             if ($loyaltyStamp || $loyaltyReward) {
                 abort_if(! $customer || empty($validated['customer_phone']), 422, 'Nomor pelanggan wajib diisi untuk menggunakan Kartu Loyalitas.');
                 $customer = Customer::query()->whereKey($customer->id)->lockForUpdate()->firstOrFail();
-                if ($loyaltyReward === 'fifty_percent') {
+                if ($physicalFifth) {
+                    abort_if((int) ($validated['discount'] ?? 0) <= 0, 422, 'Isi nominal diskon untuk penggunaan stempel ke-5 kartu fisik.');
+                    abort_if($customer->loyalty_stamp_count >= 5 && ! $customer->loyalty_fifty_reward_available, 422, 'Stempel ke-5 pelanggan sudah digunakan.');
+                    $loyaltyDiscount = min((int) $validated['discount'], $subtotal);
+                } elseif ($loyaltyReward === 'fifty_percent') {
                     abort_unless($customer->loyalty_fifty_reward_available, 422, 'Reward diskon 50% belum tersedia pada kartu pelanggan.');
                     $loyaltyDiscount = (int) floor($subtotal / 2);
                 } elseif ($loyaltyReward === 'free_cup') {
@@ -427,6 +432,10 @@ class PosController extends Controller
                 $fiftyAvailable = $customer->loyalty_fifty_reward_available;
                 $freeAvailable = $customer->loyalty_free_reward_available;
 
+                if ($physicalFifth) {
+                    $stampCount = max(5, $stampCount);
+                    $fiftyAvailable = false;
+                }
                 if ($loyaltyReward === 'fifty_percent') {
                     $fiftyAvailable = false;
                 }
@@ -605,7 +614,7 @@ class PosController extends Controller
             'name' => $product->name,
             'sku' => $product->sku,
             'barcode' => $product->barcode ?? '',
-            'imageUrl' => $product->image_path ? Storage::disk('public')->url($product->image_path) : null,
+            'imageUrl' => $product->image_path ? url(Storage::disk('public')->url($product->image_path)) : null,
             'category' => $product->category?->code ?? 'umum',
             'categoryName' => $product->category?->name ?? 'Umum',
             'price' => $product->sell_price,
@@ -629,7 +638,7 @@ class PosController extends Controller
             'variant_name' => $variant->name,
             'sku' => $variant->sku ?? $product->sku.'-'.$variant->id,
             'barcode' => $variant->barcode ?? '',
-            'imageUrl' => $product->image_path ? Storage::disk('public')->url($product->image_path) : null,
+            'imageUrl' => $product->image_path ? url(Storage::disk('public')->url($product->image_path)) : null,
             'category' => $product->category?->code ?? 'umum',
             'categoryName' => $product->category?->name ?? 'Umum',
             'price' => $variant->sell_price,

@@ -6,6 +6,7 @@ use App\Models\User;
 use App\Support\BranchContext;
 use App\Support\BranchInventoryManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Storage;
 
 uses(RefreshDatabase::class);
 
@@ -36,4 +37,17 @@ test('mobile api dapat memuat produk tanpa branch_id untuk branch default', func
     Branch::query()->create(['user_id' => $user->id, 'name' => 'Default Mobile', 'code' => 'default-mobile', 'is_active' => true]);
 
     $this->getJson('/api/mobile/v1/pos')->assertOk()->assertJsonStructure(['items', 'categories']);
+});
+
+test('mobile api mengembalikan imageUrl produk sebagai URL penuh', function () {
+    Storage::fake('public');
+    $user = User::factory()->create(['role' => 'owner']);
+    $this->actingAs($user, 'sanctum');
+    $branch = Branch::query()->create(['user_id' => $user->id, 'name' => 'Image Branch', 'code' => 'image-branch', 'is_active' => true]);
+    Storage::disk('public')->put('products/mobile.jpg', 'image');
+    Product::query()->create(['user_id' => $user->id, 'sku' => 'MOBILE-IMAGE', 'name' => 'Produk Bergambar', 'sell_price' => 18000, 'stock' => 1, 'image_path' => 'products/mobile.jpg']);
+
+    $this->getJson('/api/mobile/v1/pos?branch_id='.$branch->id)
+        ->assertOk()
+        ->assertJsonPath('items.0.imageUrl', fn (?string $url): bool => str_starts_with((string) $url, 'http') && str_contains((string) $url, '/storage/products/mobile.jpg'));
 });
