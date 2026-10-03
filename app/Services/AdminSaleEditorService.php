@@ -10,6 +10,7 @@ use App\Models\RawMaterial;
 use App\Models\StockMovement;
 use App\Models\User;
 use App\Models\Customer;
+use App\Models\StoreSetting;
 use App\Support\BranchInventoryManager;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -48,15 +49,16 @@ class AdminSaleEditorService
             $isFree = $data['payment_method'] === 'free';
             $customer = ! empty($data['customer_id']) ? Customer::query()->whereKey($data['customer_id'])->lockForUpdate()->firstOrFail() : null;
             $loyaltyReward = $isFree ? null : ($data['loyalty_reward'] ?? null);
+            $retainsReward = $loyaltyReward === $sale->loyalty_reward && $customer?->id === $sale->customer_id;
+            if ($loyaltyReward && ! $retainsReward) {
+                abort_unless(StoreSetting::current()->cashier_loyalty_card_enabled, 422, 'Kartu Loyalitas dinonaktifkan di pengaturan cabang ini.');
+            }
             if ($sale->loyalty_reward && $sale->customer) {
                 $this->restoreReward($sale->customer, $sale->loyalty_reward);
                 $customer?->refresh();
             }
             $loyaltyDiscount = $this->loyaltyDiscount($customer, $loyaltyReward, $lines, $subtotal);
-            if ($loyaltyReward === 'physical_fifth') {
-                abort_if((int) ($data['discount'] ?? 0) <= 0, 422, 'Isi nominal diskon untuk penggunaan stempel ke-5 kartu fisik.');
-            }
-            $automaticReward = in_array($loyaltyReward, ['fifty_percent', 'free_cup'], true);
+            $automaticReward = in_array($loyaltyReward, ['fifty_percent', 'free_cup', 'physical_fifth', 'physical_tenth'], true);
             $discount = $isFree ? $subtotal : ($automaticReward ? $loyaltyDiscount : min((int) ($data['discount'] ?? 0), $subtotal));
             $total = $subtotal - $discount;
             $paid = $data['payment_method'] === 'cash' ? (int) ($data['paid_amount'] ?? 0) : $total;
@@ -112,7 +114,11 @@ class AdminSaleEditorService
         if ($reward === 'physical_fifth') {
             abort_if(! $customer->phone, 422, 'Nomor pelanggan wajib diisi untuk menggunakan Kartu Loyalitas.');
             abort_if($customer->loyalty_stamp_count >= 5 && ! $customer->loyalty_fifty_reward_available, 422, 'Stempel ke-5 pelanggan sudah digunakan.');
-            return 0;
+            return (int) floor($subtotal / 2);
+        }
+        if ($reward === 'physical_tenth') {
+            abort_if(! $customer->phone, 422, 'Nomor pelanggan wajib diisi untuk menggunakan Kartu Loyalitas.');
+            return min(array_map(fn (array $line): int => $line['sellable']['price'], $lines));
         }
         if ($reward === 'fifty_percent') {
             abort_unless($customer->loyalty_fifty_reward_available, 422, 'Voucher diskon 50% pelanggan sudah tidak tersedia.');
@@ -125,7 +131,7 @@ class AdminSaleEditorService
     private function restoreReward(Customer $customer, string $reward): void
     {
         if (in_array($reward, ['fifty_percent', 'physical_fifth'], true)) $customer->update(['loyalty_fifty_reward_available' => true]);
-        if ($reward === 'free_cup') $customer->update(['loyalty_stamp_count' => $customer->loyalty_stamp_count + 10, 'loyalty_fifty_reward_available' => true, 'loyalty_free_reward_available' => true]);
+        if (in_array($reward, ['free_cup', 'physical_tenth'], true)) $customer->update(['loyalty_stamp_count' => $customer->loyalty_stamp_count + 10, 'loyalty_fifty_reward_available' => true, 'loyalty_free_reward_available' => true]);
         $customer->refresh();
     }
 
@@ -133,6 +139,7 @@ class AdminSaleEditorService
     {
         if ($reward === 'fifty_percent') $customer->update(['loyalty_fifty_reward_available' => false]);
         if ($reward === 'physical_fifth') $customer->update(['loyalty_stamp_count' => max(5, $customer->loyalty_stamp_count), 'loyalty_fifty_reward_available' => false]);
+        if ($reward === 'physical_tenth') $customer->update(['loyalty_stamp_count' => max(10, $customer->loyalty_stamp_count) - 10, 'loyalty_fifty_reward_available' => false, 'loyalty_free_reward_available' => false]);
         if ($reward === 'free_cup') $customer->update(['loyalty_stamp_count' => max(0, $customer->loyalty_stamp_count - 10), 'loyalty_fifty_reward_available' => false, 'loyalty_free_reward_available' => false]);
     }
 

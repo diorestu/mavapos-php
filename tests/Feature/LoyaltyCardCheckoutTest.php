@@ -1,14 +1,58 @@
 <?php
 
 use App\Models\Customer;
+use App\Models\Branch;
 use App\Models\PosSale;
 use App\Models\Product;
+use App\Models\StoreSetting;
 use App\Models\User;
 use App\Support\BranchContext;
 use App\Support\BranchInventoryManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
+
+test('loyalty setting can be disabled and enabled independently for each branch and tenant', function () {
+    [$customer, $payload] = physicalFifthFixture($this);
+    $firstSetting = StoreSetting::current();
+    $firstBranchId = $firstSetting->branch_id;
+    $secondBranch = Branch::query()->create(['name' => 'Cabang Kedua', 'code' => 'loyalty-second', 'is_active' => true]);
+
+    $this->patch(route('settings.update'), ['store_name' => 'Toko Uji'])->assertRedirect(route('settings'));
+    expect($firstSetting->fresh()->cashier_loyalty_card_enabled)->toBeFalse();
+
+    app(BranchContext::class)->setActive($secondBranch->id);
+    expect(StoreSetting::current()->cashier_loyalty_card_enabled)->toBeTrue();
+    app(BranchContext::class)->setActive($firstBranchId);
+    $this->patch(route('settings.update'), ['store_name' => 'Toko Uji', 'cashier_loyalty_card_enabled' => '1'])->assertRedirect(route('settings'));
+    expect($firstSetting->fresh()->cashier_loyalty_card_enabled)->toBeTrue();
+
+    $otherOwner = User::factory()->create(['role' => 'owner']);
+    $this->actingAs($otherOwner)->patch(route('settings.update'), ['store_name' => 'Toko Lain'])->assertRedirect(route('settings'));
+    expect(StoreSetting::current()->cashier_loyalty_card_enabled)->toBeFalse()
+        ->and($firstSetting->fresh()->cashier_loyalty_card_enabled)->toBeTrue();
+});
+
+test('disabled loyalty setting rejects reward checkout without changing customers or sales', function (string $reward) {
+    [$customer, $payload] = physicalFifthFixture($this, ['loyalty_fifty_reward_available' => true, 'loyalty_free_reward_available' => true]);
+    StoreSetting::current()->update(['cashier_loyalty_card_enabled' => false]);
+
+    $this->postJson(route('pos.checkout'), [...$payload, 'loyalty_reward' => $reward])->assertUnprocessable();
+
+    expect(PosSale::query()->count())->toBe(0)
+        ->and($customer->fresh()->loyalty_stamp_count)->toBe(0)
+        ->and($customer->fresh()->loyalty_fifty_reward_available)->toBeTrue()
+        ->and($customer->fresh()->loyalty_free_reward_available)->toBeTrue();
+})->with(['physical_fifth', 'physical_tenth', 'fifty_percent', 'free_cup']);
+
+test('disabled loyalty blocks new stamps but permits an ordinary manual discount', function () {
+    [$customer, $payload] = physicalFifthFixture($this);
+    StoreSetting::current()->update(['cashier_loyalty_card_enabled' => false]);
+    $this->postJson(route('pos.checkout'), [...$payload, 'loyalty_reward' => null, 'loyalty_stamp' => true])->assertUnprocessable();
+    expect($customer->fresh()->loyalty_stamp_count)->toBe(0);
+
+    $this->postJson(route('pos.checkout'), [...$payload, 'loyalty_reward' => null])->assertOk()->assertJsonPath('sale.discount', 7000);
+});
 
 function physicalFifthFixture($test, array $attributes = []): array
 {
@@ -23,7 +67,7 @@ function physicalFifthFixture($test, array $attributes = []): array
     return [$customer, ['items' => [['id' => 'product-PHYSICAL-FIFTH', 'quantity' => 1]], 'payment_method' => 'qris', 'customer_phone' => $customer->phone, 'discount' => 7000, 'loyalty_reward' => 'physical_fifth']];
 }
 
-test('physical fifth stamp records the entered discount and consumes the fifth reward immediately', function (int $stamps) {
+test('physical fifth stamp applies fifty percent regardless of the entered discount and consumes the reward immediately', function (int $stamps) {
     [$customer, $payload] = physicalFifthFixture($this, ['loyalty_stamp_count' => $stamps]);
 
     $response = $this->postJson(route('pos.checkout'), $payload)->assertOk();
@@ -31,8 +75,8 @@ test('physical fifth stamp records the entered discount and consumes the fifth r
 
     expect($sale->customer_id)->toBe($customer->id)
         ->and($sale->loyalty_reward)->toBe('physical_fifth')
-        ->and($sale->discount)->toBe(7000)
-        ->and($sale->total)->toBe(13000)
+        ->and($sale->discount)->toBe(10000)
+        ->and($sale->total)->toBe(10000)
         ->and($customer->fresh()->loyalty_stamp_count)->toBe(5)
         ->and($customer->fresh()->loyalty_fifty_reward_available)->toBeFalse();
 
@@ -48,12 +92,28 @@ test('physical fifth stamp never reduces a higher digital stamp count or adds pu
         ->and($customer->fresh()->loyalty_fifty_reward_available)->toBeFalse();
 });
 
-test('physical fifth stamp requires a phone and positive discount', function () {
+test('physical fifth stamp requires a phone but calculates its discount without manual input', function () {
     [$customer, $payload] = physicalFifthFixture($this);
     $this->postJson(route('pos.checkout'), [...$payload, 'customer_phone' => null])->assertUnprocessable();
-    $this->postJson(route('pos.checkout'), [...$payload, 'discount' => 0])->assertUnprocessable();
     expect($customer->fresh()->loyalty_stamp_count)->toBe(0)
         ->and(PosSale::query()->count())->toBe(0);
+
+    $this->postJson(route('pos.checkout'), [...$payload, 'discount' => 0])->assertOk()->assertJsonPath('sale.discount', 10000);
+});
+
+test('physical tenth stamp grants exactly one cheapest cup and starts the next card cycle', function () {
+    [$customer, $payload] = physicalFifthFixture($this, ['loyalty_stamp_count' => 5]);
+    $cheap = Product::query()->create(['sku' => 'PHYSICAL-CHEAP', 'name' => 'Cup Kecil', 'buy_price' => 5000, 'sell_price' => 12000, 'stock' => 10, 'min_stock' => 0]);
+    app(BranchInventoryManager::class)->forProduct(app(BranchContext::class)->activeId(), $cheap)->update(['stock' => 10]);
+    $response = $this->postJson(route('pos.checkout'), [...$payload, 'items' => [['id' => 'product-PHYSICAL-FIFTH', 'quantity' => 1], ['id' => 'product-PHYSICAL-CHEAP', 'quantity' => 2]], 'loyalty_reward' => 'physical_tenth', 'discount' => 44000, 'loyalty_stamp' => true])->assertOk();
+
+    expect($response->json('sale.discount'))->toBe(12000)
+        ->and($response->json('sale.total'))->toBe(32000)
+        ->and($customer->fresh()->loyalty_stamp_count)->toBe(0)
+        ->and($customer->fresh()->loyalty_fifty_reward_available)->toBeFalse()
+        ->and($customer->fresh()->loyalty_free_reward_available)->toBeFalse();
+
+    $this->postJson(route('pos.checkout'), $payload)->assertOk()->assertJsonPath('sale.discount', 10000);
 });
 
 test('failed payment rolls back the physical fifth stamp and discount', function () {

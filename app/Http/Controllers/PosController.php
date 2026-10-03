@@ -316,9 +316,13 @@ class PosController extends Controller
             'customer_phone' => ['nullable', 'string', 'max:30'],
             'buyer_nationality' => ['nullable', 'in:local,foreigner'],
             'loyalty_stamp' => ['nullable', 'boolean'],
-            'loyalty_reward' => ['nullable', 'in:fifty_percent,free_cup,physical_fifth'],
+            'loyalty_reward' => ['nullable', 'in:fifty_percent,free_cup,physical_fifth,physical_tenth'],
         ]);
         $branchId = app(BranchContext::class)->activeId();
+
+        if (($validated['loyalty_stamp'] ?? false) || ! empty($validated['loyalty_reward'])) {
+            abort_unless(StoreSetting::current()->cashier_loyalty_card_enabled, 422, 'Kartu Loyalitas dinonaktifkan di pengaturan cabang ini.');
+        }
 
         $sale = DB::transaction(function () use ($validated, $branchId): PosSale {
             $shift = CashierShift::query()
@@ -365,16 +369,18 @@ class PosController extends Controller
             $customer = $this->saveCustomer($customerData);
             $loyaltyReward = $isComplimentary ? null : ($validated['loyalty_reward'] ?? null);
             $physicalFifth = $loyaltyReward === 'physical_fifth';
-            $loyaltyStamp = ! $isComplimentary && ! $physicalFifth && (bool) ($validated['loyalty_stamp'] ?? false);
+            $physicalTenth = $loyaltyReward === 'physical_tenth';
+            $loyaltyStamp = ! $isComplimentary && ! $physicalFifth && ! $physicalTenth && (bool) ($validated['loyalty_stamp'] ?? false);
             $loyaltyDiscount = 0;
 
             if ($loyaltyStamp || $loyaltyReward) {
                 abort_if(! $customer || empty($validated['customer_phone']), 422, 'Nomor pelanggan wajib diisi untuk menggunakan Kartu Loyalitas.');
                 $customer = Customer::query()->whereKey($customer->id)->lockForUpdate()->firstOrFail();
                 if ($physicalFifth) {
-                    abort_if((int) ($validated['discount'] ?? 0) <= 0, 422, 'Isi nominal diskon untuk penggunaan stempel ke-5 kartu fisik.');
                     abort_if($customer->loyalty_stamp_count >= 5 && ! $customer->loyalty_fifty_reward_available, 422, 'Stempel ke-5 pelanggan sudah digunakan.');
-                    $loyaltyDiscount = min((int) $validated['discount'], $subtotal);
+                    $loyaltyDiscount = (int) floor($subtotal / 2);
+                } elseif ($physicalTenth) {
+                    $loyaltyDiscount = min(array_map(fn (array $line): int => $line['sellable']['price'], $saleItems));
                 } elseif ($loyaltyReward === 'fifty_percent') {
                     abort_unless($customer->loyalty_fifty_reward_available, 422, 'Reward diskon 50% belum tersedia pada kartu pelanggan.');
                     $loyaltyDiscount = (int) floor($subtotal / 2);
@@ -439,7 +445,10 @@ class PosController extends Controller
                 if ($loyaltyReward === 'fifty_percent') {
                     $fiftyAvailable = false;
                 }
-                if ($loyaltyReward === 'free_cup') {
+                if ($physicalTenth) {
+                    $stampCount = max(10, $stampCount);
+                }
+                if (in_array($loyaltyReward, ['free_cup', 'physical_tenth'], true)) {
                     $stampCount = max(0, $stampCount - 10);
                     $fiftyAvailable = false;
                     $freeAvailable = false;

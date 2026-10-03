@@ -9,6 +9,7 @@ use App\Models\Branch;
 use App\Models\Customer;
 use App\Models\Product;
 use App\Models\User;
+use App\Models\StoreSetting;
 use App\Services\AdminSaleEditorService;
 use App\Services\SalesBonusService;
 use App\Services\TransactionVoidService;
@@ -34,7 +35,7 @@ class SaleController extends Controller
                     ->merge($product->variants->map(fn ($variant) => ['id' => 'variant-'.$variant->id, 'name' => $product->name.' · '.$variant->name, 'price' => $product->sell_price + $variant->sell_price]));
             })->values();
 
-        return view('pages.sales.edit', compact('sale', 'items') + ['title' => 'Edit Transaksi', 'customers' => Customer::query()->where('status', 'aktif')->orderBy('name')->get(['id', 'name', 'phone'])]);
+        return view('pages.sales.edit', compact('sale', 'items') + ['title' => 'Edit Transaksi', 'loyaltyEnabled' => StoreSetting::current()->cashier_loyalty_card_enabled, 'customers' => Customer::query()->where('status', 'aktif')->orderBy('name')->get(['id', 'name', 'phone'])]);
     }
 
     public function index(Request $request): View
@@ -193,7 +194,7 @@ class SaleController extends Controller
             'paid_amount' => ['nullable', 'integer', 'min:0'],
             'buyer_nationality' => ['nullable', 'in:local,foreigner'],
             'customer_id' => ['nullable', 'integer', 'exists:customers,id'],
-            'loyalty_reward' => ['nullable', 'in:fifty_percent,free_cup,physical_fifth'],
+            'loyalty_reward' => ['nullable', 'in:fifty_percent,free_cup,physical_fifth,physical_tenth'],
             'reason' => ['required', 'string', 'max:500'],
         ]);
         $sale = $service->update($sale, app(BranchContext::class)->activeId(), $request->user(), $validated);

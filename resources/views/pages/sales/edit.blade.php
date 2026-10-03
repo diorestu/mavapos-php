@@ -20,12 +20,22 @@
             <button type="button" @click="lines.push({id: items[0]?.id, quantity: 1})" class="text-xs font-semibold text-brand-600">+ Tambah item</button>
             <div class="grid gap-3 md:grid-cols-3">
                 <label class="text-xs">Metode bayar<select x-model="payment_method" class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900"><option value="cash">Tunai</option><option value="qris">QRIS</option><option value="card">Kartu</option><option value="split">Split Payment</option><option value="free">Gratis</option></select></label>
-                <label class="text-xs">Diskon<input x-model.number="discount" min="0" type="number" class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900" /></label>
+                <label class="text-xs">Diskon<input x-model.number="discount" :disabled="Boolean(loyalty_reward)" min="0" type="number" class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900" /><span x-show="loyalty_reward" class="mt-1 block text-[11px] text-gray-600 dark:text-gray-300">Dihitung ulang otomatis saat koreksi disimpan.</span></label>
                 <label class="text-xs">Uang diterima<input x-model.number="paid_amount" min="0" type="number" class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900" /></label>
             </div>
             <div class="grid gap-3 md:grid-cols-2">
                 <label class="text-xs">Pelanggan<select x-model="customer_id" class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900"><option value="">Tanpa pelanggan</option>@foreach ($customers as $customer)<option value="{{ $customer->id }}">{{ $customer->name }}{{ $customer->phone ? ' · '.$customer->phone : '' }}</option>@endforeach</select></label>
-                <label class="text-xs">Voucher pelanggan<select x-model="loyalty_reward" @change="if (['fifty_percent', 'free_cup'].includes(loyalty_reward)) discount = 0" class="mt-1 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900"><option value="">Tidak menggunakan voucher</option><option value="physical_fifth">Kartu fisik: stempel ke-5 digunakan</option><option value="fifty_percent">Diskon 50%</option><option value="free_cup">Gratis 1 cup</option></select></label>
+                <label class="text-xs">Voucher pelanggan
+                    <select x-model="loyalty_reward" @change="if (loyalty_reward) discount = 0" class="mt-1 h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900">
+                        <option value="">Tidak menggunakan voucher</option>
+                        @foreach (['physical_fifth' => 'Kartu fisik ke-5: diskon 50%', 'physical_tenth' => 'Kartu fisik ke-10: gratis 1 cup', 'fifty_percent' => 'Diskon 50%', 'free_cup' => 'Gratis 1 cup'] as $reward => $label)
+                            <option value="{{ $reward }}" @disabled(! $loyaltyEnabled && $sale->loyalty_reward !== $reward)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                    @unless ($loyaltyEnabled)
+                        <span class="mt-1 block text-[11px] text-gray-600 dark:text-gray-300">Kartu Loyalitas dinonaktifkan. Reward transaksi lama tetap dapat dipertahankan.</span>
+                    @endunless
+                </label>
             </div>
             <div x-show="payment_method === 'split'" class="grid gap-2 rounded-lg bg-gray-50 p-3 md:grid-cols-3 dark:bg-white/[.04]">
                 <template x-for="payment in payments" :key="payment.method"><label class="text-xs"><span x-text="payment.label"></span><input x-model.number="payment.amount" min="0" type="number" class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900" /></label></template>

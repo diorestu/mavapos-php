@@ -2300,24 +2300,28 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     },
 
     get automaticLoyaltyReward() {
-        return ['fifty_percent', 'free_cup'].includes(this.loyaltyReward);
+        return ['fifty_percent', 'free_cup', 'physical_fifth', 'physical_tenth'].includes(this.loyaltyReward);
+    },
+
+    get physicalLoyaltyReward() {
+        return ['physical_fifth', 'physical_tenth'].includes(this.loyaltyReward);
     },
 
     selectLoyaltyReward() {
         if (this.automaticLoyaltyReward) {
             this.discount = '';
         }
-        if (this.loyaltyReward === 'physical_fifth') {
+        if (this.physicalLoyaltyReward) {
             this.loyaltyStamp = false;
         }
     },
 
     get discountValue() {
-        if (this.loyaltyReward === 'fifty_percent') {
+        if (['fifty_percent', 'physical_fifth'].includes(this.loyaltyReward)) {
             return Math.floor(this.subtotal / 2);
         }
-        if (this.loyaltyReward === 'free_cup') {
-            return Math.min(...this.cart.map((item) => Number(item.price)));
+        if (['free_cup', 'physical_tenth'].includes(this.loyaltyReward)) {
+            return this.cart.length ? Math.min(...this.cart.map((item) => Number(item.price))) : 0;
         }
         return Math.min(this.discountNumber, this.subtotal);
     },
@@ -2363,8 +2367,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             ? this.splitRemaining === 0 && this.splitMethodsAreUnique
             : (this.paymentMethod !== 'cash' || this.paid >= this.total);
 
-        const loyaltyComplete = (!(this.loyaltyStamp || this.loyaltyReward) || Boolean(this.customerPhone.trim()))
-            && (this.loyaltyReward !== 'physical_fifth' || this.discountValue > 0);
+        const loyaltyComplete = !(this.loyaltyStamp || this.loyaltyReward) || Boolean(this.customerPhone.trim());
 
         return Boolean(this.shift) && !this.checkoutLoading && this.cart.length > 0 && (!this.cashierFeatures.buyerNationality || Boolean(this.buyerNationality)) && loyaltyComplete && paymentComplete;
     },

@@ -1,16 +1,16 @@
-# Diskon kartu fisik, pemeriksaan UI
+# Reward standar kartu fisik, pemeriksaan UI
 
 Tanggal: 3 Oktober 2026. Antislop diterapkan selama pengerjaan sesuai pilihan pengguna.
 
 ## Lingkup dan arah
 
-Pemeriksaan ini mencakup kontrol diskon dan loyalitas yang diubah pada kasir serta pilihan kartu fisik pada form koreksi penjualan. Bukan audit seluruh aplikasi.
+Pemeriksaan ini mencakup kontrol diskon dan loyalitas yang diubah pada kasir, pilihan kartu fisik pada form koreksi penjualan, serta sakelar Kartu Loyalitas di Pengaturan Produk > Fitur Kasir. Bukan audit seluruh aplikasi.
 
 Reading this as: form kasir untuk staf toko, mengikuti tampilan MavaPOS yang sudah ada, ENERGY 1 / RHYTHM 1 / MOTION 1.
 
 - Warna dan tipografi mengikuti token aplikasi agar kasir tetap mengenali kontrol dan angka transaksi.
 - Pilihan kartu fisik berada dalam dropdown loyalitas yang sudah ada agar tidak menambah panel atau langkah baru.
-- Nominal diskon tetap dapat diisi karena kartu fisik memakai diskon yang dimasukkan kasir.
+- Kartu fisik mengikuti standar: 5 stempel mendapat diskon 50%, 10 stempel mendapat gratis 1 cup termurah. Nominal dihitung server dan ditampilkan otomatis pada kolom diskon yang dinonaktifkan.
 - Kontrol diskon dan dropdown setinggi 44 px untuk penggunaan layar sentuh.
 - Petunjuk berada langsung di bawah dropdown; checkbox penambahan cup disembunyikan pada kartu fisik agar stempel tidak dihitung dua kali.
 - Total pembayaran tetap menjadi fokus. Tidak menambah ikon, ilustrasi, kartu dekoratif, atau animasi.
@@ -19,23 +19,28 @@ Reading this as: form kasir untuk staf toko, mengikuti tampilan MavaPOS yang sud
 
 Browser memakai server lokal dengan SQLite dan akun uji terpisah di /tmp/mava-physical-fifth-qa. Tidak memakai database operasional.
 
-1. Diskon Rp7.000 lalu pilihan kartu fisik: nominal tetap Rp7.000; subtotal Rp20.000 menjadi total Rp13.000.
-2. Diskon 0: tombol pembayaran dinonaktifkan.
+1. Input diskon Rp7.000 lalu pilih kartu fisik ke-5: kolom berubah otomatis menjadi Rp10.000; subtotal Rp20.000 menjadi total Rp10.000.
+2. Kartu fisik ke-10 dengan 3 cup masing-masing Rp20.000: subtotal Rp60.000, diskon Rp20.000, total Rp40.000. Hanya satu cup gratis.
 3. Nomor pelanggan kosong: tombol pembayaran dinonaktifkan.
-4. Nomor terisi, nominal positif, kewarganegaraan dan pembayaran lengkap: tombol pembayaran aktif.
+4. Nomor terisi, kewarganegaraan dan pembayaran lengkap: tombol pembayaran aktif tanpa input diskon manual.
 5. Checkbox penambahan stempel dicentang lalu kartu fisik dipilih: checkbox dinonaktifkan dan disembunyikan.
 6. Reward digital 50%: input nominal dinonaktifkan; perhitungan memakai reward otomatis.
 7. Reward gratis cup: total produk uji Rp20.000 menjadi Rp0.
-8. Pembayaran QRIS uji kartu fisik: modal sukses menampilkan Rp13.000. Database mencatat physical_fifth, discount 7000, total 13000, stamp_count 5, fifty_reward_available 0.
-9. Penggunaan ulang pelanggan yang sama: pesan 'Stempel ke-5 pelanggan sudah digunakan.'; tidak membuat transaksi kedua.
+8. Pembayaran QRIS ke-5: modal sukses menampilkan Rp10.000; database mencatat physical_fifth, discount 10000, total 10000. Pembayaran ke-10: physical_tenth, discount 20000, total 40000; pelanggan kembali ke stamp_count 0 dan kedua reward tidak tersedia.
+9. Tes penolakan penggunaan ulang ke-5 tetap lolos; setelah ke-10, tes penggunaan kartu berikutnya berhasil. Penanda fisik merupakan konfirmasi kasir atas kartu pelanggan, bukan verifikasi kartu fisik otomatis.
 10. Keranjang kosong: pesan untuk memilih produk dan tombol pembayaran nonaktif. Sesudah transaksi berhasil, nominal dan pilihan direset.
-11. Tab dari input diskon menuju dropdown loyalitas: elemen SELECT mendapat fokus dan ring 3 px.
+11. Setelah memilih reward fisik, Tab dari dropdown menuju tombol pembayaran; kolom diskon nonaktif dilewati. Ring fokus terlihat pada tombol pembayaran. Label dan ring dropdown tetap dipertahankan.
 12. Lebar 390 px, terang dan gelap: scrollWidth sama dengan viewportWidth (390), dropdown 44 px, petunjuk membungkus tanpa keluar kontainer. Desktop juga tidak meluap (1280 px).
-13. Form koreksi admin: physical_fifth terpilih dari transaksi tersimpan; pilihan tanpa voucher lalu kembali ke kartu fisik tidak menghapus nominal. Nominal diubah menjadi Rp8.000, simpan berhasil, daftar penjualan menampilkan diskon Rp8.000 dan total Rp12.000.
+13. Form koreksi admin menampilkan pilihan fisik yang tersimpan dan diskon nonaktif. Transaksi ke-10 dikoreksi dari 3 cup menjadi 2 cup: simpan berhasil, subtotal Rp40.000, diskon satu cup Rp20.000, total Rp20.000. Tes koreksi ke-5 menghitung ulang diskon 50%.
 14. Console diperiksa setelah checkout dan koreksi: tidak ada error atau warning JavaScript yang tertangkap.
 15. Loading menggunakan checkoutLoading dan label proses yang sudah ada; diperiksa pada kode. Tidak mengklaim merekam screenshot loading singkat.
+16. Sakelar Kartu Loyalitas dimatikan dari form pengaturan lalu Simpan: pesan berhasil muncul, dropdown loyalitas hilang pada kasir. Diaktifkan dan disimpan kembali: dropdown muncul lagi.
+17. Tes menolak checkout dengan empat jenis reward dan penambahan stempel saat fitur nonaktif; data pelanggan dan transaksi tidak berubah. Diskon manual biasa tetap bisa dipakai.
+18. Pengaturan terpisah untuk cabang dan pemilik toko diuji melalui route settings.update. Reward lama bisa dipertahankan saat koreksi, tetapi penambahan reward baru ditolak jika fitur mati.
+19. Sakelar native dapat ditoggle memakai Space; fokus memiliki ring. Halaman pengaturan pada 390 px, terang dan gelap, tidak meluap (scrollWidth 390). Checkbox tidak menyusut ketika keterangan membungkus.
+20. Console pengaturan tidak memiliki warning/error yang tertangkap; screenshot tambahan: loyalty-setting-light.png dan loyalty-setting-dark.png, seluruhnya data uji.
 
-Screenshot bukti ada di folder visualizations chat: physical-fifth-light.png dan physical-fifth-dark.png. Seluruh data pada screenshot adalah fixture uji.
+Screenshot terkini ada di folder visualizations chat: loyalty-standard-light.png dan loyalty-standard-dark.png. Screenshot physical-fifth-light.png dan physical-fifth-dark.png adalah versi nominal manual terdahulu yang telah diganti. Seluruh data pada screenshot adalah fixture uji.
 
 ## Delivery Gate antislop
 
@@ -58,7 +63,7 @@ Status berlaku pada bagian yang diubah; item yang tidak diperkenalkan diberi buk
 | R-13 | PASS | Ring hanya pada fokus kontrol, tanpa glow dekoratif. |
 | R-14 | PASS | Tidak menambah feature card. |
 | R-15 | PASS | Opsi menjelaskan penggunaan stempel ke-5; CTA pembayaran tetap tindakan konkret. |
-| R-16 | PASS | Copy menyebut nomor, diskon, stempel dan transaksi; tanpa buzzword. |
+| R-16 | PASS | Copy menyebut jumlah stempel, diskon 50%, satu cup dan nomor; tanpa buzzword. |
 | R-17 | PASS | Angka 5 dan 10 adalah aturan reward; total dan diskon berasal dari input dan transaksi. |
 | R-18 | PASS | Tidak menambah testimonial atau identitas fiktif pada produk. |
 | R-19 | PASS | Tidak menambah animasi; dial MOTION 1 untuk kontrol ini. |
@@ -77,7 +82,7 @@ Status berlaku pada bagian yang diubah; item yang tidak diperkenalkan diberi buk
 | R-32 | PASS | Label native terpisah dari checkbox, tidak memakai ID duplikat pada dua keranjang; fokus Tab diamati (11). |
 | R-33 | PASS | Perubahan ditulis langsung pada Blade dan JavaScript melalui patch, tanpa script penggantian sumber/CSS. |
 | R-34 | PASS | Screenshot terang dan gelap pada 390 px; tidak ada overflow (12). |
-| R-35 | PASS | npm run build berhasil; interaksi kontrol yang berubah tercatat pada 1-14. |
+| R-35 | PASS | npm run build berhasil; interaksi kontrol yang berubah tercatat pada 1-14 dan 16-20. |
 | R-36 | PASS | Tidak menambah klaim keamanan, kepatuhan, performa atau pelanggan. |
 | R-37 | PASS | Arah mengikuti form kasir yang sudah ada; Design Read dan dial ditulis sebelum implementasi. |
 | R-38 | PASS | Tidak menambah isi fiktif pada produk; browser memakai fixture uji yang dijelaskan. |
@@ -86,10 +91,10 @@ Status berlaku pada bagian yang diubah; item yang tidak diperkenalkan diberi buk
 
 ## Verifikasi dan batas
 
-- Tes terkait: 17 lolos, 110 assertions (LoyaltyCardCheckoutTest, AdminSaleAndShiftEditTest, PosCustomerCheckoutTest).
+- Tes terkait: 24 lolos, 162 assertions (LoyaltyCardCheckoutTest, AdminSaleAndShiftEditTest, PosCustomerCheckoutTest).
 - Build frontend: berhasil.
 - git diff --check: berhasil.
-- Full suite: 168 lolos, 7 gagal, 1025 assertions. Kegagalan yang sama sudah muncul sebelum perubahan UI; tidak diperbaiki dalam lingkup ini:
+- Full suite: 175 lolos, 7 gagal, 1077 assertions. Kegagalan yang sama sudah muncul sebelum perubahan UI; tidak diperbaiki dalam lingkup ini:
   - ExampleTest: payload checkout membawa pengaturan struk dan printer toko (paper_width integer 80 dibanding string '80').
   - ExampleTest: owner dapat mengelola user dan role staf (branch_id wajib untuk kasir).
   - PosCashierShiftTest: kasir wajib mulai shift sebelum checkout dan report menampilkan pendapatan per kasir ($owner tidak didefinisikan).

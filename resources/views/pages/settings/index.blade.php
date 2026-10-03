@@ -366,8 +366,8 @@
                         </div>
 
                         <div class="border-t border-gray-100 pt-5 dark:border-gray-800">
-                            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Field di Halaman Kasir</h3>
-                            <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Pilih informasi dan metode pembayaran yang ingin ditampilkan kepada kasir.</p>
+                            <h3 class="text-sm font-semibold text-gray-800 dark:text-white/90">Fitur Kasir</h3>
+                            <p class="mt-0.5 text-xs text-gray-600 dark:text-gray-300">Atur fitur yang digunakan kasir di cabang ini.</p>
                             <div class="mt-3 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                                 @foreach ([
                                     'cashier_buyer_nationality_enabled' => 'Kewarganegaraan Pembeli',
@@ -375,8 +375,13 @@
                                     'cashier_split_payment_enabled' => 'Split Payment',
                                 ] as $field => $label)
                                     <label class="flex min-h-11 items-center justify-between gap-3 rounded-lg border border-gray-200 px-3 py-2 dark:border-gray-800">
-                                        <span class="text-sm font-medium text-gray-700 dark:text-gray-300">{{ $label }}</span>
-                                        <input type="checkbox" name="{{ $field }}" value="1" @checked(old($field, $setting->{$field} ?? true)) class="h-4 w-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500/20">
+                                        <span class="min-w-0">
+                                            <span class="block text-sm font-medium text-gray-700 dark:text-gray-300">{{ $label }}</span>
+                                            @if ($field === 'cashier_loyalty_card_enabled')
+                                                <span class="mt-1 block text-xs leading-relaxed text-gray-600 dark:text-gray-300">5 stempel: diskon 50%. 10 stempel: gratis 1 cup. Berlaku untuk kartu fisik dan digital di cabang ini.</span>
+                                            @endif
+                                        </span>
+                                        <input type="checkbox" name="{{ $field }}" value="1" @checked(old($field, $setting->{$field} ?? true)) class="h-4 w-4 shrink-0 rounded border-gray-300 text-brand-500 focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900">
                                     </label>
                                 @endforeach
                             </div>

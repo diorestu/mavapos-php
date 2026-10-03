@@ -6,6 +6,7 @@ use App\Models\PosSale;
 use App\Models\Product;
 use App\Models\ProductRecipeItem;
 use App\Models\RawMaterial;
+use App\Models\StoreSetting;
 use App\Models\User;
 use App\Support\BranchContext;
 use App\Support\BranchInventoryManager;
@@ -13,7 +14,7 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-test('editing a physical fifth stamp sale preserves its entered discount and consumed reward', function () {
+test('editing a physical fifth stamp sale recalculates fifty percent and preserves the consumed reward', function () {
     $cashier = User::factory()->create(['role' => 'admin']);
     $this->actingAs($cashier);
     $branch = app(BranchContext::class)->active();
@@ -23,16 +24,18 @@ test('editing a physical fifth stamp sale preserves its entered discount and con
     $this->postJson(route('pos.shift.start'), ['opening_cash_amount' => 100000])->assertOk();
     $checkout = $this->postJson(route('pos.checkout'), ['items' => [['id' => 'product-EDIT-PHYSICAL', 'quantity' => 1]], 'payment_method' => 'qris', 'customer_phone' => $customer->phone, 'discount' => 7000, 'loyalty_reward' => 'physical_fifth'])->assertOk();
     $sale = PosSale::query()->where('invoice_number', $checkout->json('sale.invoice_number'))->firstOrFail();
+    StoreSetting::current()->update(['cashier_loyalty_card_enabled' => false]);
 
     $edit = ['items' => [['id' => 'product-EDIT-PHYSICAL', 'quantity' => 2]], 'payment_method' => 'qris', 'customer_id' => $customer->id, 'loyalty_reward' => 'physical_fifth', 'discount' => 8000, 'reason' => 'Koreksi jumlah'];
     $this->putJson(route('sales.update', $sale), $edit)->assertOk();
-    expect($sale->fresh()->discount)->toBe(8000)
-        ->and($sale->fresh()->total)->toBe(32000)
+    expect($sale->fresh()->discount)->toBe(20000)
+        ->and($sale->fresh()->total)->toBe(20000)
         ->and($customer->fresh()->loyalty_stamp_count)->toBe(5)
         ->and($customer->fresh()->loyalty_fifty_reward_available)->toBeFalse();
 
     $this->putJson(route('sales.update', $sale), [...$edit, 'loyalty_reward' => null, 'discount' => 0])->assertOk();
     expect($customer->fresh()->loyalty_fifty_reward_available)->toBeTrue();
+    $this->putJson(route('sales.update', $sale), $edit)->assertUnprocessable();
 });
 
 test('admin can edit sale items and the inventory, recipe usage, and shift summary follow the change', function () {
