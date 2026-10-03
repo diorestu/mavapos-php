@@ -93,19 +93,26 @@
             <label class="flex items-center justify-between gap-3 text-xs">
                 <span class="text-gray-500 dark:text-gray-400">Diskon</span>
                 <input type="text" inputmode="numeric" autocomplete="off" :value="formatInputNumber(discount)" @input="onMoneyInput('discount', $event)" placeholder="0"
-                    :disabled="loyaltyReward"
-                    class="h-8 w-28 rounded-lg border border-gray-300 bg-transparent px-2.5 text-right text-xs tabular-nums text-gray-800 shadow-theme-xs focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+                    :disabled="automaticLoyaltyReward"
+                    class="h-11 w-28 rounded-lg border border-gray-300 bg-transparent px-2.5 text-right text-xs tabular-nums text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
             </label>
-            <label x-show="cashierFeatures.loyaltyCard" class="block text-xs">
-                <span class="mb-1 block text-gray-500 dark:text-gray-400">Kartu Loyalitas</span>
-                <span class="mb-2 flex items-center gap-2 text-[11px] text-gray-600 dark:text-gray-300"><input x-model="loyaltyStamp" type="checkbox" class="rounded border-gray-300 text-brand-500 focus:ring-brand-500" /> Tambahkan stempel sesuai jumlah cup (1 cup = 1 stempel)</span>
-                <select x-model="loyaltyReward" @change="discount = ''" class="h-8 w-full rounded-lg border border-gray-300 bg-transparent px-2 text-xs text-gray-800 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
-                    <option value="">Tidak digunakan</option>
-                    <option value="fifty_percent">Reward stempel ke-5 — Diskon 50%</option>
-                    <option value="free_cup">Reward stempel ke-10 — Gratis 1 cup</option>
-                </select>
-                <span x-show="loyaltyStamp || loyaltyReward" class="mt-1 block text-[10px] text-warning-600">Nomor pelanggan wajib. Stempel hanya diberikan saat pilihan ini dicentang.</span>
-            </label>
+            <div x-show="cashierFeatures.loyaltyCard" class="text-xs">
+                <label class="block">
+                    <span class="mb-1 block text-gray-600 dark:text-gray-300">Kartu Loyalitas</span>
+                    <select x-model="loyaltyReward" @change="selectLoyaltyReward()" class="h-11 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2 text-xs text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                        <option value="">Tidak digunakan</option>
+                        <option value="physical_fifth">Kartu fisik: stempel ke-5 digunakan</option>
+                        <option value="fifty_percent">Reward digital ke-5: diskon 50%</option>
+                        <option value="free_cup">Reward digital ke-10: gratis 1 cup</option>
+                    </select>
+                </label>
+                <p class="mt-1 text-[11px] leading-relaxed text-gray-600 dark:text-gray-300" x-text="loyaltyReward === 'physical_fifth' ? 'Isi nomor pelanggan dan nominal diskon. Stempel ke-5 dicatat sudah digunakan saat transaksi berhasil.' : 'Reward digital mengikuti stempel yang tercatat di sistem.'"></p>
+                <label x-show="loyaltyReward !== 'physical_fifth'" class="mt-1 flex min-h-11 cursor-pointer items-center gap-2 text-[11px] text-gray-600 dark:text-gray-300">
+                    <input x-model="loyaltyStamp" type="checkbox" :disabled="loyaltyReward === 'physical_fifth'" class="h-4 w-4 shrink-0 rounded border-gray-300 text-brand-500 focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:focus:ring-offset-gray-900" />
+                    Tambahkan stempel (1 cup = 1 stempel)
+                </label>
+                <p x-show="loyaltyStamp || automaticLoyaltyReward" class="text-[11px] text-gray-600 dark:text-gray-300">Nomor pelanggan wajib diisi.</p>
+            </div>
             <div class="flex items-center justify-between border-t border-gray-100 pt-2 dark:border-gray-800">
                 <span class="text-sm font-semibold text-gray-800 dark:text-white/90">Total</span>
                 <span class="text-lg font-bold tabular-nums text-gray-900 dark:text-white" x-text="formatRupiah(total)"></span>

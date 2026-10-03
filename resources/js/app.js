@@ -2299,6 +2299,19 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         return this.numberFromInput(this.discount);
     },
 
+    get automaticLoyaltyReward() {
+        return ['fifty_percent', 'free_cup'].includes(this.loyaltyReward);
+    },
+
+    selectLoyaltyReward() {
+        if (this.automaticLoyaltyReward) {
+            this.discount = '';
+        }
+        if (this.loyaltyReward === 'physical_fifth') {
+            this.loyaltyStamp = false;
+        }
+    },
+
     get discountValue() {
         if (this.loyaltyReward === 'fifty_percent') {
             return Math.floor(this.subtotal / 2);
@@ -2350,7 +2363,10 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             ? this.splitRemaining === 0 && this.splitMethodsAreUnique
             : (this.paymentMethod !== 'cash' || this.paid >= this.total);
 
-        return Boolean(this.shift) && !this.checkoutLoading && this.cart.length > 0 && (!this.cashierFeatures.buyerNationality || Boolean(this.buyerNationality)) && (!this.cashierFeatures.loyaltyCard || (!(this.loyaltyStamp || this.loyaltyReward) || Boolean(this.customerPhone.trim()))) && paymentComplete;
+        const loyaltyComplete = (!(this.loyaltyStamp || this.loyaltyReward) || Boolean(this.customerPhone.trim()))
+            && (this.loyaltyReward !== 'physical_fifth' || this.discountValue > 0);
+
+        return Boolean(this.shift) && !this.checkoutLoading && this.cart.length > 0 && (!this.cashierFeatures.buyerNationality || Boolean(this.buyerNationality)) && loyaltyComplete && paymentComplete;
     },
 
     normalize(value) {
