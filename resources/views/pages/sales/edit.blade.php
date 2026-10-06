@@ -18,6 +18,19 @@
                 </div>
             </template>
             <button type="button" @click="lines.push({id: items[0]?.id, quantity: 1})" class="text-xs font-semibold text-brand-600">+ Tambah item</button>
+            @if ($onlineMerchantEnabled || $sale->online_merchant)
+                <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">Jenis penjualan
+                    <select x-model="online_merchant" class="mt-1 h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                        <option value="">Langsung</option>
+                        @foreach (\App\Models\PosSale::ONLINE_MERCHANTS as $merchant => $label)
+                            <option value="{{ $merchant }}" @disabled(! $onlineMerchantEnabled && $sale->online_merchant !== $merchant)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                    @unless ($onlineMerchantEnabled)
+                        <span class="mt-1 block text-xs text-gray-600 dark:text-gray-300">Online Merchant dinonaktifkan. Merchant transaksi lama tetap dapat dipertahankan.</span>
+                    @endunless
+                </label>
+            @endif
             <div class="grid gap-3 md:grid-cols-3">
                 <label class="text-xs">Metode bayar<select x-model="payment_method" class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900"><option value="cash">Tunai</option><option value="qris">QRIS</option><option value="card">Kartu</option><option value="split">Split Payment</option><option value="free">Gratis</option></select></label>
                 <label class="text-xs">Diskon<input x-model.number="discount" :disabled="Boolean(loyalty_reward)" min="0" type="number" class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900" /><span x-show="loyalty_reward" class="mt-1 block text-[11px] text-gray-600 dark:text-gray-300">Dihitung ulang otomatis saat koreksi disimpan.</span></label>
@@ -47,6 +60,46 @@
         </form>
     </div>
     <script>
-        function saleEditor(sale, items) { const existing = Object.fromEntries((sale.payments || []).map(p => [p.payment_method, p.amount])); return { items, lines: sale.items.map(i => ({ id: i.product_variant_id ? 'variant-' + i.product_variant_id : 'product-' + i.sku, quantity: i.quantity })), payment_method: sale.payment_method, discount: sale.discount, paid_amount: sale.paid_amount, customer_id: sale.customer_id ? String(sale.customer_id) : '', loyalty_reward: sale.loyalty_reward || '', payments: [{method: 'cash', label: 'Tunai', amount: existing.cash || 0}, {method: 'qris', label: 'QRIS', amount: existing.qris || 0}, {method: 'card', label: 'Kartu', amount: existing.card || 0}], buyer_nationality: sale.buyer_nationality || '', reason: '', loading: false, error: '', async submit() { this.loading = true; this.error = ''; const response = await fetch(@js(route('sales.update', $sale)), { method: 'PUT', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content }, body: JSON.stringify({ items: this.lines, payment_method: this.payment_method, discount: this.discount || 0, paid_amount: this.paid_amount || 0, customer_id: this.customer_id || null, loyalty_reward: this.loyalty_reward || null, payments: this.payment_method === 'split' ? this.payments.filter(p => Number(p.amount) > 0).map(p => ({method: p.method, amount: Number(p.amount)})) : null, buyer_nationality: this.buyer_nationality || null, reason: this.reason }) }); if (response.ok) { window.location = @js(route('sales')); return; } const data = await response.json(); this.error = data.message || 'Koreksi gagal disimpan.'; this.loading = false; } } }
+        function saleEditor(sale, items) {
+            const existing = Object.fromEntries((sale.payments || []).map(p => [p.payment_method, p.amount]));
+            return {
+                items,
+                lines: sale.items.map(i => ({ id: i.product_variant_id ? 'variant-' + i.product_variant_id : 'product-' + i.sku, quantity: i.quantity })),
+                payment_method: sale.payment_method,
+                online_merchant: sale.online_merchant || '',
+                discount: sale.discount,
+                paid_amount: sale.paid_amount,
+                customer_id: sale.customer_id ? String(sale.customer_id) : '',
+                loyalty_reward: sale.loyalty_reward || '',
+                payments: [{method: 'cash', label: 'Tunai', amount: existing.cash || 0}, {method: 'qris', label: 'QRIS', amount: existing.qris || 0}, {method: 'card', label: 'Kartu', amount: existing.card || 0}],
+                buyer_nationality: sale.buyer_nationality || '',
+                reason: '', loading: false, error: '',
+                async submit() {
+                    this.loading = true;
+                    this.error = '';
+                    try {
+                        const response = await fetch(@js(route('sales.update', $sale)), {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content },
+                            body: JSON.stringify({
+                                items: this.lines, payment_method: this.payment_method,
+                                online_merchant: this.online_merchant || null,
+                                discount: this.discount || 0, paid_amount: this.paid_amount || 0,
+                                customer_id: this.customer_id || null, loyalty_reward: this.loyalty_reward || null,
+                                payments: this.payment_method === 'split' ? this.payments.filter(p => Number(p.amount) > 0).map(p => ({method: p.method, amount: Number(p.amount)})) : null,
+                                buyer_nationality: this.buyer_nationality || null, reason: this.reason,
+                            }),
+                        });
+                        if (response.ok) { window.location = @js(route('sales')); return; }
+                        const data = await response.json();
+                        this.error = data.message || 'Koreksi gagal disimpan.';
+                    } catch (error) {
+                        this.error = 'Koreksi gagal disimpan. Periksa koneksi lalu coba lagi.';
+                    } finally {
+                        this.loading = false;
+                    }
+                },
+            };
+        }
     </script>
 @endsection

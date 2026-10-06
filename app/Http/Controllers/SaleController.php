@@ -35,7 +35,7 @@ class SaleController extends Controller
                     ->merge($product->variants->map(fn ($variant) => ['id' => 'variant-'.$variant->id, 'name' => $product->name.' · '.$variant->name, 'price' => $product->sell_price + $variant->sell_price]));
             })->values();
 
-        return view('pages.sales.edit', compact('sale', 'items') + ['title' => 'Edit Transaksi', 'loyaltyEnabled' => StoreSetting::current()->cashier_loyalty_card_enabled, 'customers' => Customer::query()->where('status', 'aktif')->orderBy('name')->get(['id', 'name', 'phone'])]);
+        return view('pages.sales.edit', compact('sale', 'items') + ['title' => 'Edit Transaksi', 'onlineMerchantEnabled' => StoreSetting::current()->cashier_online_merchant_enabled, 'loyaltyEnabled' => StoreSetting::current()->cashier_loyalty_card_enabled, 'customers' => Customer::query()->where('status', 'aktif')->orderBy('name')->get(['id', 'name', 'phone'])]);
     }
 
     public function index(Request $request): View
@@ -193,6 +193,8 @@ class SaleController extends Controller
             'discount' => ['nullable', 'integer', 'min:0'],
             'paid_amount' => ['nullable', 'integer', 'min:0'],
             'buyer_nationality' => ['nullable', 'in:local,foreigner'],
+            'sales_channel' => ['nullable', 'in:direct,online'],
+            'online_merchant' => ['nullable', 'required_if:sales_channel,online', 'prohibited_if:sales_channel,direct', 'in:'.implode(',', array_keys(PosSale::ONLINE_MERCHANTS))],
             'customer_id' => ['nullable', 'integer', 'exists:customers,id'],
             'loyalty_reward' => ['nullable', 'in:fifty_percent,free_cup,physical_fifth,physical_tenth'],
             'reason' => ['required', 'string', 'max:500'],

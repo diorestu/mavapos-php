@@ -26,6 +26,14 @@ class AdminSaleEditorService
                 ->whereKey($sale->id)->where('branch_id', $branchId)->lockForUpdate()->firstOrFail();
             abort_if($sale->voided_at, 422, 'Transaksi yang sudah di-void tidak dapat diedit.');
 
+            $onlineMerchant = array_key_exists('online_merchant', $data) ? $data['online_merchant'] : $sale->online_merchant;
+            if (($data['sales_channel'] ?? null) === 'direct') {
+                $onlineMerchant = null;
+            }
+            if ($onlineMerchant && $onlineMerchant !== $sale->online_merchant) {
+                abort_unless(StoreSetting::current()->cashier_online_merchant_enabled, 422, 'Online Merchant dinonaktifkan di pengaturan cabang ini.');
+            }
+
             $this->restorePreviousState($sale, $branchId, $actor, $data['reason']);
             $sale->items()->delete();
             $sale->rawMaterialUsages()->delete();
@@ -77,6 +85,7 @@ class AdminSaleEditorService
                 'complimentary_category' => $isFree ? ($data['complimentary_category'] ?? null) : null,
                 'complimentary_recipient_name' => $isFree ? ($data['complimentary_recipient_name'] ?? null) : null,
                 'buyer_nationality' => $data['buyer_nationality'] ?? null,
+                'online_merchant' => $onlineMerchant,
                 'subtotal' => $subtotal, 'discount' => $discount, 'total' => $total,
                 'paid_amount' => $paid, 'change_amount' => max(0, $paid - $total),
             ]);

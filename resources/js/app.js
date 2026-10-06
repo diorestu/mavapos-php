@@ -2150,6 +2150,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         buyerNationality: cashierFeatures.cashier_buyer_nationality_enabled !== false,
         loyaltyCard: cashierFeatures.cashier_loyalty_card_enabled !== false,
         splitPayment: cashierFeatures.cashier_split_payment_enabled !== false,
+        onlineMerchant: cashierFeatures.cashier_online_merchant_enabled === true,
     },
     sopModal: false,
     showMobileCart: false,
@@ -2199,6 +2200,8 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     customerName: '',
     customerPhone: '',
     buyerNationality: '',
+    salesChannel: 'direct',
+    onlineMerchant: '',
     printPreferences: {
         autoPrint: false,
         closeAfterPrint: false,
@@ -2369,7 +2372,9 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
         const loyaltyComplete = !(this.loyaltyStamp || this.loyaltyReward) || Boolean(this.customerPhone.trim());
 
-        return Boolean(this.shift) && !this.checkoutLoading && this.cart.length > 0 && (!this.cashierFeatures.buyerNationality || Boolean(this.buyerNationality)) && loyaltyComplete && paymentComplete;
+        const merchantComplete = !this.cashierFeatures.onlineMerchant || this.salesChannel !== 'online' || Boolean(this.onlineMerchant);
+
+        return Boolean(this.shift) && !this.checkoutLoading && this.cart.length > 0 && (!this.cashierFeatures.buyerNationality || Boolean(this.buyerNationality)) && loyaltyComplete && paymentComplete && merchantComplete;
     },
 
     normalize(value) {
@@ -2593,6 +2598,8 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
     clearCart() {
         this.cart = [];
+        this.salesChannel = 'direct';
+        this.onlineMerchant = '';
         this.discount = '';
         this.loyaltyReward = '';
         this.loyaltyStamp = false;
@@ -3506,6 +3513,10 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     },
 
     async checkout(isComplimentary = false) {
+        if (this.cashierFeatures.onlineMerchant && this.salesChannel === 'online' && !this.onlineMerchant) {
+            notify('Pilih merchant sebelum menyelesaikan transaksi.', 'error');
+            return;
+        }
         if (!isComplimentary && !this.canCheckout) {
             notify('Lengkapi pembayaran sebelum checkout.', 'error');
             return;
@@ -3539,6 +3550,8 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                     customer_name: this.customerName.trim() || null,
                     customer_phone: this.customerPhone.trim() || null,
                     buyer_nationality: this.buyerNationality,
+                    sales_channel: this.cashierFeatures.onlineMerchant ? this.salesChannel : 'direct',
+                    online_merchant: this.cashierFeatures.onlineMerchant && this.salesChannel === 'online' ? this.onlineMerchant : null,
                     loyalty_reward: isComplimentary ? null : (this.loyaltyReward || null),
                     loyalty_stamp: isComplimentary ? false : this.loyaltyStamp,
                 }),

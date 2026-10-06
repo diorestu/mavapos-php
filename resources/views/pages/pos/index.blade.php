@@ -505,6 +505,7 @@
                         <div>
                             <p class="text-[10px] font-medium uppercase text-gray-400">Pembayaran</p>
                             <p class="mt-1 font-semibold text-gray-800 dark:text-white/90" x-text="paymentLabel(lastReceipt?.payment_method)"></p>
+                            <p x-show="lastReceipt?.online_merchant_label" class="mt-1 text-xs text-gray-600 dark:text-gray-300" x-text="lastReceipt?.online_merchant_label"></p>
                         </div>
                         <div>
                             <p class="text-[10px] font-medium uppercase text-gray-400">Total</p>

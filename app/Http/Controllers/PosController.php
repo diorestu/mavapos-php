@@ -87,6 +87,8 @@ class PosController extends Controller
                 'lastClosedShift' => $lastClosedShiftPayload,
                 'categories' => $categoriesPayload,
                 'items' => $itemsPayload,
+                'cashierFeatures' => StoreSetting::current()->only(['cashier_online_merchant_enabled']),
+                'onlineMerchants' => PosSale::ONLINE_MERCHANTS,
             ]);
         }
 
@@ -102,6 +104,7 @@ class PosController extends Controller
                 'cashier_buyer_nationality_enabled',
                 'cashier_loyalty_card_enabled',
                 'cashier_split_payment_enabled',
+                'cashier_online_merchant_enabled',
             ]),
             'availableStaff' => User::query()->where('tenant_owner_id', auth()->user()->tenantOwnerId())->whereKeyNot($cashier->id)->whereIn('role', ['owner', 'admin', 'kasir'])->orderBy('name')->get(['id', 'name', 'role']),
         ]);
@@ -315,10 +318,16 @@ class PosController extends Controller
             'customer_name' => ['nullable', 'string', 'max:150'],
             'customer_phone' => ['nullable', 'string', 'max:30'],
             'buyer_nationality' => ['nullable', 'in:local,foreigner'],
+            'sales_channel' => ['nullable', 'in:direct,online'],
+            'online_merchant' => ['nullable', 'required_if:sales_channel,online', 'prohibited_if:sales_channel,direct', 'in:'.implode(',', array_keys(PosSale::ONLINE_MERCHANTS))],
             'loyalty_stamp' => ['nullable', 'boolean'],
             'loyalty_reward' => ['nullable', 'in:fifty_percent,free_cup,physical_fifth,physical_tenth'],
         ]);
         $branchId = app(BranchContext::class)->activeId();
+
+        if (! empty($validated['online_merchant'])) {
+            abort_unless(StoreSetting::current()->cashier_online_merchant_enabled, 422, 'Online Merchant dinonaktifkan di pengaturan cabang ini.');
+        }
 
         if (($validated['loyalty_stamp'] ?? false) || ! empty($validated['loyalty_reward'])) {
             abort_unless(StoreSetting::current()->cashier_loyalty_card_enabled, 422, 'Kartu Loyalitas dinonaktifkan di pengaturan cabang ini.');
@@ -413,6 +422,7 @@ class PosController extends Controller
                 'user_id' => $this->activeCashier()->id,
                 'customer_id' => $customer?->id,
                 'buyer_nationality' => $validated['buyer_nationality'] ?? null,
+                'online_merchant' => $validated['online_merchant'] ?? null,
                 'loyalty_reward' => $loyaltyReward,
                 'invoice_number' => $this->nextInvoiceNumber(),
                 'payment_method' => $validated['payment_method'],
@@ -564,6 +574,8 @@ class PosController extends Controller
                     'amount' => $payment->amount,
                 ])->values(),
                 'buyer_nationality' => $sale->buyer_nationality,
+                'online_merchant' => $sale->online_merchant,
+                'online_merchant_label' => PosSale::ONLINE_MERCHANTS[$sale->online_merchant] ?? null,
                 'loyalty_reward' => $sale->loyalty_reward,
                 'loyalty_stamp_count' => $sale->customer?->fresh()->loyalty_stamp_count,
                 'complimentary_category' => $sale->complimentary_category,

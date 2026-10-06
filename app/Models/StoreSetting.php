@@ -73,6 +73,7 @@ class StoreSetting extends Model
         'cashier_buyer_nationality_enabled',
         'cashier_loyalty_card_enabled',
         'cashier_split_payment_enabled',
+        'cashier_online_merchant_enabled',
     ];
 
     protected function casts(): array
@@ -102,6 +103,7 @@ class StoreSetting extends Model
             'cashier_buyer_nationality_enabled' => 'boolean',
             'cashier_loyalty_card_enabled' => 'boolean',
             'cashier_split_payment_enabled' => 'boolean',
+            'cashier_online_merchant_enabled' => 'boolean',
             'sales_bonus_tiers' => 'array',
         ];
     }
@@ -187,6 +189,7 @@ class StoreSetting extends Model
             'printer_label_font_size' => null,
             'cashier_buyer_nationality_enabled' => true,
             'cashier_loyalty_card_enabled' => true,
+            'cashier_online_merchant_enabled' => false,
             'cashier_split_payment_enabled' => true,
         ];
     }

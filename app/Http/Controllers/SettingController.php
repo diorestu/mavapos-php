@@ -164,6 +164,7 @@ class SettingController extends Controller
             'cashier_buyer_nationality_enabled',
             'cashier_loyalty_card_enabled',
             'cashier_split_payment_enabled',
+            'cashier_online_merchant_enabled',
         ];
     }
 }

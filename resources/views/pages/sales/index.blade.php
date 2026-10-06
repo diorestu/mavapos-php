@@ -230,6 +230,9 @@
                                                 <span class="mt-1 block text-[11px] text-error-600">{{ $sale->void_reason }} · {{ $sale->voidedBy?->name ?? 'User dihapus' }}</span>
                                             @endif
                                             <span class="mt-1 block text-[11px] text-gray-500 dark:text-gray-400">Shift #{{ $sale->cashier_shift_id }}</span>
+                                            @if ($sale->online_merchant)
+                                                <span class="mt-1 block text-xs text-gray-700 dark:text-gray-300">{{ \App\Models\PosSale::ONLINE_MERCHANTS[$sale->online_merchant] ?? $sale->online_merchant }}</span>
+                                            @endif
                                         </summary>
                                         <div class="mt-3 w-[520px] max-w-[calc(100vw-4rem)] rounded-lg border border-gray-200 bg-gray-50 p-3 dark:border-gray-800 dark:bg-gray-900/60">
                                             <p class="mb-2 text-xs font-semibold text-gray-700 dark:text-gray-300">Detail Item</p>

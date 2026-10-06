@@ -9,12 +9,20 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PosSale extends Model
 {
+    public const ONLINE_MERCHANTS = [
+        'shopeefood' => 'ShopeeFood',
+        'grabfood' => 'GrabFood',
+        'gofood' => 'GoFood by Gojek',
+        'tiktokfood' => 'TiktokFood',
+    ];
+
     protected $fillable = [
         'cashier_shift_id',
         'branch_id',
         'user_id',
         'customer_id',
         'buyer_nationality',
+        'online_merchant',
         'loyalty_reward',
         'invoice_number',
         'payment_method',

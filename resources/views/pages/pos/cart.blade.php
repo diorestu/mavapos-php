@@ -66,7 +66,26 @@
     </div>
 
     <!-- Totals & Payment Section -->
-    <div class="sticky bottom-0 shrink-0 rounded-b-xl border-t border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900/60">
+    <div :class="cashierFeatures.onlineMerchant && salesChannel === 'online' ? 'max-h-[calc(100dvh-10rem)] overflow-y-auto overscroll-contain xl:max-h-none xl:overflow-visible' : ''" class="sticky bottom-0 shrink-0 rounded-b-xl border-t border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-gray-900/60">
+        <div x-show="cashierFeatures.onlineMerchant" x-cloak class="mb-3 space-y-2">
+            <label class="block">
+                <span class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Jenis penjualan</span>
+                <select x-model="salesChannel" @change="onlineMerchant = ''" class="h-11 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2.5 text-xs text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                    <option value="direct">Langsung</option>
+                    <option value="online">Online Merchant</option>
+                </select>
+            </label>
+            <label x-show="salesChannel === 'online'" x-id="['merchant-help']" class="block">
+                <span class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Merchant <span class="text-error-500">*</span></span>
+                <select x-model="onlineMerchant" :required="cashierFeatures.onlineMerchant && salesChannel === 'online'" :aria-describedby="$id('merchant-help')" class="h-11 w-full min-w-0 rounded-lg border border-gray-300 bg-white px-2.5 text-xs text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                    <option value="">Pilih merchant</option>
+                    @foreach (\App\Models\PosSale::ONLINE_MERCHANTS as $value => $label)
+                        <option value="{{ $value }}">{{ $label }}</option>
+                    @endforeach
+                </select>
+                <span :id="$id('merchant-help')" class="mt-1 block text-xs text-gray-600 dark:text-gray-300" x-text="onlineMerchant ? 'Pilih metode pembayaran sesuai pembayaran yang diterima.' : 'Pilih merchant sebelum menyelesaikan transaksi.'"></span>
+            </label>
+        </div>
         <div class="mb-3 grid grid-cols-2 gap-2">
             <label class="block">
                 <span class="mb-1 block text-[10px] font-semibold text-gray-500 dark:text-gray-400">Nama pelanggan</span>
