@@ -20,7 +20,7 @@
             <button type="button" @click="lines.push({id: items[0]?.id, quantity: 1})" class="text-xs font-semibold text-brand-600">+ Tambah item</button>
             @if ($onlineMerchantEnabled || $sale->online_merchant)
                 <label class="block text-xs font-medium text-gray-700 dark:text-gray-300">Jenis penjualan
-                    <select x-model="online_merchant" class="mt-1 h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
+                    <select x-model="online_merchant" @change="useMerchantNet = Boolean(online_merchant); paid_amount = ''; if (!online_merchant && payment_method === 'online_merchant') payment_method = 'cash'" class="mt-1 h-11 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90">
                         <option value="">Langsung</option>
                         @foreach (\App\Models\PosSale::ONLINE_MERCHANTS as $merchant => $label)
                             <option value="{{ $merchant }}" @disabled(! $onlineMerchantEnabled && $sale->online_merchant !== $merchant)>{{ $label }}</option>
@@ -31,10 +31,14 @@
                     @endunless
                 </label>
             @endif
+            <div x-show="online_merchant && !useMerchantNet" class="rounded-lg border border-gray-200 p-3 text-xs text-gray-600 dark:border-gray-700 dark:text-gray-300">
+                <p>Transaksi lama tetap memakai pembayaran <span class="font-semibold" x-text="({cash: 'Tunai', qris: 'QRIS', card: 'Kartu', split: 'Split Payment', free: 'Gratis'})[payment_method] || payment_method"></span>.</p>
+                <button type="button" @click="useMerchantNet = true; paid_amount = ''" class="mt-2 min-h-11 font-semibold text-brand-600">Ubah ke pencatatan uang bersih</button>
+            </div>
             <div class="grid gap-3 md:grid-cols-3">
-                <label class="text-xs">Metode bayar<select x-model="payment_method" class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900"><option value="cash">Tunai</option><option value="qris">QRIS</option><option value="card">Kartu</option><option value="split">Split Payment</option><option value="free">Gratis</option></select></label>
+                <label x-show="!online_merchant" class="text-xs">Metode bayar<select x-model="payment_method" class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900"><option value="cash">Tunai</option><option value="qris">QRIS</option><option value="card">Kartu</option><option value="split">Split Payment</option><option value="free">Gratis</option></select></label>
                 <label class="text-xs">Diskon<input x-model.number="discount" :disabled="Boolean(loyalty_reward)" min="0" type="number" class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900" /><span x-show="loyalty_reward" class="mt-1 block text-[11px] text-gray-600 dark:text-gray-300">Dihitung ulang otomatis saat koreksi disimpan.</span></label>
-                <label class="text-xs">Uang diterima<input x-model.number="paid_amount" min="0" type="number" class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900" /></label>
+                <label class="text-xs"><span x-text="online_merchant && useMerchantNet ? 'Uang bersih diterima seller' : 'Uang diterima'"></span><input x-model.number="paid_amount" :required="Boolean(online_merchant) && useMerchantNet" min="0" type="number" class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900" /></label>
             </div>
             <div class="grid gap-3 md:grid-cols-2">
                 <label class="text-xs">Pelanggan<select x-model="customer_id" class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900"><option value="">Tanpa pelanggan</option>@foreach ($customers as $customer)<option value="{{ $customer->id }}">{{ $customer->name }}{{ $customer->phone ? ' · '.$customer->phone : '' }}</option>@endforeach</select></label>
@@ -50,7 +54,7 @@
                     @endunless
                 </label>
             </div>
-            <div x-show="payment_method === 'split'" class="grid gap-2 rounded-lg bg-gray-50 p-3 md:grid-cols-3 dark:bg-white/[.04]">
+            <div x-show="(!online_merchant || !useMerchantNet) && payment_method === 'split'" class="grid gap-2 rounded-lg bg-gray-50 p-3 md:grid-cols-3 dark:bg-white/[.04]">
                 <template x-for="payment in payments" :key="payment.method"><label class="text-xs"><span x-text="payment.label"></span><input x-model.number="payment.amount" min="0" type="number" class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900" /></label></template>
             </div>
             <label class="block text-xs">Kewarganegaraan<select x-model="buyer_nationality" class="mt-1 h-10 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-sm dark:border-gray-700 dark:bg-gray-900"><option value="">Belum dipilih</option><option value="local">Local</option><option value="foreigner">Foreigner</option></select></label>
@@ -67,6 +71,7 @@
                 lines: sale.items.map(i => ({ id: i.product_variant_id ? 'variant-' + i.product_variant_id : 'product-' + i.sku, quantity: i.quantity })),
                 payment_method: sale.payment_method,
                 online_merchant: sale.online_merchant || '',
+                useMerchantNet: sale.payment_method === 'online_merchant',
                 discount: sale.discount,
                 paid_amount: sale.paid_amount,
                 customer_id: sale.customer_id ? String(sale.customer_id) : '',
@@ -82,11 +87,12 @@
                             method: 'PUT',
                             headers: { 'Content-Type': 'application/json', 'Accept': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name=csrf-token]').content },
                             body: JSON.stringify({
-                                items: this.lines, payment_method: this.payment_method,
+                                items: this.lines, payment_method: this.online_merchant && this.useMerchantNet ? 'online_merchant' : this.payment_method,
+                                sales_channel: this.online_merchant ? (this.useMerchantNet ? 'online' : null) : 'direct',
                                 online_merchant: this.online_merchant || null,
-                                discount: this.discount || 0, paid_amount: this.paid_amount || 0,
+                                discount: this.discount || 0, paid_amount: this.online_merchant && this.paid_amount === '' ? null : (this.paid_amount ?? 0),
                                 customer_id: this.customer_id || null, loyalty_reward: this.loyalty_reward || null,
-                                payments: this.payment_method === 'split' ? this.payments.filter(p => Number(p.amount) > 0).map(p => ({method: p.method, amount: Number(p.amount)})) : null,
+                                payments: (!this.online_merchant || !this.useMerchantNet) && this.payment_method === 'split' ? this.payments.filter(p => Number(p.amount) > 0).map(p => ({method: p.method, amount: Number(p.amount)})) : null,
                                 buyer_nationality: this.buyer_nationality || null, reason: this.reason,
                             }),
                         });

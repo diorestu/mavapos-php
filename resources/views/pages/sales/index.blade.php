@@ -8,6 +8,7 @@
         'qris' => 'QRIS',
         'card' => 'Kartu',
         'free' => 'Gratis',
+        'online_merchant' => 'Online Merchant',
     ];
 @endphp
 
@@ -131,7 +132,7 @@
             <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Metode Pembayaran</p>
                 <p class="mt-2 text-sm font-semibold tabular-nums text-gray-900 dark:text-white">Tunai {{ $rupiah($summary['cash_total']) }}</p>
-                <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">QRIS {{ $rupiah($summary['qris_total']) }} · Kartu {{ $rupiah($summary['card_total']) }}</p>
+                <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">QRIS {{ $rupiah($summary['qris_total']) }} · Kartu {{ $rupiah($summary['card_total']) }} · Online Merchant {{ $rupiah($summary['online_merchant_total']) }}</p>
             </div>
         </section>
 
@@ -296,10 +297,14 @@
                                     @endif
                                 </td>
                                 <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">
+                                    @if ($sale->payment_method === 'online_merchant')
+                                        <span class="mt-1 block text-xs text-gray-600 dark:text-gray-300">Bersih diterima {{ $rupiah($sale->paid_amount) }}</span>
+                                        <span class="mt-1 block text-xs text-gray-500 dark:text-gray-400">Potongan Online Merchant {{ $rupiah($sale->online_merchant_deduction) }}</span>
+                                    @endif
                                     @if ($sale->payment_method === 'free')
                                         <span class="font-semibold text-warning-700 dark:text-warning-300">{{ ucfirst($sale->complimentary_category) }}</span>
                                         <span class="block text-[11px] text-gray-500 dark:text-gray-400">{{ $sale->complimentary_recipient_name }}</span>
-                                    @else
+                                    @elseif ($sale->payment_method !== 'online_merchant')
                                         <span class="text-gray-400">—</span>
                                     @endif
                                 </td>

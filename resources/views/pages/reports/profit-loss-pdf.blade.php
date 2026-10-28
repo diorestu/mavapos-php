@@ -5,5 +5,6 @@
 <div class="row"><span>HPP</span><span>(Rp{{ number_format($summary['cogs'],0,',','.') }})</span></div>
 <div class="row total"><span>Laba Kotor</span><span>Rp{{ number_format($summary['grossProfit'],0,',','.') }}</span></div>
 <div class="row"><span>Total Pengeluaran</span><span>(Rp{{ number_format($summary['expenseTotal'],0,',','.') }})</span></div>
+<div class="row"><span>Potongan Online Merchant</span><span>(Rp{{ number_format($summary['merchantDeduction'],0,',','.') }})</span></div>
 <div class="row total"><span>Laba / (Rugi) Bersih</span><span>Rp{{ number_format($summary['netProfit'],0,',','.') }}</span></div>
 </body></html>

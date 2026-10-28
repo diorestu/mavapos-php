@@ -117,6 +117,7 @@
                         <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Tunai</th>
                         <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">QRIS</th>
                         <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Kartu</th>
+                        <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Online Merchant</th>
                     </tr></thead>
                     <tbody>
                         @forelse ($dailyCashierRevenues as $daily)
@@ -128,9 +129,10 @@
                                 <td class="px-4 py-3 text-right text-xs tabular-nums text-gray-600 dark:text-gray-300">{{ $rupiah($daily['cash_total']) }}</td>
                                 <td class="px-4 py-3 text-right text-xs tabular-nums text-gray-600 dark:text-gray-300">{{ $rupiah($daily['qris_total']) }}</td>
                                 <td class="px-4 py-3 text-right text-xs tabular-nums text-gray-600 dark:text-gray-300">{{ $rupiah($daily['card_total']) }}</td>
+                                <td class="px-4 py-3 text-right text-xs tabular-nums text-gray-600 dark:text-gray-300">{{ $rupiah($daily['online_merchant_total']) }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="7" class="px-4 py-8 text-center text-sm text-gray-500">Belum ada penjualan pada periode ini.</td></tr>
+                            <tr><td colspan="8" class="px-4 py-8 text-center text-sm text-gray-500">Belum ada penjualan pada periode ini.</td></tr>
                         @endforelse
                     </tbody>
                 </table>
@@ -159,6 +161,7 @@
                             <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Tunai</th>
                             <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">QRIS</th>
                             <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Kartu</th>
+                            <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Online Merchant</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -175,9 +178,10 @@
                                 <td class="px-4 py-3 text-right text-xs tabular-nums text-gray-600 dark:text-gray-300">{{ $rupiah($cashier['cash_total']) }}</td>
                                 <td class="px-4 py-3 text-right text-xs tabular-nums text-gray-600 dark:text-gray-300">{{ $rupiah($cashier['qris_total']) }}</td>
                                 <td class="px-4 py-3 text-right text-xs tabular-nums text-gray-600 dark:text-gray-300">{{ $rupiah($cashier['card_total']) }}</td>
+                                <td class="px-4 py-3 text-right text-xs tabular-nums text-gray-600 dark:text-gray-300">{{ $rupiah($cashier['online_merchant_total']) }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="8" class="px-4 py-8 text-center text-sm text-gray-500">Belum ada transaksi POS dalam periode ini.</td></tr>
+                            <tr><td colspan="9" class="px-4 py-8 text-center text-sm text-gray-500">Belum ada transaksi POS dalam periode ini.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

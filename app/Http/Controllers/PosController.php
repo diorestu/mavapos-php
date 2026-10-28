@@ -23,6 +23,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class PosController extends Controller
 {
@@ -303,23 +304,26 @@ class PosController extends Controller
 
     public function checkout(Request $request): JsonResponse
     {
+        if ($request->filled('online_merchant') && $request->input('sales_channel') !== 'direct') {
+            $request->merge(['payment_method' => 'online_merchant', 'payments' => null]);
+        }
         $validated = $request->validate([
             'items' => ['required', 'array', 'min:1'],
             'items.*.id' => ['required', 'string'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
-            'payment_method' => ['required', 'in:cash,qris,card,split,free'],
+            'payment_method' => ['required', 'in:cash,qris,card,split,free,online_merchant'],
             'payments' => ['required_if:payment_method,split', 'nullable', 'array', 'min:2', 'max:3'],
             'payments.*.method' => ['required_with:payments', 'in:cash,qris,card', 'distinct'],
             'payments.*.amount' => ['required_with:payments', 'integer', 'min:1'],
             'complimentary_category' => ['required_if:payment_method,free', 'nullable', 'in:influencer,partnership,owner'],
             'complimentary_recipient_name' => ['required_if:payment_method,free', 'nullable', 'string', 'max:150'],
             'discount' => ['nullable', 'integer', 'min:0'],
-            'paid_amount' => ['nullable', 'integer', 'min:0'],
+            'paid_amount' => ['required_if:payment_method,online_merchant', 'nullable', 'integer', 'min:0'],
             'customer_name' => ['nullable', 'string', 'max:150'],
             'customer_phone' => ['nullable', 'string', 'max:30'],
             'buyer_nationality' => ['nullable', 'in:local,foreigner'],
             'sales_channel' => ['nullable', 'in:direct,online'],
-            'online_merchant' => ['nullable', 'required_if:sales_channel,online', 'prohibited_if:sales_channel,direct', 'in:'.implode(',', array_keys(PosSale::ONLINE_MERCHANTS))],
+            'online_merchant' => ['nullable', 'required_if:sales_channel,online', 'required_if:payment_method,online_merchant', 'prohibited_if:sales_channel,direct', 'in:'.implode(',', array_keys(PosSale::ONLINE_MERCHANTS))],
             'loyalty_stamp' => ['nullable', 'boolean'],
             'loyalty_reward' => ['nullable', 'in:fifty_percent,free_cup,physical_fifth,physical_tenth'],
         ]);
@@ -411,9 +415,13 @@ class PosController extends Controller
                 abort(422, 'Total split payment harus sama dengan total transaksi.');
             }
 
-            $paidAmount = $validated['payment_method'] === 'cash' ? (int) ($validated['paid_amount'] ?? 0) : $total;
+            $paidAmount = in_array($validated['payment_method'], ['cash', 'online_merchant'], true) ? (int) ($validated['paid_amount'] ?? 0) : $total;
             if ($validated['payment_method'] === 'cash' && $paidAmount < $total) {
                 abort(422, 'Uang diterima kurang dari total transaksi.');
+            }
+
+            if ($validated['payment_method'] === 'online_merchant' && $paidAmount > $total) {
+                throw ValidationException::withMessages(['paid_amount' => 'Uang bersih tidak boleh melebihi total transaksi.']);
             }
 
             $sale = PosSale::query()->create([
@@ -576,6 +584,7 @@ class PosController extends Controller
                 'buyer_nationality' => $sale->buyer_nationality,
                 'online_merchant' => $sale->online_merchant,
                 'online_merchant_label' => PosSale::ONLINE_MERCHANTS[$sale->online_merchant] ?? null,
+                'online_merchant_deduction' => $sale->online_merchant_deduction,
                 'loyalty_reward' => $sale->loyalty_reward,
                 'loyalty_stamp_count' => $sale->customer?->fresh()->loyalty_stamp_count,
                 'complimentary_category' => $sale->complimentary_category,

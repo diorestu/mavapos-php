@@ -59,6 +59,11 @@ class PosSale extends Model
         ];
     }
 
+    public function getOnlineMerchantDeductionAttribute(): int
+    {
+        return $this->payment_method === 'online_merchant' ? max(0, $this->total - $this->paid_amount) : 0;
+    }
+
     public function shift(): BelongsTo
     {
         return $this->belongsTo(CashierShift::class, 'cashier_shift_id');

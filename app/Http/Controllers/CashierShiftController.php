@@ -133,6 +133,7 @@ class CashierShiftController extends Controller
             $shift->setAttribute('cash_total', $payments['cash']);
             $shift->setAttribute('qris_total', $payments['qris']);
             $shift->setAttribute('card_total', $payments['card']);
+            $shift->setAttribute('online_merchant_total', (int) $sales->where('payment_method', 'online_merchant')->sum('paid_amount'));
         });
     }
 

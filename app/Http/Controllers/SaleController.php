@@ -44,7 +44,7 @@ class SaleController extends Controller
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
             'cashier_id' => ['nullable', 'integer', 'exists:users,id'],
-            'payment_method' => ['nullable', 'in:cash,qris,card,split,free'],
+            'payment_method' => ['nullable', 'in:cash,qris,card,split,free,online_merchant'],
             'search' => ['nullable', 'string', 'max:100'],
         ]);
 
@@ -94,10 +94,10 @@ class SaleController extends Controller
                 if ($sale->payments->isNotEmpty()) {
                     foreach ($sale->payments as $payment) $totals[$payment->payment_method] += $payment->amount;
                 } elseif (array_key_exists($sale->payment_method, $totals)) {
-                    $totals[$sale->payment_method] += $sale->total;
+                    $totals[$sale->payment_method] += $sale->payment_method === 'online_merchant' ? $sale->paid_amount : $sale->total;
                 }
                 return $totals;
-            }, ['cash' => 0, 'qris' => 0, 'card' => 0]);
+            }, ['cash' => 0, 'qris' => 0, 'card' => 0, 'online_merchant' => 0]);
         $soldUnits = (int) PosSaleItem::query()->whereIn('pos_sale_id', $summarySaleIds)->sum('quantity')
             + (int) PosSale::query()->whereIn('id', $summarySaleIds)->doesntHave('items')->count();
         $buyerNationalityCounts = PosSale::query()->whereIn('id', $summarySaleIds)
@@ -143,6 +143,7 @@ class SaleController extends Controller
                 'cash_total' => $summaryPayments['cash'],
                 'qris_total' => $summaryPayments['qris'],
                 'card_total' => $summaryPayments['card'],
+                'online_merchant_total' => $summaryPayments['online_merchant'],
                 'local_buyers' => (int) ($buyerNationalityCounts->get('local') ?? 0),
                 'foreigner_buyers' => (int) ($buyerNationalityCounts->get('foreigner') ?? 0),
             ],
@@ -180,18 +181,28 @@ class SaleController extends Controller
 
     public function update(Request $request, PosSale $sale, AdminSaleEditorService $service): JsonResponse
     {
+        $branchId = app(BranchContext::class)->activeId();
+        $sale = PosSale::query()->whereKey($sale->id)->where('branch_id', $branchId)->firstOrFail();
+        $merchant = $request->exists('online_merchant') ? $request->input('online_merchant') : $sale->online_merchant;
+        $usesMerchantNet = $sale->payment_method === 'online_merchant'
+            || $request->input('sales_channel') === 'online'
+            || $merchant !== $sale->online_merchant;
+        if ($merchant && $usesMerchantNet && $request->input('sales_channel') !== 'direct') {
+            $request->merge(['payment_method' => 'online_merchant', 'payments' => null]);
+        }
+
         $validated = $request->validate([
             'items' => ['required', 'array', 'min:1'],
             'items.*.id' => ['required', 'string'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
-            'payment_method' => ['required', 'in:cash,qris,card,split,free'],
+            'payment_method' => ['required', 'in:cash,qris,card,split,free,online_merchant'],
             'payments' => ['required_if:payment_method,split', 'nullable', 'array', 'min:2', 'max:3'],
             'payments.*.method' => ['required_with:payments', 'in:cash,qris,card', 'distinct'],
             'payments.*.amount' => ['required_with:payments', 'integer', 'min:1'],
             'complimentary_category' => ['required_if:payment_method,free', 'nullable', 'in:influencer,partnership,owner'],
             'complimentary_recipient_name' => ['required_if:payment_method,free', 'nullable', 'string', 'max:150'],
             'discount' => ['nullable', 'integer', 'min:0'],
-            'paid_amount' => ['nullable', 'integer', 'min:0'],
+            'paid_amount' => ['required_if:payment_method,online_merchant', 'nullable', 'integer', 'min:0'],
             'buyer_nationality' => ['nullable', 'in:local,foreigner'],
             'sales_channel' => ['nullable', 'in:direct,online'],
             'online_merchant' => ['nullable', 'required_if:sales_channel,online', 'prohibited_if:sales_channel,direct', 'in:'.implode(',', array_keys(PosSale::ONLINE_MERCHANTS))],

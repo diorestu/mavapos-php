@@ -192,6 +192,7 @@
                     <th class="right">Tunai</th>
                     <th class="right">QRIS</th>
                     <th class="right">Kartu</th>
+                    <th class="right">Online Merchant</th>
                 </tr>
             </thead>
             <tbody>
@@ -208,9 +209,10 @@
                         <td class="right">{{ $rupiah($cashier['cash_total']) }}</td>
                         <td class="right">{{ $rupiah($cashier['qris_total']) }}</td>
                         <td class="right">{{ $rupiah($cashier['card_total']) }}</td>
+                        <td class="right">{{ $rupiah($cashier['online_merchant_total']) }}</td>
                     </tr>
                 @empty
-                    <tr><td colspan="8" class="center muted">Belum ada transaksi POS dalam periode ini.</td></tr>
+                    <tr><td colspan="9" class="center muted">Belum ada transaksi POS dalam periode ini.</td></tr>
                 @endforelse
             </tbody>
         </table>

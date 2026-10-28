@@ -76,10 +76,7 @@ class ReportController extends Controller
         PosSale::query()->active()->with(['items.product', 'payments'])->where('branch_id', $branch->id)
             ->whereBetween('sold_at', [$from, $to])->orderBy('sold_at')->get()
             ->each(function (PosSale $sale) use ($lines): void {
-                foreach ($this->salePayments($sale) as $payment) {
-                    $paymentAccount = ['cash' => 'Kas', 'qris' => 'Bank / QRIS', 'card' => 'Bank / Kartu'][$payment['method']] ?? 'Kas';
-                    $lines->push($this->journalLine($sale->sold_at, $sale->invoice_number, $this->journalSaleDescription($sale), $paymentAccount, 'Penjualan', $payment['amount']));
-                }
+                $lines->push(...$this->saleJournalLines($sale));
                 $cost = $sale->items->sum(fn ($item): int => $item->quantity * (int) ($item->product?->buy_price ?? 0));
                 if ($cost > 0) {
                     $lines->push($this->journalLine($sale->sold_at, $sale->invoice_number, 'Pengakuan HPP', 'Beban Pokok Penjualan', 'Persediaan', $cost));
@@ -129,22 +126,59 @@ class ReportController extends Controller
         $expenses = Expense::query()->where('branch_id', $branch->id)->whereBetween('spent_at', [$from, $to])->orderBy('spent_at')->get();
         $revenue = (int) $sales->sum('total');
         $cogs = (int) $sales->sum(fn (PosSale $sale): int => $sale->items->sum(fn ($item): int => $item->quantity * (int) ($item->product?->buy_price ?? 0)));
+        $merchantDeduction = (int) $sales->sum('online_merchant_deduction');
         $expenseTotal = (int) $expenses->sum('amount');
-        return ['store' => StoreSetting::current(), 'activeBranch' => $branch, 'sales' => $sales, 'expenses' => $expenses, 'journalLines' => $this->summarizeJournalLines($this->journalLines($sales, $expenses)), 'filters' => ['date_from' => $from->toDateString(), 'date_to' => $to->toDateString()], 'summary' => compact('revenue', 'cogs', 'expenseTotal') + ['grossProfit' => $revenue - $cogs, 'netProfit' => $revenue - $cogs - $expenseTotal]];
+        return ['store' => StoreSetting::current(), 'activeBranch' => $branch, 'sales' => $sales, 'expenses' => $expenses, 'journalLines' => $this->summarizeJournalLines($this->journalLines($sales, $expenses)), 'filters' => ['date_from' => $from->toDateString(), 'date_to' => $to->toDateString()], 'summary' => compact('revenue', 'cogs', 'expenseTotal', 'merchantDeduction') + ['grossProfit' => $revenue - $cogs, 'netProfit' => $revenue - $cogs - $expenseTotal - $merchantDeduction]];
     }
 
     private function journalLines($sales, $expenses): array
     {
         $lines = [];
         foreach ($sales as $sale) {
-            foreach ($this->salePayments($sale) as $payment) {
-                $account = ['cash' => 'Kas', 'qris' => 'Bank / QRIS', 'card' => 'Bank / Kartu'][$payment['method']] ?? 'Kas';
-                $lines[] = $this->journalLine($sale->sold_at, $sale->invoice_number, $this->journalSaleDescription($sale), $account, 'Penjualan', $payment['amount']);
-            }
+            array_push($lines, ...$this->saleJournalLines($sale));
         }
         foreach ($expenses as $expense) {
             $lines[] = $this->journalLine($expense->spent_at, $expense->expense_number, $expense->title, $expense->type === 'stock' ? 'Persediaan' : 'Beban Operasional', 'Kas', $expense->amount);
         }
+        return $lines;
+    }
+
+    private function saleJournalLines(PosSale $sale): array
+    {
+        $lines = [];
+        $isMerchant = ! empty($sale->online_merchant) || $sale->payment_method === 'online_merchant';
+        $merchantLabel = PosSale::ONLINE_MERCHANTS[$sale->online_merchant] ?? 'Online Merchant';
+        $revenueAccount = $isMerchant ? 'Pendapatan Online Merchant' : 'Penjualan';
+        if ($sale->payment_method === 'online_merchant') {
+            $description = 'Pendapatan Online Merchant — '.$merchantLabel;
+            $lines[] = $this->journalLine($sale->sold_at, $sale->invoice_number, 'Penerimaan bersih Online Merchant — '.$merchantLabel, 'Penerimaan Online Merchant', '', $sale->paid_amount);
+            if ($sale->online_merchant_deduction > 0) {
+                $lines[] = $this->journalLine($sale->sold_at, $sale->invoice_number, 'Potongan Online Merchant — '.$merchantLabel, 'Potongan Online Merchant', '', $sale->online_merchant_deduction);
+            }
+            if ($sale->discount > 0) {
+                $lines[] = $this->journalLine($sale->sold_at, $sale->invoice_number, $isMerchant ? 'Diskon penjualan Online Merchant — '.$merchantLabel : $description, 'Diskon Penjualan', '', $sale->discount);
+            }
+            $lines[] = $this->journalLine($sale->sold_at, $sale->invoice_number, $description, '', $revenueAccount, $sale->subtotal);
+
+            return $lines;
+        }
+        $hasDiscount = $sale->discount > 0;
+        $description = $this->journalSaleDescription($sale);
+
+        foreach ($this->salePayments($sale) as $payment) {
+            if ($hasDiscount && $payment['amount'] === 0) {
+                continue;
+            }
+
+            $account = ['cash' => 'Kas', 'qris' => 'Bank / QRIS', 'card' => 'Bank / Kartu'][$payment['method']] ?? 'Kas';
+            $lines[] = $this->journalLine($sale->sold_at, $sale->invoice_number, $description, $account, $hasDiscount ? '' : $revenueAccount, $payment['amount']);
+        }
+
+        if ($hasDiscount) {
+            $lines[] = $this->journalLine($sale->sold_at, $sale->invoice_number, $isMerchant ? 'Diskon penjualan Online Merchant — '.$merchantLabel : $description, 'Diskon Penjualan', '', $sale->discount);
+            $lines[] = $this->journalLine($sale->sold_at, $sale->invoice_number, $description, '', $revenueAccount, $sale->subtotal);
+        }
+
         return $lines;
     }
 
@@ -166,8 +200,8 @@ class ReportController extends Controller
                     'date' => $first['date']->copy()->startOfDay(),
                     'reference' => 'Ringkasan',
                     'amount' => $amount,
-                    'debit' => $amount,
-                    'credit' => $amount,
+                    'debit' => (int) $group->sum('debit'),
+                    'credit' => (int) $group->sum('credit'),
                 ];
             })
             ->sortBy('date')
@@ -178,7 +212,7 @@ class ReportController extends Controller
     private function journalLine(Carbon $date, string $reference, string $description, string $debitAccount, string $creditAccount, int $amount): array
     {
         return compact('date', 'reference', 'description', 'debitAccount', 'creditAccount', 'amount')
-            + ['debit' => $amount, 'credit' => $amount];
+            + ['debit' => $debitAccount !== '' ? $amount : 0, 'credit' => $creditAccount !== '' ? $amount : 0];
     }
 
     private function reportData(Request $request, bool $includeTransactions = true): array
@@ -227,7 +261,8 @@ class ReportController extends Controller
         $pendingRevenue = (clone $billingQuery)->where('payment_status', 'pending')->sum('amount');
         $restockExpense = (clone $expenseQuery)->where('type', 'stock')->sum('amount');
         $operationalExpense = (clone $expenseQuery)->where('type', 'operational')->sum('amount');
-        $totalExpense = $restockExpense + $operationalExpense;
+        $merchantDeduction = (int) (clone $posSaleQuery)->where('payment_method', 'online_merchant')->selectRaw('COALESCE(SUM(total - paid_amount), 0) as deduction')->value('deduction');
+        $totalExpense = $restockExpense + $operationalExpense + $merchantDeduction;
         $costOfGoodsSold = $periodMovements
             ->where('type', 'out')
             ->sum(fn (StockMovement $movement): int => $movement->quantity * (int) ($movement->product?->buy_price ?? 0));
@@ -245,8 +280,8 @@ class ReportController extends Controller
             $payments = $sales->reduce(function (array $totals, PosSale $sale): array {
                 foreach ($this->salePayments($sale) as $payment) $totals[$payment['method']] += $payment['amount'];
                 return $totals;
-            }, ['cash' => 0, 'qris' => 0, 'card' => 0]);
-            return (object) ['user_id' => $userId, 'sales_count' => $sales->count(), 'gross_sales' => $sales->sum('subtotal'), 'discount_total' => $sales->sum('discount'), 'net_sales' => $sales->sum('total'), 'cash_total' => $payments['cash'], 'qris_total' => $payments['qris'], 'card_total' => $payments['card']];
+            }, ['cash' => 0, 'qris' => 0, 'card' => 0, 'online_merchant' => 0]);
+            return (object) ['user_id' => $userId, 'sales_count' => $sales->count(), 'gross_sales' => $sales->sum('subtotal'), 'discount_total' => $sales->sum('discount'), 'net_sales' => $sales->sum('total'), 'cash_total' => $payments['cash'], 'qris_total' => $payments['qris'], 'card_total' => $payments['card'], 'online_merchant_total' => $payments['online_merchant']];
         })->sortByDesc('net_sales')->values();
         $dailyCashierRows = $cashierSales
             ->groupBy(fn (PosSale $sale): string => $sale->sold_at->timezone('Asia/Makassar')->toDateString())
@@ -255,7 +290,7 @@ class ReportController extends Controller
                 $payments = $userSales->reduce(function (array $totals, PosSale $sale): array {
                     foreach ($this->salePayments($sale) as $payment) $totals[$payment['method']] += $payment['amount'];
                     return $totals;
-                }, ['cash' => 0, 'qris' => 0, 'card' => 0]);
+                }, ['cash' => 0, 'qris' => 0, 'card' => 0, 'online_merchant' => 0]);
 
                 return (object) [
                     'date' => $date,
@@ -264,7 +299,7 @@ class ReportController extends Controller
                     'net_sales' => $userSales->sum('total'),
                     'cash_total' => $payments['cash'],
                     'qris_total' => $payments['qris'],
-                    'card_total' => $payments['card'],
+                    'card_total' => $payments['card'], 'online_merchant_total' => $payments['online_merchant'],
                 ];
             })->values())
             ->sortByDesc(fn (object $row): string => $row->date)
@@ -315,6 +350,7 @@ class ReportController extends Controller
                 'cost_of_goods_sold' => $costOfGoodsSold,
                 'restock_expense' => $restockExpense,
                 'operational_expense' => $operationalExpense,
+                'online_merchant_deduction' => $merchantDeduction,
                 'total_expense' => $totalExpense,
                 'gross_profit' => $grossProfit,
                 'net_profit_estimate' => $netProfitEstimate,
@@ -332,6 +368,7 @@ class ReportController extends Controller
                     'cash_total' => (int) $row->cash_total,
                     'qris_total' => (int) $row->qris_total,
                     'card_total' => (int) $row->card_total,
+                    'online_merchant_total' => (int) $row->online_merchant_total,
                 ])
                 ->values(),
             'dailyCashierRevenues' => $dailyCashierRows
@@ -343,6 +380,7 @@ class ReportController extends Controller
                     'cash_total' => (int) $row->cash_total,
                     'qris_total' => (int) $row->qris_total,
                     'card_total' => (int) $row->card_total,
+                    'online_merchant_total' => (int) $row->online_merchant_total,
                 ])
                 ->values(),
             'transactions' => $transactions,
@@ -351,6 +389,10 @@ class ReportController extends Controller
 
     private function salePayments(PosSale $sale): array
     {
+        if ($sale->payment_method === 'online_merchant') {
+            return [['method' => 'online_merchant', 'amount' => $sale->paid_amount]];
+        }
+
         if ($sale->payments->isNotEmpty()) {
             return $sale->payments->map(fn ($payment): array => ['method' => $payment->payment_method, 'amount' => $payment->amount])->all();
         }
@@ -362,6 +404,10 @@ class ReportController extends Controller
 
     private function saleDescription(PosSale $sale): string
     {
+        if ($sale->payment_method === 'online_merchant') {
+            return (PosSale::ONLINE_MERCHANTS[$sale->online_merchant] ?? 'Online Merchant').' · Potongan Online Merchant Rp'.number_format($sale->online_merchant_deduction, 0, ',', '.');
+        }
+
         if ($sale->payment_method === 'free') {
             $category = ['owner' => 'Owner', 'influencer' => 'Influencer', 'partnership' => 'Partnership'][$sale->complimentary_category] ?? 'Lainnya';
 
@@ -392,6 +438,10 @@ class ReportController extends Controller
 
     private function journalSaleDescription(PosSale $sale): string
     {
+        if ($sale->online_merchant) {
+            return 'Pendapatan Online Merchant — '.(PosSale::ONLINE_MERCHANTS[$sale->online_merchant] ?? 'Online Merchant');
+        }
+
         $description = $this->saleDescription($sale);
 
         return $sale->payment_method === 'split'
@@ -401,6 +451,6 @@ class ReportController extends Controller
 
     private function paymentLabel(string $method): string
     {
-        return ['cash' => 'Tunai', 'qris' => 'QRIS', 'card' => 'Kartu'][$method] ?? ucfirst($method);
+        return ['cash' => 'Tunai', 'qris' => 'QRIS', 'card' => 'Kartu', 'online_merchant' => 'Online Merchant'][$method] ?? ucfirst($method);
     }
 }

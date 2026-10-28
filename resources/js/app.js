@@ -2202,6 +2202,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     buyerNationality: '',
     salesChannel: 'direct',
     onlineMerchant: '',
+    onlineNetAmount: '',
     printPreferences: {
         autoPrint: false,
         closeAfterPrint: false,
@@ -2213,6 +2214,13 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         this.$watch('discountValue', () => this.pushDisplayState('cart'));
         this.$watch('paidAmount', () => this.pushDisplayState('cart'));
         this.$watch('paymentMethod', () => this.pushDisplayState('cart'));
+        this.$watch('onlineNetAmount', () => this.pushDisplayState('cart'));
+        this.$watch('salesChannel', () => {
+            this.onlineNetAmount = '';
+            this.paidAmount = '';
+            this.checkoutError = '';
+            this.pushDisplayState('cart');
+        });
         this.$watch('splitPayments', () => this.pushDisplayState('cart'), { deep: true });
         this.maybeOpenCustomerDisplay();
     },
@@ -2333,12 +2341,24 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         return Math.max(0, this.subtotal - this.discountValue);
     },
 
+    get isOnlineMerchant() {
+        return this.cashierFeatures.onlineMerchant && this.salesChannel === 'online';
+    },
+
+    get onlineNet() {
+        return this.numberFromInput(this.onlineNetAmount);
+    },
+
+    get onlineDeduction() {
+        return Math.max(0, this.total - this.onlineNet);
+    },
+
     get paid() {
         return this.numberFromInput(this.paidAmount);
     },
 
     get change() {
-        if (this.paymentMethod !== 'cash') {
+        if (this.isOnlineMerchant || this.paymentMethod !== 'cash') {
             return 0;
         }
 
@@ -2358,7 +2378,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     },
 
     get remaining() {
-        if (this.paymentMethod !== 'cash') {
+        if (this.isOnlineMerchant || this.paymentMethod !== 'cash') {
             return 0;
         }
 
@@ -2366,7 +2386,9 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     },
 
     get canCheckout() {
-        const paymentComplete = this.paymentMethod === 'split'
+        const paymentComplete = this.isOnlineMerchant
+            ? String(this.onlineNetAmount).trim() !== '' && this.onlineNet <= this.total
+            : this.paymentMethod === 'split'
             ? this.splitRemaining === 0 && this.splitMethodsAreUnique
             : (this.paymentMethod !== 'cash' || this.paid >= this.total);
 
@@ -2402,7 +2424,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     onMoneyInput(field, event) {
         const digits = String(event.target.value || '').replace(/[^\d]/g, '');
         this[field] = digits;
-        event.target.value = this.formatInputNumber(digits);
+        event.target.value = this.formatInputNumber(digits) || (field === 'onlineNetAmount' && digits !== '' ? '0' : '');
     },
 
     onSplitMoneyInput(index, event) {
@@ -2431,6 +2453,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             qris: 'QRIS',
             card: 'Kartu',
             split: 'Split Payment',
+            online_merchant: 'Online Merchant',
         }[method] || method || '-';
     },
 
@@ -2600,6 +2623,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         this.cart = [];
         this.salesChannel = 'direct';
         this.onlineMerchant = '';
+        this.onlineNetAmount = '';
         this.discount = '';
         this.loyaltyReward = '';
         this.loyaltyStamp = false;
@@ -2626,8 +2650,8 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             subtotal: this.subtotal,
             discount: this.discountValue,
             total: this.total,
-            payment_method: this.paymentMethod,
-            paid_amount: this.paymentMethod === 'cash' ? this.paid : (this.paymentMethod === 'split' ? this.splitPaid : this.total),
+            payment_method: this.isOnlineMerchant ? 'online_merchant' : this.paymentMethod,
+            paid_amount: this.isOnlineMerchant ? this.onlineNet : (this.paymentMethod === 'cash' ? this.paid : (this.paymentMethod === 'split' ? this.splitPaid : this.total)),
             change_amount: this.change,
             invoice_number: mode === 'checkout' ? (this.lastReceipt?.invoice_number || null) : null,
         };
@@ -2800,15 +2824,15 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                         <div class="row"><span>No Nota</span><strong class="num">${this.escapeHtml(receipt.invoice_number)}</strong></div>
                         <div class="row"><span>Tanggal</span><span class="num">${this.escapeHtml(receipt.sold_at || '-')}</span></div>
                         ${cashierHtml}
-                        <div class="row"><span>Pembayaran</span><span>${this.escapeHtml(this.paymentLabel(receipt.payment_method))}</span></div>
+                        <div class="row"><span>Pembayaran</span><span>${this.escapeHtml((receipt.online_merchant_label || this.paymentLabel(receipt.payment_method)))}</span></div>
                     </div>
                     <div class="items">${itemRows}</div>
                     <div class="totals">
                         <div><span>Subtotal</span><span class="num">${this.formatRupiah(receipt.subtotal)}</span></div>
                         ${discountHtml}
                         <div class="grand"><span>Total Bayar</span><span class="num">${this.formatRupiah(receipt.total)}</span></div>
-                        <div><span>Dibayar</span><span class="num">${this.formatRupiah(receipt.paid_amount)}</span></div>
-                        <div><span>Kembali</span><span class="num">${this.formatRupiah(receipt.change_amount)}</span></div>
+                        <div><span>${receipt.payment_method === 'online_merchant' ? 'Bersih diterima' : 'Dibayar'}</span><span class="num">${this.formatRupiah(receipt.paid_amount)}</span></div>
+                        <div><span>${receipt.payment_method === 'online_merchant' ? 'Potongan merchant' : 'Kembali'}</span><span class="num">${this.formatRupiah(receipt.payment_method === 'online_merchant' ? receipt.online_merchant_deduction : receipt.change_amount)}</span></div>
                     </div>
                     <p class="footer muted">${this.escapeHtml(footerNote)}</p>
                     <script>
@@ -2898,7 +2922,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             lines.push(`Kasir   : ${receipt.cashier || '-'}`);
         }
 
-        lines.push(`Bayar   : ${this.paymentLabel(receipt.payment_method)}`);
+        lines.push(`Bayar   : ${(receipt.online_merchant_label || this.paymentLabel(receipt.payment_method))}`);
         lines.push(this.receiptDivider(width, 'double'));
 
         (receipt.items || []).forEach((item) => {
@@ -2909,8 +2933,8 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         lines.push('');
         lines.push(this.centerReceiptText(this.receiptKeyValue('TOTAL BAYAR', this.formatRupiah(receipt.total), width), width));
         lines.push('');
-        lines.push(this.receiptKeyValue('Dibayar', this.formatRupiah(receipt.paid_amount), width));
-        lines.push(this.receiptKeyValue('Kembali', this.formatRupiah(receipt.change_amount), width));
+        lines.push(this.receiptKeyValue(receipt.payment_method === 'online_merchant' ? 'Bersih diterima' : 'Dibayar', this.formatRupiah(receipt.paid_amount), width));
+        lines.push(this.receiptKeyValue(receipt.payment_method === 'online_merchant' ? 'Potongan merchant' : 'Kembali', this.formatRupiah(receipt.payment_method === 'online_merchant' ? receipt.online_merchant_deduction : receipt.change_amount), width));
         lines.push('');
         this.wrapReceiptText(receiptOptions.footer_note || 'Terima kasih atas kunjungan Anda.', width)
             .forEach((line) => lines.push(this.centerReceiptText(line, width)));
@@ -2944,7 +2968,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         lines.push({ text: `No Nota: ${receipt.invoice_number || '-'}` });
         lines.push({ text: `Tanggal : ${receipt.sold_at || '-'}` });
         if (receiptOptions.show_cashier !== false) lines.push({ text: `Kasir   : ${receipt.cashier || '-'}` });
-        lines.push({ text: `Bayar   : ${this.paymentLabel(receipt.payment_method)}` });
+        lines.push({ text: `Bayar   : ${(receipt.online_merchant_label || this.paymentLabel(receipt.payment_method))}` });
         lines.push({ divider: true });
 
         (receipt.items || []).forEach((item) => {
@@ -2957,8 +2981,8 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         if (Number(receipt.discount || 0) > 0) lines.push({ left: 'Diskon', right: `-${this.formatRupiah(receipt.discount)}` });
         lines.push({ divider: true });
         lines.push({ left: 'TOTAL BAYAR', right: this.formatRupiah(receipt.total) });
-        lines.push({ left: 'Dibayar', right: this.formatRupiah(receipt.paid_amount) });
-        lines.push({ left: 'Kembali', right: this.formatRupiah(receipt.change_amount) });
+        lines.push({ left: receipt.payment_method === 'online_merchant' ? 'Bersih diterima' : 'Dibayar', right: this.formatRupiah(receipt.paid_amount) });
+        lines.push({ left: receipt.payment_method === 'online_merchant' ? 'Potongan merchant' : 'Kembali', right: this.formatRupiah(receipt.payment_method === 'online_merchant' ? receipt.online_merchant_deduction : receipt.change_amount) });
         lines.push({ divider: true });
         this.wrapReceiptText(receiptOptions.footer_note || 'Terima kasih atas kunjungan Anda.', columns)
             .forEach((line) => lines.push({ center: line }));
@@ -3061,7 +3085,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             }
 
             commands.push(
-                [`Bayar   : ${this.paymentLabel(receipt.payment_method)}\n`, 12],
+                [`Bayar   : ${(receipt.online_merchant_label || this.paymentLabel(receipt.payment_method))}\n`, 12],
                 [`${this.receiptDivider(paperCharacters, 'single')}\n`, 12],
             );
 
@@ -3090,9 +3114,9 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                 [`${this.receiptKeyValue('TOTAL BAYAR', this.formatRupiah(receipt.total), paperCharacters)}\n`, 12],
                 ['', 9, 0], // Bold off
                 ['', 8, 1], // Typeface Monospace
-                [`${this.receiptKeyValue('Dibayar', this.formatRupiah(receipt.paid_amount), paperCharacters)}\n`, 12],
+                [`${this.receiptKeyValue(receipt.payment_method === 'online_merchant' ? 'Bersih diterima' : 'Dibayar', this.formatRupiah(receipt.paid_amount), paperCharacters)}\n`, 12],
                 ['', 8, 1], // Typeface Monospace
-                [`${this.receiptKeyValue('Kembali', this.formatRupiah(receipt.change_amount), paperCharacters)}\n`, 12],
+                [`${this.receiptKeyValue(receipt.payment_method === 'online_merchant' ? 'Potongan merchant' : 'Kembali', this.formatRupiah(receipt.payment_method === 'online_merchant' ? receipt.online_merchant_deduction : receipt.change_amount), paperCharacters)}\n`, 12],
             );
 
             this.wrapReceiptText(footerNote, paperCharacters).forEach((line) => {
@@ -3513,6 +3537,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     },
 
     async checkout(isComplimentary = false) {
+        if (this.isOnlineMerchant && isComplimentary) return;
         if (this.cashierFeatures.onlineMerchant && this.salesChannel === 'online' && !this.onlineMerchant) {
             notify('Pilih merchant sebelum menyelesaikan transaksi.', 'error');
             return;
@@ -3538,10 +3563,10 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                         id: item.id,
                         quantity: item.quantity,
                     })),
-                    payment_method: isComplimentary ? 'free' : this.paymentMethod,
+                    payment_method: this.isOnlineMerchant ? 'online_merchant' : (isComplimentary ? 'free' : this.paymentMethod),
                     discount: isComplimentary ? 0 : this.discountValue,
-                    paid_amount: isComplimentary ? 0 : (this.paymentMethod === 'cash' ? this.paid : this.total),
-                    payments: isComplimentary || this.paymentMethod !== 'split' ? null : this.splitPayments.map((payment) => ({
+                    paid_amount: this.isOnlineMerchant ? this.onlineNet : (isComplimentary ? 0 : (this.paymentMethod === 'cash' ? this.paid : this.total)),
+                    payments: this.isOnlineMerchant || isComplimentary || this.paymentMethod !== 'split' ? null : this.splitPayments.map((payment) => ({
                         method: payment.method,
                         amount: this.numberFromInput(payment.amount),
                     })),
@@ -3674,6 +3699,8 @@ const shiftRecapPrinter = {
             `Tunai       : ${this.rupiah(recap.cashTotal)}`,
             `QRIS        : ${this.rupiah(recap.qrisTotal)}`,
             `Kartu       : ${this.rupiah(recap.cardTotal)}`,
+            `Online      : ${this.rupiah(recap.onlineMerchantTotal)}`,
+            `Pot. merchant: ${this.rupiah(recap.onlineMerchantDeduction)}`,
             `Kas awal    : ${this.rupiah(recap.openingCashAmount)}`,
             '================================',
             `TOTAL LACI  : ${this.rupiah(recap.expectedCashInDrawer)}`,

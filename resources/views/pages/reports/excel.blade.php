@@ -21,6 +21,7 @@
         <tr><td>Pendapatan POS</td><td class="number">{{ $summary['pos_revenue'] }}</td></tr>
         <tr><td>Total Pendapatan</td><td class="number">{{ $summary['total_revenue'] }}</td></tr>
         <tr><td>HPP Terjual</td><td class="number">{{ $summary['cost_of_goods_sold'] }}</td></tr>
+        <tr><td>Potongan Online Merchant</td><td class="number">{{ $summary['online_merchant_deduction'] }}</td></tr>
         <tr><td>Total Pengeluaran</td><td class="number">{{ $summary['total_expense'] }}</td></tr>
         <tr><td>Laba Kotor</td><td class="number">{{ $summary['gross_profit'] }}</td></tr>
         <tr><td>Estimasi Laba/Rugi</td><td class="number">{{ $summary['net_profit_estimate'] }}</td></tr>
@@ -29,7 +30,7 @@
     <table>
         <tr>
             <th>Kasir</th><th>Email</th><th>Transaksi</th><th>Kotor</th><th>Diskon</th>
-            <th>Pendapatan</th><th>Tunai</th><th>QRIS</th><th>Kartu</th>
+            <th>Pendapatan</th><th>Tunai</th><th>QRIS</th><th>Kartu</th><th>Online Merchant</th>
         </tr>
         @foreach ($cashierRevenues as $cashier)
             <tr>
@@ -37,7 +38,7 @@
                 <td class="number">{{ $cashier['sales_count'] }}</td><td class="number">{{ $cashier['gross_sales'] }}</td>
                 <td class="number">{{ $cashier['discount_total'] }}</td><td class="number">{{ $cashier['net_sales'] }}</td>
                 <td class="number">{{ $cashier['cash_total'] }}</td><td class="number">{{ $cashier['qris_total'] }}</td>
-                <td class="number">{{ $cashier['card_total'] }}</td>
+                <td class="number">{{ $cashier['card_total'] }}</td><td class="number">{{ $cashier['online_merchant_total'] }}</td>
             </tr>
         @endforeach
     </table>

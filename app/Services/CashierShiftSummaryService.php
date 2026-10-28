@@ -51,6 +51,8 @@ class CashierShiftSummaryService
         $shift->loadMissing(['user', 'branch']);
         $setting = StoreSetting::current();
 
+        $merchantSales = $shift->sales()->active()->where('payment_method', 'online_merchant')->get();
+
         return [
             'id' => $shift->id,
             'cashier' => $shift->user?->name ?? 'Kasir',
@@ -64,6 +66,8 @@ class CashierShiftSummaryService
             'cashTotal' => $shift->cash_total,
             'qrisTotal' => $shift->qris_total,
             'cardTotal' => $shift->card_total,
+            'onlineMerchantTotal' => (int) $merchantSales->sum('paid_amount'),
+            'onlineMerchantDeduction' => (int) $merchantSales->sum('online_merchant_deduction'),
             'openingCashAmount' => $shift->opening_cash_amount,
             'expectedCashInDrawer' => $shift->opening_cash_amount + $shift->cash_total,
             'validatedCashAmount' => $shift->validated_cash_amount,

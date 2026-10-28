@@ -15,6 +15,8 @@
                 ['Tunai', shiftRecap?.cashTotal || 0, true],
                 ['QRIS', shiftRecap?.qrisTotal || 0, true],
                 ['Kartu', shiftRecap?.cardTotal || 0, true],
+                ['Online Merchant', shiftRecap?.onlineMerchantTotal || 0, true],
+                ['Potongan Online Merchant', shiftRecap?.onlineMerchantDeduction || 0, true],
                 ['Total uang laci', shiftRecap?.expectedCashInDrawer || 0, true],
             ]" :key="item[0]">
                 <div class="rounded-xl bg-gray-50 p-3 dark:bg-white/[0.04]">

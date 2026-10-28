@@ -34,7 +34,7 @@
                         <p class="text-xs font-medium uppercase tracking-wider text-emerald-300">Pembayaran Selesai</p>
                         <p class="mt-2 text-2xl font-bold tabular-nums" x-text="formatRupiah(total)"></p>
                         <template x-if="paymentMethod === 'cash' && changeAmount > 0">
-                            <p class="mt-1 text-sm text-white/70" x-text="`Kembali ${formatRupiah(changeAmount)}`"></p>
+                            <p class="mt-1 text-sm text-white/70" x-show="paymentMethod !== 'online_merchant'" x-text="`Kembali ${formatRupiah(changeAmount)}`"></p>
                         </template>
                         <p class="mt-3 text-[10px] uppercase tracking-wider text-white/40" x-text="invoiceNumber ? `No ${invoiceNumber}` : ''"></p>
                     </div>

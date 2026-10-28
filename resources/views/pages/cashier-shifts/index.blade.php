@@ -95,6 +95,7 @@
                             <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Tunai</th>
                             <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">QRIS</th>
                             <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Kartu</th>
+                            <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Online Merchant</th>
                             <th class="px-4 py-2 text-center text-[11px] font-semibold uppercase text-gray-500">Status</th>
                             @if ($canManageShift)
                                 <th class="px-4 py-2 text-right text-[11px] font-semibold uppercase text-gray-500">Aksi</th>
@@ -116,6 +117,7 @@
                                 <td class="px-4 py-3 text-right text-xs tabular-nums text-gray-600 dark:text-gray-300">{{ $rupiah($shift->cash_total) }}</td>
                                 <td class="px-4 py-3 text-right text-xs tabular-nums text-gray-600 dark:text-gray-300">{{ $rupiah($shift->qris_total) }}</td>
                                 <td class="px-4 py-3 text-right text-xs tabular-nums text-gray-600 dark:text-gray-300">{{ $rupiah($shift->card_total) }}</td>
+                                <td class="px-4 py-3 text-right text-xs tabular-nums text-gray-600 dark:text-gray-300">{{ $rupiah($shift->online_merchant_total) }}</td>
                                 <td class="px-4 py-3 text-center">
                                     @if ($shift->closed_at)
                                         <span class="rounded-full bg-gray-100 px-2 py-1 text-[11px] font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-300">Selesai</span>
@@ -167,7 +169,7 @@
                                 @endif
                             </tr>
                         @empty
-                            <tr><td colspan="{{ $canManageShift ? 11 : 10 }}" class="px-4 py-8 text-center text-sm text-gray-500">Belum ada shift kasir.</td></tr>
+                            <tr><td colspan="{{ $canManageShift ? 12 : 11 }}" class="px-4 py-8 text-center text-sm text-gray-500">Belum ada shift kasir.</td></tr>
                         @endforelse
                     </tbody>
                 </table>

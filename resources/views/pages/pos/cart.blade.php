@@ -83,7 +83,7 @@
                         <option value="{{ $value }}">{{ $label }}</option>
                     @endforeach
                 </select>
-                <span :id="$id('merchant-help')" class="mt-1 block text-xs text-gray-600 dark:text-gray-300" x-text="onlineMerchant ? 'Pilih metode pembayaran sesuai pembayaran yang diterima.' : 'Pilih merchant sebelum menyelesaikan transaksi.'"></span>
+                <span :id="$id('merchant-help')" class="mt-1 block text-xs text-gray-600 dark:text-gray-300" x-text="onlineMerchant ? 'Masukkan uang bersih yang diterima seller setelah potongan merchant.' : 'Pilih merchant sebelum menyelesaikan transaksi.'"></span>
             </label>
         </div>
         <div class="mb-3 grid grid-cols-2 gap-2">
@@ -139,7 +139,7 @@
             </div>
         </div>
 
-        <div class="mt-3.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div x-show="!isOnlineMerchant" class="mt-3.5 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <button type="button" @click="selectPaymentMethod('cash')"
                 class="h-9 rounded-lg text-xs font-semibold transition"
                 :class="paymentMethod === 'cash' ? 'bg-gray-900 text-white dark:bg-white dark:text-gray-900' : 'border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-800 dark:text-gray-300 dark:hover:bg-white/[0.04]'">
@@ -162,7 +162,7 @@
             </button>
         </div>
 
-        <div x-show="cashierFeatures.splitPayment && paymentMethod === 'split'" class="mt-3.5 space-y-2 animate-fadeIn">
+        <div x-show="!isOnlineMerchant && cashierFeatures.splitPayment && paymentMethod === 'split'" class="mt-3.5 space-y-2 animate-fadeIn">
             <p class="text-[11px] font-semibold text-gray-600 dark:text-gray-300">Bagi pembayaran ke beberapa metode</p>
             <template x-for="(payment, index) in splitPayments" :key="payment.method">
                 <label class="grid grid-cols-[92px_1fr] items-center gap-2">
@@ -181,7 +181,7 @@
             </div>
         </div>
 
-        <div x-show="paymentMethod === 'cash'" class="mt-3.5 space-y-2 animate-fadeIn">
+        <div x-show="!isOnlineMerchant && paymentMethod === 'cash'" class="mt-3.5 space-y-2 animate-fadeIn">
             <label class="block">
                 <span class="mb-1 block text-[10px] font-semibold text-gray-500 dark:text-gray-400">Uang diterima</span>
                 <input type="text" inputmode="numeric" autocomplete="off" :value="formatInputNumber(paidAmount)" @input="onMoneyInput('paidAmount', $event)" placeholder="0"
@@ -196,15 +196,25 @@
             </div>
         </div>
 
+        <div x-show="isOnlineMerchant" x-cloak class="mt-3.5 space-y-2">
+            <label class="block">
+                <span class="mb-1 block text-xs font-medium text-gray-700 dark:text-gray-300">Uang bersih diterima seller <span class="text-error-500">*</span></span>
+                <input type="text" inputmode="numeric" autocomplete="off" :value="onlineNetAmount === '' ? '' : (formatInputNumber(onlineNetAmount) || '0')" @input="onMoneyInput('onlineNetAmount', $event)" :aria-invalid="onlineNet > total" :required="isOnlineMerchant" placeholder="0"
+                    class="h-11 w-full rounded-lg border border-gray-300 bg-transparent px-3 text-right text-sm font-semibold tabular-nums text-gray-800 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
+            </label>
+            <p x-show="onlineNetAmount !== '' && onlineNet <= total" class="text-xs text-gray-600 dark:text-gray-300">Potongan Online Merchant: <span class="font-semibold" x-text="formatRupiah(onlineDeduction)"></span></p>
+            <p x-show="onlineNet > total" class="text-xs text-error-600">Uang bersih tidak boleh melebihi total transaksi.</p>
+        </div>
+
         <p x-show="checkoutError" class="mt-3.5 rounded-lg border border-error-200 bg-error-50 px-3 py-2 text-xs text-error-700 dark:border-error-500/20 dark:bg-error-500/10 dark:text-error-300" x-text="checkoutError"></p>
 
-        <div class="mt-3.5 grid grid-cols-[1fr_auto] gap-2">
+        <div :class="isOnlineMerchant ? 'grid-cols-1' : 'grid-cols-[1fr_auto]'" class="mt-3.5 grid gap-2">
             <button type="button" @click="checkout()" :disabled="!canCheckout"
                 class="inline-flex h-11 items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30 disabled:cursor-not-allowed disabled:opacity-50">
                 <span x-show="!checkoutLoading">Selesaikan Pembayaran</span>
                 <span x-show="checkoutLoading">Memproses...</span>
             </button>
-            <button type="button" @click="openComplimentary()" :disabled="checkoutLoading || cart.length === 0"
+            <button x-show="!isOnlineMerchant" type="button" @click="openComplimentary()" :disabled="checkoutLoading || cart.length === 0"
                 class="h-11 rounded-lg border border-warning-300 px-4 text-sm font-semibold text-warning-700 transition hover:bg-warning-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-warning-500/40 dark:text-warning-300 dark:hover:bg-warning-500/10">Gratis</button>
         </div>
     </div>

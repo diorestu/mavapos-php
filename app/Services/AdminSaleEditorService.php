@@ -14,6 +14,7 @@ use App\Models\StoreSetting;
 use App\Support\BranchInventoryManager;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class AdminSaleEditorService
 {
@@ -33,6 +34,8 @@ class AdminSaleEditorService
             if ($onlineMerchant && $onlineMerchant !== $sale->online_merchant) {
                 abort_unless(StoreSetting::current()->cashier_online_merchant_enabled, 422, 'Online Merchant dinonaktifkan di pengaturan cabang ini.');
             }
+
+            abort_if($data['payment_method'] === 'online_merchant' && ! $onlineMerchant, 422, 'Merchant wajib dipilih.');
 
             $this->restorePreviousState($sale, $branchId, $actor, $data['reason']);
             $sale->items()->delete();
@@ -69,9 +72,12 @@ class AdminSaleEditorService
             $automaticReward = in_array($loyaltyReward, ['fifty_percent', 'free_cup', 'physical_fifth', 'physical_tenth'], true);
             $discount = $isFree ? $subtotal : ($automaticReward ? $loyaltyDiscount : min((int) ($data['discount'] ?? 0), $subtotal));
             $total = $subtotal - $discount;
-            $paid = $data['payment_method'] === 'cash' ? (int) ($data['paid_amount'] ?? 0) : $total;
+            $paid = in_array($data['payment_method'], ['cash', 'online_merchant'], true) ? (int) ($data['paid_amount'] ?? 0) : $total;
             if ($data['payment_method'] === 'cash' && $paid < $total) {
                 abort(422, 'Uang diterima kurang dari total transaksi.');
+            }
+            if ($data['payment_method'] === 'online_merchant' && $paid > $total) {
+                throw ValidationException::withMessages(['paid_amount' => 'Uang bersih tidak boleh melebihi total transaksi.']);
             }
             $payments = collect($data['payments'] ?? [])->map(fn (array $payment): array => ['method' => $payment['method'], 'amount' => (int) $payment['amount']]);
             if ($data['payment_method'] === 'split' && $payments->sum('amount') !== $total) {

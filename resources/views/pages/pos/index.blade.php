@@ -512,10 +512,12 @@
                             <p class="mt-1 font-semibold tabular-nums text-gray-900 dark:text-white" x-text="formatRupiah(lastReceipt?.total || 0)"></p>
                         </div>
                         <div>
-                            <p class="text-[10px] font-medium uppercase text-gray-400">Kembalian</p>
-                            <p class="mt-1 font-semibold tabular-nums text-success-700 dark:text-success-400" x-text="formatRupiah(lastReceipt?.change_amount || 0)"></p>
+                            <p class="text-[10px] font-medium uppercase text-gray-400" x-text="lastReceipt?.payment_method === 'online_merchant' ? 'Bersih diterima seller' : 'Kembalian'"></p>
+                            <p class="mt-1 font-semibold tabular-nums text-success-700 dark:text-success-400" x-text="formatRupiah(lastReceipt?.payment_method === 'online_merchant' ? lastReceipt?.paid_amount : lastReceipt?.change_amount || 0)"></p>
                         </div>
                     </div>
+
+                    <p x-show="lastReceipt?.payment_method === 'online_merchant'" class="mt-2 text-xs text-gray-600 dark:text-gray-300">Potongan Online Merchant: <span x-text="formatRupiah(lastReceipt?.online_merchant_deduction || 0)"></span></p>
 
                     <div class="mt-3 max-h-40 space-y-1.5 overflow-y-auto custom-scrollbar">
                         <template x-for="item in lastReceipt?.items || []" :key="`${lastReceipt?.invoice_number}-${item.sku}-${item.name}`">
