@@ -23,7 +23,10 @@ class SalesBonusService
             $daily = $this->forBranchDay($branchId, $date);
             $dailyByUser = collect($daily['staffBreakdown'])->keyBy('userId');
             $dailySales = $daily['salesCount'];
-            $salesValues = collect($users)->mapWithKeys(fn ($user): array => [$user->id => (int) ($dailyByUser->get($user->id)['salesCount'] ?? 0)]);
+            $salesValues = collect($users)->mapWithKeys(fn ($user): array => [$user->id => (int) $daily['salesByUser']->get($user->id, 0)]);
+            $salesValues->each(function (int $quantity, int $userId) use ($salesTotals): void {
+                $salesTotals[$userId] += $quantity;
+            });
             $levels = collect($users)->mapWithKeys(fn ($user): array => [$user->id => (int) ($dailyByUser->get($user->id)['tier'] ?? 0)]);
             $values = collect($users)->mapWithKeys(function ($user) use ($dailyByUser, $totals): array {
                 $bonus = (int) ($dailyByUser->get($user->id)['bonus'] ?? 0);
@@ -38,7 +41,7 @@ class SalesBonusService
             $totals['total'] = ($totals['total'] ?? 0) + $dailyBonus;
         }
 
-        return ['rows' => $rows, 'totals' => $totals, 'salesTotal' => (int) $salesTotals['total'], 'salesAmountTotal' => $salesAmountTotal, 'bonusTotal' => (int) $totals['total']];
+        return ['rows' => $rows, 'totals' => $totals, 'cashierSalesTotals' => $salesTotals, 'salesTotal' => (int) $salesTotals['total'], 'salesAmountTotal' => $salesAmountTotal, 'bonusTotal' => (int) $totals['total']];
     }
 
     public function forBranchDay(int $branchId, Carbon $day): array
@@ -66,12 +69,12 @@ class SalesBonusService
             ->pluck('id')
             ->values();
         $salesByStaff = PosSaleItem::query()
-            ->whereHas('sale', fn ($query) => $query->active()->where('branch_id', $branchId)->whereBetween('sold_at', [$from, $to])->whereIn('user_id', $staffIds))
+            ->whereHas('sale', fn ($query) => $query->active()->where('branch_id', $branchId)->whereBetween('sold_at', [$from, $to]))
             ->join('pos_sales', 'pos_sale_items.pos_sale_id', '=', 'pos_sales.id')
             ->selectRaw('pos_sales.user_id, SUM(pos_sale_items.quantity) as sales_count')
             ->groupBy('pos_sales.user_id')
             ->pluck('sales_count', 'pos_sales.user_id');
-        $legacySalesByStaff = (clone $salesQuery)->doesntHave('items')->whereIn('user_id', $staffIds)
+        $legacySalesByStaff = (clone $salesQuery)->doesntHave('items')
             ->selectRaw('user_id, COUNT(*) as sales_count')->groupBy('user_id')->pluck('sales_count', 'user_id');
         $legacySalesByStaff->each(function ($count, $staffId) use ($salesByStaff): void {
             $salesByStaff[$staffId] = (int) ($salesByStaff->get($staffId) ?? 0) + (int) $count;
@@ -92,6 +95,7 @@ class SalesBonusService
 
         return [
             'salesCount' => $salesCount,
+            'salesByUser' => $salesByStaff,
             'salesAmount' => (int) (clone $salesQuery)->sum('total'),
             'targetReached' => $bonus > 0,
             'bonusPerPerson' => $bonus,

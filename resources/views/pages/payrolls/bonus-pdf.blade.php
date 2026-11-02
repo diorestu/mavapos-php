@@ -39,19 +39,19 @@
         </tbody>
     </table>
     <p class="note">Bonus mengikuti target penjualan dan kehadiran tim pada kios ini, sesuai tampilan Bonus Harian per Orang. Nominal Rp0 berarti tidak ada bonus pada tanggal tersebut.</p>
-    <p class="note">Kuantitas dan nominal penjualan merupakan total kios per tanggal. Nominal penjualan setelah diskon, sebelum potongan Online Merchant.</p>
+    <p class="note">Qty terjual ditampilkan sebagai kuantitas atas nama kasir / total kuantitas cabang pada tanggal tersebut. Nominal penjualan merupakan total kios setelah diskon, sebelum potongan Online Merchant.</p>
 
     @foreach($users as $user)
         <div class="employee">
             <h2>{{ $user->name }}</h2>
             <p>Kios: {{ $activeBranch->name }} | Bulan: {{ $month->format('m/Y') }}</p>
             <table>
-                <thead><tr><th>Tanggal</th><th class="amount">Qty Terjual (Kios)</th><th class="amount">Nominal Penjualan (Kios)</th><th class="amount">Bonus Harian</th></tr></thead>
+                <thead><tr><th>Tanggal</th><th class="amount">Qty Terjual (Kasir / Cabang)</th><th class="amount">Nominal Penjualan (Kios)</th><th class="amount">Bonus Harian</th></tr></thead>
                 <tbody>
                     @foreach($bonusTable['rows'] as $row)
-                        <tr><td>{{ $row['date']->format('d/m/Y') }}</td><td class="amount">{{ number_format($row['sales'], 0, ',', '.') }}</td><td class="amount">{{ $rupiah($row['salesAmount']) }}</td><td class="amount">{{ $rupiah($row['values']->get($user->id, 0)) }}</td></tr>
+                        <tr><td>{{ $row['date']->format('d/m/Y') }}</td><td class="amount">{{ number_format($row['salesValues']->get($user->id, 0), 0, ',', '.') }} / {{ number_format($row['sales'], 0, ',', '.') }}</td><td class="amount">{{ $rupiah($row['salesAmount']) }}</td><td class="amount">{{ $rupiah($row['values']->get($user->id, 0)) }}</td></tr>
                     @endforeach
-                    <tr class="total"><td>Total bulan</td><td class="amount">{{ number_format($bonusTable['salesTotal'], 0, ',', '.') }}</td><td class="amount">{{ $rupiah($bonusTable['salesAmountTotal']) }}</td><td class="amount">{{ $rupiah($bonusTable['totals']->get($user->id, 0)) }}</td></tr>
+                    <tr class="total"><td>Total bulan</td><td class="amount">{{ number_format($bonusTable['cashierSalesTotals']->get($user->id, 0), 0, ',', '.') }} / {{ number_format($bonusTable['salesTotal'], 0, ',', '.') }}</td><td class="amount">{{ $rupiah($bonusTable['salesAmountTotal']) }}</td><td class="amount">{{ $rupiah($bonusTable['totals']->get($user->id, 0)) }}</td></tr>
                 </tbody>
             </table>
         </div>

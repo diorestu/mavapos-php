@@ -61,7 +61,9 @@ test('owner can download monthly daily bonuses for the active kiosk', function (
     expect($data['bonusTable']['rows'][0]['values']->get($companion->id))->toBe(25000);
     expect($data['bonusTable']['rows'][27]['values']->get($cashier->id))->toBe(25000);
     $html = view('pages.payrolls.bonus-pdf', $data)->render();
-    expect($html)->toContain('Qty Terjual (Kios)', 'Nominal Penjualan (Kios)', 'Rp820.000', 'Rp410.000', 'Kios Sanur', 'Ayu', 'Budi', '01/02/2026', '28/02/2026', 'Rp50.000', 'Rp100.000')->not->toContain('Staf Tenant Lain', 'Kios Lain', '01/03/2026');
+    expect($html)->toContain('41 / 41', '0 / 41', '0 / 0', '82 / 82', '0 / 82');
+    $page->assertSee('41 / 41')->assertSee('0 / 41')->assertSee('0 / 0');
+    expect($html)->toContain('Qty Terjual (Kasir / Cabang)', 'Nominal Penjualan (Kios)', 'Rp820.000', 'Rp410.000', 'Kios Sanur', 'Ayu', 'Budi', '01/02/2026', '28/02/2026', 'Rp50.000', 'Rp100.000')->not->toContain('Staf Tenant Lain', 'Kios Lain', '01/03/2026');
 
     $this->post(route('branches.switch'), ['branch_id' => $otherBranch->id])->assertRedirect();
     $this->get('/payrolls/bonus/download?month=2026-02')->assertOk();
@@ -92,6 +94,7 @@ test('bonus PDF retains owner only payroll access', function () {
 
 test('daily bonus sales totals include all kiosk sales after discount without duplicating item lines', function () {
     $owner = User::factory()->create(['role' => 'owner']);
+    $cashier = User::factory()->create(['role' => 'kasir', 'tenant_owner_id' => $owner->id]);
     $this->actingAs($owner);
     $branch = app(BranchContext::class)->active();
     $soldAt = Carbon::parse('2026-02-28 23:59:00', 'Asia/Makassar')->utc();
@@ -105,12 +108,15 @@ test('daily bonus sales totals include all kiosk sales after discount without du
     foreach ([2, 3] as $quantity) {
         PosSaleItem::query()->create(['pos_sale_id' => $sale->id, 'item_type' => 'product', 'sku' => 'BONUS-QTY-'.$quantity, 'name' => 'Produk', 'quantity' => $quantity, 'unit_price' => 10000, 'line_total' => $quantity * 10000]);
     }
+    $sale->update(['user_id' => $cashier->id]);
     $voided = $sale->replicate();
     $voided->fill(['invoice_number' => 'BONUS-VOIDED', 'voided_at' => now()])->save();
 
     $response = $this->get('/payrolls?month=2026-02&tab=bonus')->assertOk();
     $data = $response->viewData('bonusTable');
     expect($data['rows'][27]['sales'])->toBe(5);
+    expect($data['rows'][27]['salesValues']->get($cashier->id))->toBe(5);
+    expect($data['cashierSalesTotals']->get($cashier->id))->toBe(5);
     expect($data['rows'][27]['salesAmount'])->toBe(45000);
     expect($data['salesTotal'])->toBe(5);
     expect($data['salesAmountTotal'])->toBe(45000);
