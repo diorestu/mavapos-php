@@ -9,8 +9,10 @@ use App\Models\Product;
 use App\Models\StockMovement;
 use App\Models\StoreSetting;
 use App\Models\User;
+use App\Services\SalesReportExcelExporter;
 use App\Support\BranchContext;
 use App\Support\BranchInventoryManager;
+use App\Support\LocalTime;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -44,22 +46,38 @@ class ReportController extends Controller
             ->download($fileName);
     }
 
-    public function downloadExcel(Request $request): Response
+    public function downloadExcel(Request $request, SalesReportExcelExporter $exporter): Response
     {
-        $data = $this->reportData($request);
+        $validated = $request->validate([
+            'date_from' => ['nullable', 'date'],
+            'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
+        ]);
+        $from = isset($validated['date_from'])
+            ? Carbon::parse($validated['date_from'], LocalTime::TIMEZONE)->startOfDay()
+            : now(LocalTime::TIMEZONE)->startOfMonth();
+        $to = isset($validated['date_to'])
+            ? Carbon::parse($validated['date_to'], LocalTime::TIMEZONE)->endOfDay()
+            : now(LocalTime::TIMEZONE)->endOfDay();
+        $branch = app(BranchContext::class)->active();
+        $transactions = PosSale::query()->active()->with('payments')
+            ->where('branch_id', $branch->id)
+            ->whereBetween('sold_at', [$from->copy()->utc(), $to->copy()->utc()])
+            ->orderBy('sold_at')->orderBy('id')->lazy()
+            ->map(fn (PosSale $sale): array => [
+                'invoice_number' => $sale->invoice_number,
+                'sold_at' => $sale->sold_at->copy()->timezone(LocalTime::TIMEZONE),
+                'subtotal' => (int) $sale->subtotal,
+                'discount' => (int) $sale->discount,
+                'received_amount' => $sale->payment_method === 'online_merchant' ? (int) $sale->paid_amount : (int) $sale->total,
+                'description' => $this->saleDescription($sale).' · '.$this->paymentSummary($sale),
+            ]);
         $fileName = sprintf(
-            'laporan-%s-sampai-%s.xls',
-            $data['period']['from']->format('Y-m-d'),
-            $data['period']['to']->format('Y-m-d'),
+            'laporan-%s-sampai-%s.xlsx',
+            $from->format('Y-m-d'),
+            $to->format('Y-m-d'),
         );
 
-        return response()->view('pages.reports.excel', [
-            'title' => 'Laporan MavaPOS',
-            ...$data,
-        ], 200, [
-            'Content-Type' => 'application/vnd.ms-excel',
-            'Content-Disposition' => 'attachment; filename="'.$fileName.'"',
-        ]);
+        return $exporter->download($transactions, $fileName, $branch->name);
     }
 
     public function journal(Request $request): View

@@ -11,6 +11,7 @@ use App\Support\BranchContext;
 use App\Support\BranchInventoryManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Request;
+use Tests\Support\ExcelExport;
 
 uses(RefreshDatabase::class);
 
@@ -145,7 +146,10 @@ test('merchant deductions and sales discounts stay separate in financial profit 
     $reportSummary = $this->get(route('reports'))->assertOk()->viewData('summary');
     expect($reportSummary['online_merchant_deduction'])->toBe(3000);
     expect((int) $reportSummary['total_expense'])->toBe(3000);
-    $this->get(route('reports.excel'))->assertOk()->assertSee('Online Merchant Rp15.000')->assertSee('Potongan Online Merchant Rp3.000');
+    $workbook = ExcelExport::read($this->get(route('reports.excel')));
+    expect($workbook->getActiveSheet()->getCell('E2')->getValue())->toBe(15000);
+    expect($workbook->getActiveSheet()->getCell('F2')->getValue())->toContain('Online Merchant Rp15.000', 'Potongan Online Merchant Rp3.000');
+    $workbook->disconnectWorksheets();
     $this->get(route('reports.profit-loss.download'))->assertOk();
 });
 

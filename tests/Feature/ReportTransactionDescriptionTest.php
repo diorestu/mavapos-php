@@ -5,6 +5,7 @@ use App\Models\PosSale;
 use App\Models\User;
 use App\Support\BranchContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Support\ExcelExport;
 
 uses(RefreshDatabase::class);
 
@@ -66,11 +67,10 @@ test('laporan menjelaskan diskon gratis dan rincian split payment setiap transak
         ->assertSee('Gratis — Influencer: Dina Creator')
         ->assertSee('Tunai Rp200.000 + QRIS Rp100.000');
 
-    $this->get(route('reports.excel', $query))
-        ->assertOk()
-        ->assertSee('Diskon Rp5.000')
-        ->assertSee('Gratis — Influencer: Dina Creator')
-        ->assertSee('Tunai Rp200.000 + QRIS Rp100.000');
+    $workbook = ExcelExport::read($this->get(route('reports.excel', $query)));
+    $descriptions = implode('\n', array_column($workbook->getActiveSheet()->toArray(), 5));
+    expect($descriptions)->toContain('Diskon Rp5.000', 'Gratis — Influencer: Dina Creator', 'Tunai Rp200.000 + QRIS Rp100.000');
+    $workbook->disconnectWorksheets();
 
     $this->get(route('reports.journal', $query))
         ->assertOk()
