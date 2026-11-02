@@ -30,6 +30,9 @@
                                 <span class="flex h-6 w-6 items-center justify-center rounded-md bg-gray-100 text-xs font-semibold text-gray-600 dark:bg-gray-800 dark:text-gray-400">
                                     {{ $index + 1 }}
                                 </span>
+                                @if (! empty($product['image_url']))
+                                    <img src="{{ $product['image_url'] }}" alt="{{ $product['name'] }}" width="48" height="48" loading="lazy" class="h-12 w-12 shrink-0 rounded-lg border border-gray-100 object-cover dark:border-gray-800" />
+                                @endif
                                 <p class="truncate text-[13px] font-semibold text-gray-800 dark:text-white/90">{{ $product['name'] }}</p>
                             </div>
                         </td>

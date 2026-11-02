@@ -10,6 +10,7 @@ use App\Models\Product;
 use App\Support\BranchContext;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Storage;
 
 class DashboardController extends Controller
 {
@@ -185,6 +186,7 @@ class DashboardController extends Controller
                 return [
                     'name' => $first->name,
                     'category' => $first->product?->category?->name ?? 'Umum',
+                    'image_url' => $first->product?->image_path ? Storage::disk('public')->url($first->product->image_path) : null,
                     'sold' => $group->sum('quantity'),
                     'revenue' => $group->sum('line_total'),
                 ];
