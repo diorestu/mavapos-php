@@ -13,16 +13,20 @@ use Tests\Support\ExcelExport;
 
 uses(RefreshDatabase::class);
 
-test('sales Excel contains only six ordered data columns even without transactions', function () {
+test('sales Excel contains eight ordered data columns even without transactions', function () {
     $owner = User::factory()->create(['role' => 'owner']);
     $response = $this->actingAs($owner)->get(route('reports.excel', ['date_from' => '2026-07-01', 'date_to' => '2026-07-20']));
     $workbook = ExcelExport::read($response);
 
     expect($response->headers->get('content-disposition'))->toContain('laporan-2026-07-01-sampai-2026-07-20.xlsx');
-    expect($workbook->getSheetCount())->toBe(1);
+    expect($workbook->getSheetCount())->toBe(2);
+    expect($workbook->getSheetByName('Ringkasan Harian')->toArray())->toBe([[
+        'Tanggal', 'Metode Pembayaran', 'Jumlah Transaksi', 'Total Penjualan', 'Total Diskon', 'Total Diterima (Real)',
+    ]]);
     expect($workbook->getActiveSheet()->toArray())->toBe([[
         'Nomor Transaksi', 'Tanggal Transaksi', 'Jumlah Nominal Penjualan',
         'Diskon Penjualan', 'Jumlah Nominal Diterima (Real)', 'Keterangan Penjualan',
+        'Metode Pembayaran', 'Online Merchant',
     ]]);
     $workbook->disconnectWorksheets();
 });
@@ -37,9 +41,13 @@ test('sales Excel exports gross discount and real receipts per transaction for t
     PosSale::query()->create(array_replace($defaults, ['invoice_number' => 'MERCHANT', 'payment_method' => 'online_merchant', 'online_merchant' => 'grabfood', 'paid_amount' => 65000, 'sold_at' => Carbon::parse('2026-07-20 23:59:59', 'Asia/Makassar')->utc()]));
     $split = PosSale::query()->create($defaults + ['invoice_number' => 'SPLIT', 'payment_method' => 'split', 'paid_amount' => 80000]);
     $split->payments()->createMany([['payment_method' => 'cash', 'amount' => 50000], ['payment_method' => 'qris', 'amount' => 30000]]);
+    $reverseSplit = PosSale::query()->create($defaults + ['invoice_number' => 'SPLIT-REVERSED', 'payment_method' => 'split', 'paid_amount' => 80000]);
+    $reverseSplit->payments()->createMany([['payment_method' => 'qris', 'amount' => 30000], ['payment_method' => 'cash', 'amount' => 50000]]);
     PosSale::query()->create(array_replace($defaults, ['invoice_number' => '=1+1', 'payment_method' => 'free', 'total' => 0, 'discount' => 100000, 'complimentary_category' => 'influencer', 'complimentary_recipient_name' => '=HYPERLINK("https://example.com")']));
     PosSale::query()->create($defaults + ['invoice_number' => 'QRIS', 'payment_method' => 'qris', 'paid_amount' => 80000]);
     PosSale::query()->create($defaults + ['invoice_number' => 'CARD', 'payment_method' => 'card', 'paid_amount' => 80000]);
+
+    PosSale::query()->create($defaults + ['invoice_number' => 'LEGACY-MERCHANT-QRIS', 'payment_method' => 'qris', 'online_merchant' => 'gofood', 'paid_amount' => 80000]);
 
     $otherBranch = Branch::query()->create(['name' => 'Kios Lain', 'code' => 'EXCEL-OTHER', 'user_id' => $owner->id, 'is_active' => true]);
     $otherOwner = User::factory()->create(['role' => 'owner']);
@@ -57,7 +65,14 @@ test('sales Excel exports gross discount and real receipts per transaction for t
     $workbook = ExcelExport::read($this->get(route('reports.excel', ['date_from' => '2026-07-01', 'date_to' => '2026-07-20'])));
     $sheet = $workbook->getActiveSheet();
     $rows = collect(array_slice($sheet->toArray(null, false, false), 1))->keyBy(fn ($row) => $row[0]);
-    expect($rows)->toHaveCount(6);
+    expect($rows)->toHaveCount(8);
+    expect(array_slice($rows['0000123'], 6))->toBe(['Tunai', 'Tidak']);
+    expect(array_slice($rows['MERCHANT'], 6))->toBe(['Online Merchant', 'Ya']);
+    expect(array_slice($rows['SPLIT'], 6))->toBe(['Tunai + QRIS', 'Tidak']);
+    expect(array_slice($rows['QRIS'], 6))->toBe(['QRIS', 'Tidak']);
+    expect(array_slice($rows['CARD'], 6))->toBe(['Kartu', 'Tidak']);
+    expect(array_slice($rows['=1+1'], 6))->toBe(['Gratis', 'Tidak']);
+    expect(array_slice($rows['LEGACY-MERCHANT-QRIS'], 6))->toBe(['QRIS', 'Ya']);
     expect(array_slice($rows['0000123'], 2, 3))->toBe([100000, 20000, 80000]);
     expect(array_slice($rows['MERCHANT'], 2, 3))->toBe([100000, 20000, 65000]);
     expect(array_slice($rows['SPLIT'], 2, 3))->toBe([100000, 20000, 80000]);
@@ -74,6 +89,19 @@ test('sales Excel exports gross discount and real receipts per transaction for t
         expect($sheet->getCell('B'.$row)->getDataType())->toBe(DataType::TYPE_NUMERIC);
         expect($sheet->getCell('F'.$row)->getDataType())->toBe(DataType::TYPE_STRING);
     }
+    $summary = $workbook->getSheetByName('Ringkasan Harian');
+    expect($summary)->not->toBeNull();
+    $summaryRows = array_slice($summary->toArray(null, false, false), 1);
+    $total = array_pop($summaryRows);
+    expect($summaryRows)->toHaveCount(6);
+    $grouped = collect($summaryRows)->keyBy(fn ($row) => Date::excelToDateTimeObject($row[0])->format('Y-m-d').'|'.$row[1]);
+    expect(array_slice($grouped['2026-07-01|QRIS'], 2))->toBe([2, 200000, 40000, 160000]);
+    expect(array_slice($grouped['2026-07-01|Tunai'], 2))->toBe([1, 100000, 20000, 80000]);
+    expect(array_slice($grouped['2026-07-01|Tunai + QRIS'], 2))->toBe([2, 200000, 40000, 160000]);
+    expect(array_slice($grouped['2026-07-01|Gratis'], 2))->toBe([1, 100000, 100000, 0]);
+    expect(array_slice($grouped['2026-07-20|Online Merchant'], 2))->toBe([1, 100000, 20000, 65000]);
+    expect(array_slice($total, 2))->toBe([8, 800000, 240000, 545000]);
+    expect($summary->getAutoFilter()->getRange())->toBe('A1:F7');
     $workbook->disconnectWorksheets();
 });
 

@@ -70,6 +70,9 @@ class ReportController extends Controller
                 'discount' => (int) $sale->discount,
                 'received_amount' => $sale->payment_method === 'online_merchant' ? (int) $sale->paid_amount : (int) $sale->total,
                 'description' => $this->saleDescription($sale).' · '.$this->paymentSummary($sale),
+                'payment_method' => collect($this->salePayments($sale))->pluck('method')->unique()
+                    ->map(fn (string $method): string => $this->paymentLabel($method))->implode(' + ') ?: 'Gratis',
+                'online_merchant' => ! empty($sale->online_merchant) || $sale->payment_method === 'online_merchant' ? 'Ya' : 'Tidak',
             ]);
         $fileName = sprintf(
             'laporan-%s-sampai-%s.xlsx',

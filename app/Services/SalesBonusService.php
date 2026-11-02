@@ -17,25 +17,28 @@ class SalesBonusService
         $rows = [];
         $totals = collect($users)->mapWithKeys(fn ($user): array => [$user->id => 0]);
         $salesTotals = collect($users)->mapWithKeys(fn ($user): array => [$user->id => 0]);
+        $salesAmountTotal = 0;
 
         for ($date = $month->copy()->startOfMonth(); $date->lte($month->copy()->endOfMonth()); $date->addDay()) {
             $daily = $this->forBranchDay($branchId, $date);
             $dailyByUser = collect($daily['staffBreakdown'])->keyBy('userId');
-            $dailySales = collect($users)->sum(fn ($user): int => (int) ($dailyByUser->get($user->id)['salesCount'] ?? 0));
+            $dailySales = $daily['salesCount'];
             $salesValues = collect($users)->mapWithKeys(fn ($user): array => [$user->id => (int) ($dailyByUser->get($user->id)['salesCount'] ?? 0)]);
             $levels = collect($users)->mapWithKeys(fn ($user): array => [$user->id => (int) ($dailyByUser->get($user->id)['tier'] ?? 0)]);
             $values = collect($users)->mapWithKeys(function ($user) use ($dailyByUser, $totals): array {
                 $bonus = (int) ($dailyByUser->get($user->id)['bonus'] ?? 0);
                 $totals[$user->id] += $bonus;
+
                 return [$user->id => $bonus];
             });
             $dailyBonus = $values->sum();
-            $rows[] = ['date' => $date->copy(), 'sales' => $dailySales, 'bonus' => $dailyBonus, 'values' => $values, 'levels' => $levels, 'salesValues' => $salesValues];
+            $rows[] = ['date' => $date->copy(), 'sales' => $dailySales, 'salesAmount' => $daily['salesAmount'], 'bonus' => $dailyBonus, 'values' => $values, 'levels' => $levels, 'salesValues' => $salesValues];
+            $salesAmountTotal += $daily['salesAmount'];
             $salesTotals['total'] = ($salesTotals['total'] ?? 0) + $dailySales;
             $totals['total'] = ($totals['total'] ?? 0) + $dailyBonus;
         }
 
-        return ['rows' => $rows, 'totals' => $totals, 'salesTotal' => (int) $salesTotals['total'], 'bonusTotal' => (int) $totals['total']];
+        return ['rows' => $rows, 'totals' => $totals, 'salesTotal' => (int) $salesTotals['total'], 'salesAmountTotal' => $salesAmountTotal, 'bonusTotal' => (int) $totals['total']];
     }
 
     public function forBranchDay(int $branchId, Carbon $day): array
@@ -89,6 +92,7 @@ class SalesBonusService
 
         return [
             'salesCount' => $salesCount,
+            'salesAmount' => (int) (clone $salesQuery)->sum('total'),
             'targetReached' => $bonus > 0,
             'bonusPerPerson' => $bonus,
             'staffCount' => $staffIds->count(),
