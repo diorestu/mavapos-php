@@ -7,15 +7,16 @@ use App\Models\RawMaterial;
 use App\Models\StockMovement;
 use App\Models\StockTransfer;
 use App\Models\User;
-use Illuminate\Support\Facades\DB;
+use App\Support\BranchContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\DB;
 
 uses(RefreshDatabase::class);
 
 test('owner dapat transfer stok antar cabang dan mutasi tercatat', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
-    $fromBranch = app(\App\Support\BranchContext::class)->active();
+    $fromBranch = app(BranchContext::class)->active();
     $fromBranch->update(['user_id' => $user->id, 'is_active' => true]);
     $toBranch = Branch::query()->create([
         'name' => 'Cabang Kedua',
@@ -68,8 +69,10 @@ test('owner dapat transfer stok antar cabang dan mutasi tercatat', function () {
 });
 
 test('transfer stok ditolak jika stok cabang asal tidak cukup', function () {
-    $user = User::factory()->create();
-    $fromBranch = Branch::query()->firstOrFail();
+    $user = User::factory()->create(['role' => 'owner']);
+    $this->actingAs($user);
+    $fromBranch = app(BranchContext::class)->active();
+    $fromBranch->update(['user_id' => $user->id, 'is_active' => true]);
     $toBranch = Branch::query()->create([
         'name' => 'Cabang Kedua',
         'code' => 'cabang-kedua',
@@ -103,8 +106,10 @@ test('transfer stok ditolak jika stok cabang asal tidak cukup', function () {
 });
 
 test('owner dapat memilih dan transfer stok bahan baku antar cabang', function () {
-    $user = User::factory()->create();
-    $fromBranch = Branch::query()->firstOrFail();
+    $user = User::factory()->create(['role' => 'owner']);
+    $this->actingAs($user);
+    $fromBranch = app(BranchContext::class)->active();
+    $fromBranch->update(['user_id' => $user->id, 'is_active' => true]);
     $toBranch = Branch::query()->create([
         'name' => 'Cabang Bahan Baku',
         'code' => 'cabang-bahan-baku',

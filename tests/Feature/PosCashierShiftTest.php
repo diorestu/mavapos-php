@@ -282,7 +282,9 @@ test('halaman shift menghitung nominal dari transaksi meski ringkasan shift belu
 });
 
 test('kasir wajib mulai shift sebelum checkout dan report menampilkan pendapatan per kasir', function () {
+    $owner = User::factory()->create(['role' => 'owner']);
     $cashier = User::factory()->create([
+        'role' => 'kasir', 'tenant_owner_id' => $owner->id,
         'name' => 'Kasir Pagi',
         'email' => 'kasir-pagi@example.com',
     ]);
@@ -290,7 +292,7 @@ test('kasir wajib mulai shift sebelum checkout dan report menampilkan pendapatan
     $this->actingAs($cashier);
     $branch = app(\App\Support\BranchContext::class)->active();
     $product = Product::withoutGlobalScopes()->where('sku', 'SKU-001')->firstOrFail();
-    $product->update(['user_id' => $cashier->id]);
+    $product->update(['user_id' => $owner->id]);
     app(BranchInventoryManager::class)->forProduct($branch->id, $product)->update(['stock' => $product->stock]);
     $startingStock = $product->stock;
 
@@ -387,9 +389,10 @@ test('shift kasir aktif harus ditutup sebelum kasir lain memulai pekerjaan', fun
         ->assertJsonPath('message', 'Sesi Kasir Pertama masih aktif. Akhiri sesi tersebut sebelum kasir berikutnya mulai.');
 });
 
-test('kasir berikutnya wajib memvalidasi cash dan kartu dari rekap sesi sebelumnya', function () {
-    $firstCashier = User::factory()->create(['name' => 'Kasir Pagi', 'role' => 'kasir']);
-    $secondCashier = User::factory()->create(['name' => 'Kasir Siang', 'role' => 'kasir']);
+test('kasir berikutnya dapat memakai kas awal berbeda dengan nominal handover yang cocok', function () {
+    $owner = User::query()->where('email', 'test@example.com')->firstOrFail();
+    $firstCashier = User::factory()->create(['name' => 'Kasir Pagi', 'role' => 'kasir', 'tenant_owner_id' => $owner->id]);
+    $secondCashier = User::factory()->create(['name' => 'Kasir Siang', 'role' => 'kasir', 'tenant_owner_id' => $owner->id]);
 
     $this->actingAs($firstCashier)
         ->postJson(route('pos.shift.start'), [
@@ -424,21 +427,14 @@ test('kasir berikutnya wajib memvalidasi cash dan kartu dari rekap sesi sebelumn
 
     $this->actingAs($secondCashier)
         ->postJson(route('pos.shift.start'), [
-            'validated_cash_amount' => $recap['expectedCashInDrawer'] - 1000,
-            'validated_card_amount' => $recap['cardTotal'],
-        ])
-        ->assertUnprocessable()
-        ->assertJsonPath('message', 'Validasi cash tidak sesuai rekap sebelumnya. Nominal wajib '.number_format($recap['expectedCashInDrawer'], 0, ',', '.').'.');
-
-    $this->actingAs($secondCashier)
-        ->postJson(route('pos.shift.start'), [
+            'opening_cash_amount' => 20000,
             'validated_cash_amount' => $recap['expectedCashInDrawer'],
             'validated_card_amount' => $recap['cardTotal'],
             'opening_note' => 'Cash dan kartu sudah cocok.',
         ])
         ->assertOk()
         ->assertJsonPath('shift.cashier', 'Kasir Siang')
-        ->assertJsonPath('shift.openingCashAmount', $recap['expectedCashInDrawer'])
+        ->assertJsonPath('shift.openingCashAmount', 20000)
         ->assertJsonPath('shift.validatedCashAmount', $recap['expectedCashInDrawer'])
         ->assertJsonPath('shift.validatedCardAmount', $recap['cardTotal']);
 
@@ -937,10 +933,8 @@ test('laporan nilai stok mengikuti stok cabang aktif', function () {
 });
 
 test('halaman stok mengikuti stok cabang aktif', function () {
-    $owner = User::factory()->create([
-        'name' => 'Owner Stok Cabang',
-        'email' => 'owner-stok-cabang@example.com',
-    ]);
+    $owner = User::query()->where('email', 'test@example.com')->firstOrFail();
+    $this->actingAs($owner);
     $defaultBranch = Branch::query()->firstOrFail();
     $secondBranch = Branch::query()->create([
         'name' => 'Cabang Kelola Stok',

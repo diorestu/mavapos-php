@@ -159,7 +159,10 @@ class PosController extends Controller
                 $previousShift = app(CashierShiftSummaryService::class)->refresh($previousShift);
                 // Rekap shift sebelumnya tetap tersimpan untuk audit, tetapi kas awal
                 // shift baru boleh berbeda karena uang dapat disetor atau dipindahkan.
-                $handoverValidatedAt = ($validatedCashAmount !== null || $validatedCardAmount !== null) ? now() : null;
+                $amountsMatch = $validatedCashAmount !== null && $validatedCardAmount !== null
+                    && (int) $validatedCashAmount === (int) ($previousShift->opening_cash_amount + $previousShift->cash_total)
+                    && (int) $validatedCardAmount === (int) $previousShift->card_total;
+                $handoverValidatedAt = $amountsMatch ? now() : null;
             }
 
             return CashierShift::query()->create([

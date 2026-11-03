@@ -1699,7 +1699,7 @@ test('payload checkout membawa pengaturan struk dan printer toko', function () {
         ->assertJsonPath('sale.store.tagline', 'Cepat, rapi, dan hemat')
         ->assertJsonPath('sale.store.instagram', '@mavapos')
         ->assertJsonPath('sale.receipt.footer_note', 'Barang yang sudah dibeli tidak dapat dikembalikan.')
-        ->assertJsonPath('sale.receipt.paper_width', '80')
+        ->assertJsonPath('sale.receipt.paper_width', 80)
         ->assertJsonPath('sale.receipt.show_logo', false)
         ->assertJsonPath('sale.receipt.show_store_address', false)
         ->assertJsonPath('sale.receipt.show_cashier', true)
@@ -1793,6 +1793,7 @@ test('owner dapat mengelola user dan role staf', function () {
             'name' => 'Kasir Cabang',
             'email' => 'kasir-cabang@example.com',
             'role' => 'kasir',
+            'branch_id' => app(BranchContext::class)->activeId(),
             'password' => 'password123',
             'password_confirmation' => 'password123',
         ])

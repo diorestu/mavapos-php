@@ -22,6 +22,15 @@
     </script>
     <!-- End Meta Pixel Code -->
 
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-6P13GLSH8F"></script>
+    <script>
+        window.dataLayer = window.dataLayer || [];
+        function gtag(){dataLayer.push(arguments);}
+        gtag('js', new Date());
+        gtag('config', 'G-6P13GLSH8F');
+    </script>
+
     <title>{{ $title ?? 'Dashboard' }} | Mava Backend</title>
     <link rel="icon" type="image/png" href="{{ asset('favicon.png') }}">
     <link rel="shortcut icon" type="image/png" href="{{ asset('favicon.png') }}">

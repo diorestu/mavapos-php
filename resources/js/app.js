@@ -1,4 +1,5 @@
 import './bootstrap';
+import { receiptPaperWidth } from './receipt-format.js';
 import Alpine from 'alpinejs';
 import Toastify from 'toastify-js';
 import 'toastify-js/src/toastify.css';
@@ -2735,7 +2736,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             return;
         }
 
-        const paperWidth = receiptOptions.paper_width === '80' ? '80mm' : '58mm';
+        const paperWidth = `${receiptPaperWidth(receiptOptions)}mm`;
         const showStoreAddress = receiptOptions.show_store_address !== false;
         const showCashier = receiptOptions.show_cashier !== false;
         const store = receipt.store || {};
@@ -2905,7 +2906,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
         const receiptOptions = receipt.receipt || {};
         const store = receipt.store || {};
-        const width = receiptOptions.paper_width === '80' ? 48 : 32;
+        const width = receiptPaperWidth(receiptOptions) === 80 ? 48 : 32;
         const lines = [];
 
         lines.push(this.centerReceiptText(store.name || 'MavaPOS', width));
@@ -3038,7 +3039,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         const socket = await this.connectIminPrinter();
         const receiptOptions = receipt.receipt || {};
         const store = receipt.store || {};
-        const paperCharacters = receiptOptions.paper_width === '80' ? 48 : 32;
+        const paperCharacters = receiptPaperWidth(receiptOptions) === 80 ? 48 : 32;
         const storeName = store.name || 'MavaPOS';
         const storeTagline = store.tagline || '';
         const storeAddress = store.address || '';
@@ -3720,7 +3721,7 @@ const shiftRecapPrinter = {
         if (!popup) throw new Error('Popup print diblokir browser. Izinkan popup lalu coba lagi.');
         const content = document.createElement('div');
         content.textContent = this.text(recap);
-        popup.document.write(`<html><head><title>Rekap Kasir</title><style>@page{size:${recap.receipt?.paper_width === '80' ? '80mm' : '58mm'} auto;margin:4mm}body{font:12px monospace;white-space:pre-wrap;margin:0}</style></head><body>${content.innerHTML}</body></html>`);
+        popup.document.write(`<html><head><title>Rekap Kasir</title><style>@page{size:${receiptPaperWidth(recap.receipt) + 'mm'} auto;margin:4mm}body{font:12px monospace;white-space:pre-wrap;margin:0}</style></head><body>${content.innerHTML}</body></html>`);
         popup.document.close(); popup.focus(); popup.print();
     },
     async bluetooth(recap) {
