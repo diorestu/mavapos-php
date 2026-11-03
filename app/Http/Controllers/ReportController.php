@@ -73,6 +73,8 @@ class ReportController extends Controller
                 'payment_method' => collect($this->salePayments($sale))->pluck('method')->unique()
                     ->map(fn (string $method): string => $this->paymentLabel($method))->implode(' + ') ?: 'Gratis',
                 'online_merchant' => ! empty($sale->online_merchant) || $sale->payment_method === 'online_merchant' ? 'Ya' : 'Tidak',
+                'merchant_name' => PosSale::ONLINE_MERCHANTS[$sale->online_merchant] ?? ($sale->payment_method === 'online_merchant' ? 'Online Merchant' : '-'),
+                'merchant_deduction' => (int) $sale->online_merchant_deduction,
             ]);
         $fileName = sprintf(
             'laporan-%s-sampai-%s.xlsx',

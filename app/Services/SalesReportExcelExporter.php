@@ -21,6 +21,7 @@ class SalesReportExcelExporter
             'Nomor Transaksi', 'Tanggal Transaksi', 'Jumlah Nominal Penjualan',
             'Diskon Penjualan', 'Jumlah Nominal Diterima (Real)', 'Keterangan Penjualan',
             'Metode Pembayaran', 'Online Merchant',
+            'Nama Merchant', 'Potongan Online Merchant',
         ]]);
 
         $row = 2;
@@ -34,20 +35,25 @@ class SalesReportExcelExporter
             $sheet->setCellValueExplicit('F'.$row, $transaction['description'], DataType::TYPE_STRING);
             $sheet->setCellValueExplicit('G'.$row, $transaction['payment_method'], DataType::TYPE_STRING);
             $sheet->setCellValueExplicit('H'.$row, $transaction['online_merchant'], DataType::TYPE_STRING);
+            $sheet->setCellValueExplicit('I'.$row, $transaction['merchant_name'], DataType::TYPE_STRING);
+            $sheet->setCellValue('J'.$row, $transaction['merchant_deduction']);
             $date = $transaction['sold_at']->toDateString();
             $method = collect(explode(' + ', $transaction['payment_method']))
                 ->sortBy(fn (string $label) => array_search($label, ['Tunai', 'QRIS', 'Kartu', 'Online Merchant', 'Gratis']))
                 ->implode(' + ');
-            $key = $date.'|'.$method;
+            $key = $date.'|'.$method.'|'.$transaction['merchant_name'];
             $dailyTotals[$key] ??= [
                 'date' => $transaction['sold_at']->copy()->startOfDay(),
                 'method' => $method,
-                'count' => 0, 'sales' => 0, 'discount' => 0, 'received' => 0,
+                'online_merchant' => $transaction['online_merchant'],
+                'merchant_name' => $transaction['merchant_name'],
+                'count' => 0, 'sales' => 0, 'discount' => 0, 'received' => 0, 'merchant_deduction' => 0,
             ];
             $dailyTotals[$key]['count']++;
             $dailyTotals[$key]['sales'] += $transaction['subtotal'];
             $dailyTotals[$key]['discount'] += $transaction['discount'];
             $dailyTotals[$key]['received'] += $transaction['received_amount'];
+            $dailyTotals[$key]['merchant_deduction'] += $transaction['merchant_deduction'];
             $row++;
         }
 
@@ -55,22 +61,24 @@ class SalesReportExcelExporter
         if ($lastRow >= 2) {
             $sheet->getStyle('B2:B'.$lastRow)->getNumberFormat()->setFormatCode('dd/mm/yyyy hh:mm:ss');
             $sheet->getStyle('C2:E'.$lastRow)->getNumberFormat()->setFormatCode('#,##0');
+            $sheet->getStyle('J2:J'.$lastRow)->getNumberFormat()->setFormatCode('#,##0');
             $sheet->getStyle('F2:F'.$lastRow)->getAlignment()->setWrapText(true);
         }
-        $sheet->getStyle('A1:H1')->getFont()->setBold(true);
-        $sheet->getStyle('A1:H1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFE5E7EB');
-        $sheet->getStyle('A1:H1')->getAlignment()->setWrapText(true);
+        $sheet->getStyle('A1:J1')->getFont()->setBold(true);
+        $sheet->getStyle('A1:J1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFE5E7EB');
+        $sheet->getStyle('A1:J1')->getAlignment()->setWrapText(true);
         $sheet->getRowDimension(1)->setRowHeight(32);
-        foreach (['A' => 26, 'B' => 24, 'C' => 25, 'D' => 22, 'E' => 30, 'F' => 70, 'G' => 30, 'H' => 20] as $column => $width) {
+        foreach (['A' => 26, 'B' => 24, 'C' => 25, 'D' => 22, 'E' => 30, 'F' => 70, 'G' => 30, 'H' => 20, 'I' => 24, 'J' => 26] as $column => $width) {
             $sheet->getColumnDimension($column)->setWidth($width);
         }
         $sheet->freezePane('A2');
-        $sheet->setAutoFilter('A1:H'.$lastRow);
+        $sheet->setAutoFilter('A1:J'.$lastRow);
 
         $summary = $workbook->createSheet();
         $summary->setTitle('Ringkasan Harian');
         $summary->fromArray([[
             'Tanggal', 'Metode Pembayaran', 'Jumlah Transaksi', 'Total Penjualan', 'Total Diskon', 'Total Diterima (Real)',
+            'Online Merchant', 'Nama Merchant', 'Potongan Online Merchant',
         ]]);
         ksort($dailyTotals);
         $summaryRow = 2;
@@ -81,9 +89,12 @@ class SalesReportExcelExporter
             $summary->setCellValue('D'.$summaryRow, $daily['sales']);
             $summary->setCellValue('E'.$summaryRow, $daily['discount']);
             $summary->setCellValue('F'.$summaryRow, $daily['received']);
+            $summary->setCellValueExplicit('G'.$summaryRow, $daily['online_merchant'], DataType::TYPE_STRING);
+            $summary->setCellValueExplicit('H'.$summaryRow, $daily['merchant_name'], DataType::TYPE_STRING);
+            $summary->setCellValue('I'.$summaryRow, $daily['merchant_deduction']);
             $summaryRow++;
         }
-        $summary->setAutoFilter('A1:F'.($summaryRow - 1));
+        $summary->setAutoFilter('A1:I'.($summaryRow - 1));
         if ($summaryRow > 2) {
             $summary->getStyle('A2:A'.($summaryRow - 1))->getNumberFormat()->setFormatCode('dd/mm/yyyy');
             $summary->fromArray([[
@@ -91,15 +102,17 @@ class SalesReportExcelExporter
                 array_sum(array_column($dailyTotals, 'sales')),
                 array_sum(array_column($dailyTotals, 'discount')),
                 array_sum(array_column($dailyTotals, 'received')),
+                '', '', array_sum(array_column($dailyTotals, 'merchant_deduction')),
             ]], null, 'A'.$summaryRow, true);
-            $summary->getStyle('A'.$summaryRow.':F'.$summaryRow)->getFont()->setBold(true);
+            $summary->getStyle('A'.$summaryRow.':I'.$summaryRow)->getFont()->setBold(true);
             $summary->getStyle('C2:F'.$summaryRow)->getNumberFormat()->setFormatCode('#,##0');
+            $summary->getStyle('I2:I'.$summaryRow)->getNumberFormat()->setFormatCode('#,##0');
         }
-        $summary->getStyle('A1:F1')->getFont()->setBold(true);
-        $summary->getStyle('A1:F1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFE5E7EB');
-        $summary->getStyle('A1:F1')->getAlignment()->setWrapText(true);
+        $summary->getStyle('A1:I1')->getFont()->setBold(true);
+        $summary->getStyle('A1:I1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFE5E7EB');
+        $summary->getStyle('A1:I1')->getAlignment()->setWrapText(true);
         $summary->getRowDimension(1)->setRowHeight(32);
-        foreach (['A' => 16, 'B' => 30, 'C' => 20, 'D' => 25, 'E' => 22, 'F' => 28] as $column => $width) {
+        foreach (['A' => 16, 'B' => 30, 'C' => 20, 'D' => 25, 'E' => 22, 'F' => 28, 'G' => 20, 'H' => 24, 'I' => 26] as $column => $width) {
             $summary->getColumnDimension($column)->setWidth($width);
         }
         $summary->freezePane('A2');
