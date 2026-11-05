@@ -157,7 +157,7 @@
             <td class="card">
                 <p class="label">Estimasi Laba/Rugi</p>
                 <p class="value {{ $summary['net_profit_estimate'] >= 0 ? 'success' : 'error' }}">{{ $rupiah($summary['net_profit_estimate']) }}</p>
-                <p class="note">Pendapatan POS + billing lunas - HPP - total pengeluaran.</p>
+                <p class="note">Pendapatan POS + billing lunas - retur - HPP - total pengeluaran.</p>
             </td>
             <td class="card">
                 <p class="label">Total Pengeluaran</p>
@@ -169,7 +169,7 @@
             <td class="card">
                 <p class="label">Laba Kotor</p>
                 <p class="value {{ $summary['gross_profit'] >= 0 ? 'success' : 'error' }}">{{ $rupiah($summary['gross_profit']) }}</p>
-                <p class="note">Pendapatan POS + billing lunas - HPP.</p>
+                <p class="note">Pendapatan POS + billing lunas - retur - HPP.</p>
             </td>
             <td class="card">
                 <p class="label">HPP Terjual</p>
@@ -279,6 +279,18 @@
         </table>
     </div>
 
+    </div>
+    <div class="section">
+        <h2 class="section-title">Retur Penjualan</h2>
+        <p>Refund: {{ $rupiah($summary['refund_total']) }} · Penerimaan setelah retur: {{ $rupiah($summary['net_after_refunds']) }}</p>
+        <p class="muted">Sesuai tanggal refund. Penerimaan mencakup POS dan billing lunas setelah potongan merchant. Pemulihan HPP: {{ $rupiah($summary['refund_cost_recovery']) }}.</p>
+        <table><thead><tr><th>Retur / Invoice</th><th>Tanggal</th><th>Metode</th><th>Alasan</th><th class="right">Refund</th></tr></thead><tbody>
+        @forelse ($refunds as $refund)
+            <tr><td>{{ $refund->refund_number }}<br>{{ $refund->sale?->invoice_number }}</td><td>{{ $refund->refunded_at->timezone('Asia/Makassar')->format('d/m/Y H:i') }}</td><td>{{ \App\Models\SaleRefund::METHODS[$refund->refund_method] ?? $refund->refund_method }}</td><td>{{ $refund->reason }}</td><td class="right">{{ $rupiah($refund->amount) }}</td></tr>
+        @empty
+            <tr><td colspan="5">Belum ada retur dalam periode ini.</td></tr>
+        @endforelse
+        </tbody></table>
     </div>
     <div class="footer page-footer">
         Dokumen ini dibuat otomatis dari sistem Mava Backend.

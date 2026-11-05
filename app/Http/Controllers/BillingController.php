@@ -4,7 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Billing;
 use App\Models\StoreSetting;
-use App\Services\PakasirClient;
+use App\Services\SumopodClient;
 use App\Support\LocalTime;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -44,7 +44,7 @@ class BillingController extends Controller
         ],
     ];
 
-    public function __construct(private readonly PakasirClient $pakasir) {}
+    public function __construct(private readonly SumopodClient $sumopod) {}
 
     public function index(): View
     {
@@ -56,7 +56,8 @@ class BillingController extends Controller
 
         return view('pages.billing.index', [
             'title' => 'Billing',
-            'pakasirConfigured' => $this->pakasir->isConfigured(),
+            'sumopodConfigured' => $this->sumopod->isConfigured(),
+            'pakasirConfigured' => $this->sumopod->isConfigured(),
             'plans' => collect(self::PLANS)
                 ->map(function (array $plan, string $slug) use ($currentSubscription, $currentPlanRank): array {
                     $yearlyBaseAmount = $plan['monthly_amount'] * self::BILLING_CYCLES['yearly']['months'];
@@ -103,10 +104,10 @@ class BillingController extends Controller
             'billing_cycle' => ['required', Rule::in(array_keys(self::BILLING_CYCLES))],
         ]);
 
-        if (! $this->pakasir->isConfigured()) {
+        if (! $this->sumopod->isConfigured()) {
             return back()
                 ->withInput()
-                ->withErrors(['pakasir' => 'Konfigurasi Pakasir belum lengkap. Isi PAKASIR_PROJECT dan PAKASIR_API_KEY di .env.']);
+                ->withErrors(['sumopod' => 'Konfigurasi SumoPod belum lengkap. Isi SUMOPOD_API_KEY di .env.']);
         }
 
         $setting = StoreSetting::current();
@@ -129,6 +130,8 @@ class BillingController extends Controller
                     'title' => $plan['name'].' - '.$cycle['label'],
                     'description' => $plan['description'].' Ditagihkan '.$this->cycleSentence($validated['billing_cycle']).'.',
                     'amount' => $amount,
+                    'payment_provider' => 'sumopod',
+                    'payment_method' => 'qris',
                     'payment_status' => 'pending',
                     'provider_payload' => [
                         'subscription' => [
@@ -145,15 +148,25 @@ class BillingController extends Controller
                     ],
                 ]);
 
-                $response = $this->pakasir->createQrisPayment($billing->invoice_number, $billing->amount);
-                $payment = $response['payment'] ?? $response['data'] ?? $response;
+                $successReturnUrl = route('billings', ['payment_status' => 'success']);
+                $cancelReturnUrl = route('billings', ['payment_status' => 'cancel']);
+
+                $response = $this->sumopod->createPayment(
+                    orderId: $billing->invoice_number,
+                    amount: $billing->amount,
+                    successReturnUrl: $successReturnUrl,
+                    cancelReturnUrl: $cancelReturnUrl,
+                    expiresInHours: 24,
+                    paymentMethodTypeCode: 'QRIS',
+                );
+                $payment = $response['data'] ?? $response;
 
                 $billing->update([
-                    'fee' => Arr::get($payment, 'fee'),
-                    'total_payment' => Arr::get($payment, 'total_payment'),
-                    'payment_number' => Arr::get($payment, 'payment_number'),
-                    'expires_at' => $this->parseDate(Arr::get($payment, 'expired_at')),
-                    'payment_url' => $this->paymentUrl($billing),
+                    'fee' => Arr::get($payment, 'fee', 0),
+                    'total_payment' => Arr::get($payment, 'amount', $billing->amount),
+                    'payment_number' => Arr::get($payment, 'payment_id', Arr::get($payment, 'payment_number')),
+                    'expires_at' => $this->parseDate(Arr::get($payment, 'expires_at')),
+                    'payment_url' => Arr::get($payment, 'payment_link_url'),
                     'provider_payload' => [
                         ...($billing->provider_payload ?? []),
                         'create' => $response,
@@ -165,83 +178,84 @@ class BillingController extends Controller
 
             return back()
                 ->withInput()
-                ->withErrors(['pakasir' => 'Gagal membuat pembayaran QRIS Pakasir: '.$exception->getMessage()]);
+                ->withErrors(['sumopod' => 'Gagal membuat pembayaran QRIS SumoPod: '.$exception->getMessage()]);
         }
 
-        return redirect()->route('billings')->with('success', 'Tagihan langganan QRIS berhasil dibuat.');
+        return redirect()->route('billings')->with('success', 'Tagihan langganan QRIS SumoPod berhasil dibuat.');
     }
 
     public function refresh(Billing $billing): RedirectResponse
     {
-        try {
-            $response = $this->pakasir->detailPayment($billing->invoice_number, $billing->amount);
-            $transaction = $response['transaction'] ?? $response['data'] ?? $response;
-            $status = $this->normalizePaymentStatus((string) Arr::get($transaction, 'status', $billing->payment_status));
-
-            $billing->update([
-                'payment_status' => $status,
-                'fee' => Arr::get($transaction, 'fee', $billing->fee),
-                'total_payment' => Arr::get($transaction, 'total_payment', $billing->total_payment),
-                'payment_number' => Arr::get($transaction, 'payment_number', $billing->payment_number),
-                'expires_at' => $this->parseDate(Arr::get($transaction, 'expired_at')) ?? $billing->expires_at,
-                'paid_at' => $this->isSuccessfulPayment($status, [], $transaction)
-                    ? ($this->parseDate($this->successfulPaymentDate([], $transaction)) ?? now())
-                    : $billing->paid_at,
-                'provider_payload' => [
-                    ...($billing->provider_payload ?? []),
-                    'detail' => $response,
-                ],
-            ]);
-        } catch (Throwable $exception) {
-            report($exception);
-
-            return back()->withErrors(['pakasir' => 'Gagal cek status Pakasir: '.$exception->getMessage()]);
+        if ($billing->payment_status === 'completed' || $billing->paid_at !== null) {
+            return back()->with('success', "Tagihan {$billing->invoice_number} sudah lunas.");
         }
 
-        return back()->with('success', "Status {$billing->invoice_number} diperbarui.");
+        if ($billing->expires_at && $billing->expires_at->isPast()) {
+            $billing->update(['payment_status' => 'expired']);
+
+            return back()->with('info', "Tagihan {$billing->invoice_number} sudah kedaluwarsa.");
+        }
+
+        return back()->with('info', "Tagihan {$billing->invoice_number} menunggu pembayaran QRIS. Status otomatis terupdate ketika webhook notifikasi diterima.");
     }
 
     public function webhook(Request $request): JsonResponse
     {
         $payload = $request->all();
-        $billing = Billing::query()->firstWhere('invoice_number', $payload['order_id'] ?? null);
+        $data = (array) ($payload['data'] ?? $payload);
+
+        $orderId = $data['order_id'] ?? $payload['order_id'] ?? null;
+        $billing = Billing::query()->firstWhere('invoice_number', $orderId);
 
         if (! $billing) {
             return response()->json(['message' => 'Billing not found.'], 404);
         }
 
-        if (($payload['project'] ?? null) !== $this->pakasir->project()) {
-            return response()->json(['message' => 'Invalid project.'], 422);
+        $configuredToken = config('services.sumopod.webhook_token');
+        if (! empty($configuredToken)) {
+            $requestToken = $request->header('X-Webhook-Token');
+            if (! hash_equals($configuredToken, (string) $requestToken)) {
+                return response()->json(['message' => 'Invalid webhook token.'], 401);
+            }
         }
 
-        if ((int) ($payload['amount'] ?? 0) !== $billing->amount) {
+        $receivedAmount = (int) ($data['net_amount'] ?? $data['amount'] ?? $payload['amount'] ?? 0);
+        if ($receivedAmount > 0 && $receivedAmount !== (int) $billing->amount && $receivedAmount !== (int) $billing->total_payment) {
             return response()->json(['message' => 'Invalid amount.'], 422);
         }
 
-        try {
-            $detail = $this->pakasir->detailPayment($billing->invoice_number, $billing->amount);
-            $transaction = $detail['transaction'] ?? $detail['data'] ?? $detail;
-            $status = $this->normalizePaymentStatus((string) ($transaction['status'] ?? $payload['status'] ?? 'pending'));
+        $eventType = (string) ($payload['event_type'] ?? $payload['event'] ?? '');
+        $rawStatus = (string) ($data['status'] ?? $payload['status'] ?? '');
 
-            $billing->update([
-                'payment_status' => $status,
-                'fee' => Arr::get($transaction, 'fee', $billing->fee),
-                'total_payment' => Arr::get($transaction, 'total_payment', $billing->total_payment),
-                'payment_number' => Arr::get($transaction, 'payment_number', $billing->payment_number),
-                'provider_payload' => [
-                    ...($billing->provider_payload ?? []),
-                    'webhook' => $payload,
-                    'verified_detail' => $detail,
-                ],
-            ]);
+        $isCompleted = $eventType === 'payment.completed'
+            || in_array(strtolower($rawStatus), ['completed', 'paid', 'success', 'succeeded', 'settlement'], true)
+            || filled($data['paid_at'] ?? null)
+            || filled($data['completed_at'] ?? null);
 
-            if ($this->isSuccessfulPayment($status, $payload, $transaction)) {
-                $billing->markPaid($this->successfulPaymentDate($payload, $transaction), $payload);
-            }
-        } catch (Throwable $exception) {
-            report($exception);
+        $isFailed = $eventType === 'payment.failed' || in_array(strtolower($rawStatus), ['failed', 'canceled', 'cancelled'], true);
+        $isExpired = $eventType === 'payment.expired' || strtolower($rawStatus) === 'expired';
 
-            return response()->json(['message' => 'Webhook verification failed.'], 422);
+        $status = match (true) {
+            $isCompleted => 'completed',
+            $isFailed => 'canceled',
+            $isExpired => 'expired',
+            default => $billing->payment_status,
+        };
+
+        $billing->update([
+            'payment_status' => $status,
+            'fee' => Arr::get($data, 'fee', $billing->fee),
+            'total_payment' => Arr::get($data, 'amount', $billing->total_payment),
+            'payment_number' => Arr::get($data, 'payment_id', $billing->payment_number),
+            'provider_payload' => [
+                ...($billing->provider_payload ?? []),
+                'webhook' => $payload,
+            ],
+        ]);
+
+        if ($isCompleted) {
+            $paidAt = $data['paid_at'] ?? $data['completed_at'] ?? $payload['paid_at'] ?? now()->toISOString();
+            $billing->markPaid($paidAt, $payload);
         }
 
         $billing->refresh();
@@ -289,7 +303,7 @@ class BillingController extends Controller
 
     private function paymentUrl(Billing $billing): string
     {
-        return 'https://app.pakasir.com/pay/'.config('services.pakasir.project').'/'.$billing->amount.'?order_id='.$billing->invoice_number.'&qris_only=1';
+        return $billing->payment_url ?? '';
     }
 
     private function currentSubscription(): array

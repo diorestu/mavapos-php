@@ -7,6 +7,7 @@ use App\Models\Product;
 use App\Models\ProductRecipeItem;
 use App\Models\RawMaterial;
 use App\Models\User;
+use App\Support\BranchContext;
 use App\Support\BranchInventoryManager;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -22,7 +23,7 @@ function completedSaleWithRecipe($test): array
     $owner = User::factory()->create(['role' => 'owner']);
     $cashier = User::factory()->create(['name' => 'Kasir Void', 'role' => 'kasir', 'tenant_owner_id' => $owner->id]);
     $test->actingAs($owner);
-    $branch = app(\App\Support\BranchContext::class)->active();
+    $branch = app(BranchContext::class)->active();
     $product = Product::withoutGlobalScopes()->where('sku', 'SKU-001')->firstOrFail();
     $product->update(['user_id' => $owner->id, 'stock_mode' => 'recipe']);
     $inventory = app(BranchInventoryManager::class)->forProduct($branch->id, $product);

@@ -97,6 +97,7 @@ class RawMaterialController extends Controller
     {
         $validated = $request->validate(['stock' => ['required', 'numeric', 'min:0'], 'note' => ['nullable', 'string', 'max:500']]);
         $rawMaterial->update(['stock' => $validated['stock'], 'note' => $validated['note'] ?? $rawMaterial->note]);
+
         return redirect()->route('raw-materials')->with('success', 'Stok fisik bahan baku berhasil dikoreksi.');
     }
 

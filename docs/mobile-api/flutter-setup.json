@@ -21,11 +21,13 @@
   "endpoints": {
     "me": {
       "method": "GET",
-      "path": "/me"
+      "path": "/me",
+      "subscriptionRequired": false
     },
     "logout": {
       "method": "POST",
-      "path": "/logout"
+      "path": "/logout",
+      "subscriptionRequired": false
     },
     "pos": {
       "method": "GET",
@@ -47,8 +49,11 @@
       "method": "POST",
       "path": "/shifts/close",
       "body": {
-        "closing_note": ""
-      }
+        "closing_note": "",
+        "branch_id": 1
+      },
+      "subscriptionRequired": false,
+      "requiresBearerToken": true
     },
     "checkout": {
       "method": "POST",
@@ -69,7 +74,109 @@
         "loyalty_stamp": false,
         "loyalty_reward": null,
         "discount": 0
-      }
+      },
+      "headers": {
+        "Idempotency-Key": "stable-uuid-for-this-order"
+      },
+      "optionalCaptureFields": {
+        "client_transaction_id": "same-uuid-as-header",
+        "client_created_at": "original-capture-ISO8601",
+        "cashier_shift_id": 1,
+        "cashier_id": 2,
+        "expected_total": 18000
+      },
+      "notes": [
+        "Persist the UUID and payload before sending. Retry unchanged after network uncertainty.",
+        "Captured time must fall within the original shift. Closed-shift synchronization is accepted with valid identity/context.",
+        "Price/stock conflicts return 422; changed UUID context or payload returns 409. Retain rejected orders for explicit resolution.",
+        "Header Idempotent-Replayed: true means no new sale was created; refresh POS data rather than treating the frozen successful reply as current stock."
+      ]
+    },
+    "accountDelete": {
+      "method": "DELETE",
+      "path": "/account/delete",
+      "allowedMethods": [
+        "DELETE",
+        "POST"
+      ],
+      "absoluteAlias": "{origin}/account/delete",
+      "subscriptionRequired": false,
+      "requiresBearerToken": true,
+      "body": {
+        "verification": "password",
+        "password": "current-password",
+        "confirmation": "HAPUS AKUN",
+        "understand": true
+      },
+      "googleBody": {
+        "verification": "google",
+        "google_id_token": "fresh-google-id-token",
+        "confirmation": "HAPUS AKUN",
+        "understand": true
+      },
+      "success": {
+        "message": "Akun Anda berhasil dihapus.",
+        "deleted": true
+      },
+      "requirements": [
+        "Close own active shifts",
+        "Synchronize pending orders on all devices",
+        "Google ID token must be freshly issued within 5 minutes and audience must match GOOGLE_CLIENT_ID"
+      ],
+      "effects": [
+        "Anonymize current profile and disable sign-in",
+        "Revoke all account API tokens",
+        "Preserve operational history and other staff accounts"
+      ]
+    },
+    "refundDetails": {
+      "method": "GET",
+      "path": "/sales/{sale}/refund",
+      "roles": [
+        "owner",
+        "admin"
+      ],
+      "query": {
+        "branch_id": "optional owned branch"
+      },
+      "response": [
+        "sale",
+        "refund_methods",
+        "refunded_amount",
+        "items",
+        "refunds"
+      ],
+      "requiresBearerToken": true,
+      "amountFormula": "floor(allocated_refund_amount * (returned_quantity + requested_quantity) / quantity) - floor(allocated_refund_amount * returned_quantity / quantity)"
+    },
+    "refund": {
+      "method": "POST",
+      "path": "/sales/{sale}/refund",
+      "roles": [
+        "owner",
+        "admin"
+      ],
+      "body": {
+        "branch_id": 1,
+        "client_refund_id": "new-stable-uuid-for-this-refund",
+        "refund_method": "cash",
+        "reason": "Satu barang dikembalikan",
+        "money_returned": true,
+        "items": [
+          {
+            "pos_sale_item_id": 123,
+            "quantity": 1,
+            "restock": false
+          }
+        ]
+      },
+      "notes": [
+        "Confirm money_returned only after the actual manual payout.",
+        "Repeat identical request with same client_refund_id to avoid duplicate refunds.",
+        "Refund amount is calculated from original net paid amount and remaining quantities.",
+        "Raw materials consumed by recipes are not restored automatically."
+      ],
+      "requiresBearerToken": true
     }
   },
   "roles": {
@@ -92,12 +199,19 @@
     "403": "Role atau cabang tidak diizinkan",
     "422": "Validasi payload gagal",
     "419": "CSRF tidak diperlukan untuk endpoint mobile",
-    "429": "Terlalu banyak request"
+    "429": "Terlalu banyak request",
+    "404": "Resource tidak ditemukan atau bukan milik cabang/tenant aktif",
+    "409": "ID transaksi/refund sudah digunakan dengan konteks/payload berbeda",
+    "503": "Layanan/kunci verifikasi Google tidak tersedia; akun tidak dihapus"
   },
   "flutterNotes": {
     "tokenStorage": "Simpan token secara aman menggunakan flutter_secure_storage",
     "printer": "Bluetooth Classic/SPP tidak dapat digunakan langsung oleh Web Bluetooth; gunakan native Android bridge atau plugin Bluetooth Classic",
     "contentType": "application/json",
-    "dateTime": "ISO-8601"
-  }
+    "dateTime": "ISO-8601",
+    "accountDeletion": "Clear local credentials after deleted:true. The app must reconcile its own offline queue before requesting deletion; the server cannot inspect browser/device queues.",
+    "googleDeletion": "Use a fresh Google OpenID Connect ID token with serverClientId equal to GOOGLE_CLIENT_ID. This is not a Google access token or Firebase ID token.",
+    "jsonResponses": "All /api/* routes and /account/delete return JSON errors even when Accept is omitted; still send the documented headers."
+  },
+  "updatedAt": "2026-11-05"
 }

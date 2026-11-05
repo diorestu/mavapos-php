@@ -6,6 +6,7 @@ use App\Models\PosSale;
 use App\Models\Product;
 use App\Models\User;
 use App\Services\ActivityNotificationService;
+use App\Support\BranchContext;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -65,7 +66,7 @@ test('global search menampilkan menu produk dan invoice', function () {
 
 test('pencarian dan aktivitas penjualan hanya menampilkan cabang aktif', function () {
     $user = User::query()->where('email', 'test@example.com')->firstOrFail();
-    $activeBranch = app(\App\Support\BranchContext::class)->active();
+    $activeBranch = app(BranchContext::class)->active();
     $otherBranch = Branch::query()->create([
         'user_id' => $user->tenantOwnerId(),
         'name' => 'Cabang Lain',

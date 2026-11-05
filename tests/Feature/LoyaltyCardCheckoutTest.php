@@ -1,7 +1,7 @@
 <?php
 
-use App\Models\Customer;
 use App\Models\Branch;
+use App\Models\Customer;
 use App\Models\PosSale;
 use App\Models\Product;
 use App\Models\StoreSetting;

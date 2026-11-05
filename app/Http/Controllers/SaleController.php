@@ -2,18 +2,18 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Branch;
+use App\Models\CashierShift;
+use App\Models\Customer;
 use App\Models\PosSale;
 use App\Models\PosSaleItem;
-use App\Models\CashierShift;
-use App\Models\Branch;
-use App\Models\Customer;
 use App\Models\Product;
-use App\Models\User;
 use App\Models\StoreSetting;
+use App\Models\User;
 use App\Services\AdminSaleEditorService;
+use App\Services\SaleBranchTransferService;
 use App\Services\SalesBonusService;
 use App\Services\TransactionVoidService;
-use App\Services\SaleBranchTransferService;
 use App\Support\BranchContext;
 use App\Support\LocalTime;
 use Illuminate\Http\JsonResponse;
@@ -27,7 +27,7 @@ class SaleController extends Controller
     {
         $branchId = app(BranchContext::class)->activeId();
         $sale = PosSale::query()->with(['items', 'payments'])->whereKey($sale->id)->where('branch_id', $branchId)->firstOrFail();
-        abort_if($sale->voided_at, 422, 'Transaksi yang sudah di-void tidak dapat diedit.');
+        abort_if($sale->voided_at || $sale->refunds()->exists(), 422, 'Transaksi void atau dengan refund tidak dapat diedit.');
 
         $items = Product::query()->with(['variants' => fn ($query) => $query->where('is_active', true)])->orderBy('name')->get()
             ->flatMap(function (Product $product) {
@@ -49,22 +49,23 @@ class SaleController extends Controller
         ]);
 
         $localToday = Carbon::now(LocalTime::TIMEZONE);
-        $from = !empty($validated['date_from'])
+        $from = ! empty($validated['date_from'])
             ? Carbon::parse($validated['date_from'], LocalTime::TIMEZONE)->startOfDay()
             : $localToday->copy()->startOfDay();
-        $to = !empty($validated['date_to'])
+        $to = ! empty($validated['date_to'])
             ? Carbon::parse($validated['date_to'], LocalTime::TIMEZONE)->endOfDay()
             : $localToday->copy()->endOfDay();
         $branchId = app(BranchContext::class)->activeId();
 
         $baseQuery = PosSale::query()
-            ->with(['user', 'branch', 'shift.user', 'items', 'payments', 'voidedBy'])
+            ->with(['user', 'branch', 'shift.user', 'items', 'payments', 'voidedBy', 'refunds'])
             ->where('branch_id', $branchId)
             ->whereBetween('sold_at', [$from->utc(), $to->utc()])
             ->when($validated['cashier_id'] ?? null, fn ($query, $cashierId) => $query->where('user_id', $cashierId))
             ->when($validated['payment_method'] ?? null, function ($query, string $method): void {
                 if ($method === 'split') {
                     $query->where('payment_method', 'split');
+
                     return;
                 }
 
@@ -92,10 +93,13 @@ class SaleController extends Controller
         $summaryPayments = PosSale::query()->active()->with('payments')->whereIn('id', $summarySaleIds)->get()
             ->reduce(function (array $totals, PosSale $sale): array {
                 if ($sale->payments->isNotEmpty()) {
-                    foreach ($sale->payments as $payment) $totals[$payment->payment_method] += $payment->amount;
+                    foreach ($sale->payments as $payment) {
+                        $totals[$payment->payment_method] += $payment->amount;
+                    }
                 } elseif (array_key_exists($sale->payment_method, $totals)) {
                     $totals[$sale->payment_method] += $sale->payment_method === 'online_merchant' ? $sale->paid_amount : $sale->total;
                 }
+
                 return $totals;
             }, ['cash' => 0, 'qris' => 0, 'card' => 0, 'online_merchant' => 0]);
         $soldUnits = (int) PosSaleItem::query()->whereIn('pos_sale_id', $summarySaleIds)->sum('quantity')

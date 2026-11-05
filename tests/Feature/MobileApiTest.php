@@ -1,9 +1,8 @@
 <?php
 
-use App\Models\Product;
 use App\Models\Branch;
+use App\Models\Product;
 use App\Models\User;
-use App\Support\BranchContext;
 use App\Support\BranchInventoryManager;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;

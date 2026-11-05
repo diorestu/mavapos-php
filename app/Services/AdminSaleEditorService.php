@@ -2,15 +2,15 @@
 
 namespace App\Services;
 
+use App\Models\Customer;
 use App\Models\PosSale;
 use App\Models\Product;
 use App\Models\ProductRecipeItem;
 use App\Models\ProductVariant;
 use App\Models\RawMaterial;
 use App\Models\StockMovement;
-use App\Models\User;
-use App\Models\Customer;
 use App\Models\StoreSetting;
+use App\Models\User;
 use App\Support\BranchInventoryManager;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -25,6 +25,7 @@ class AdminSaleEditorService
         return DB::transaction(function () use ($sale, $branchId, $actor, $data): PosSale {
             $sale = PosSale::query()->with(['items.product', 'items.productVariant', 'rawMaterialUsages', 'payments', 'shift', 'customer'])
                 ->whereKey($sale->id)->where('branch_id', $branchId)->lockForUpdate()->firstOrFail();
+            abort_if($sale->refunds()->exists(), 422, 'Transaksi dengan refund tidak dapat dibatalkan, diedit, atau dipindahkan.');
             abort_if($sale->voided_at, 422, 'Transaksi yang sudah di-void tidak dapat diedit.');
 
             $onlineMerchant = array_key_exists('online_merchant', $data) ? $data['online_merchant'] : $sale->online_merchant;
@@ -124,38 +125,56 @@ class AdminSaleEditorService
 
     private function loyaltyDiscount(?Customer $customer, ?string $reward, array $lines, int $subtotal): int
     {
-        if (! $reward) return 0;
+        if (! $reward) {
+            return 0;
+        }
         abort_if(! $customer, 422, 'Pelanggan wajib dipilih untuk menggunakan voucher.');
         if ($reward === 'physical_fifth') {
             abort_if(! $customer->phone, 422, 'Nomor pelanggan wajib diisi untuk menggunakan Kartu Loyalitas.');
             abort_if($customer->loyalty_stamp_count >= 5 && ! $customer->loyalty_fifty_reward_available, 422, 'Stempel ke-5 pelanggan sudah digunakan.');
+
             return (int) floor($subtotal / 2);
         }
         if ($reward === 'physical_tenth') {
             abort_if(! $customer->phone, 422, 'Nomor pelanggan wajib diisi untuk menggunakan Kartu Loyalitas.');
+
             return min(array_map(fn (array $line): int => $line['sellable']['price'], $lines));
         }
         if ($reward === 'fifty_percent') {
             abort_unless($customer->loyalty_fifty_reward_available, 422, 'Voucher diskon 50% pelanggan sudah tidak tersedia.');
+
             return (int) floor($subtotal / 2);
         }
         abort_unless($customer->loyalty_free_reward_available, 422, 'Voucher gratis 1 cup pelanggan sudah tidak tersedia.');
+
         return min(array_map(fn (array $line): int => $line['sellable']['price'], $lines));
     }
 
     private function restoreReward(Customer $customer, string $reward): void
     {
-        if (in_array($reward, ['fifty_percent', 'physical_fifth'], true)) $customer->update(['loyalty_fifty_reward_available' => true]);
-        if (in_array($reward, ['free_cup', 'physical_tenth'], true)) $customer->update(['loyalty_stamp_count' => $customer->loyalty_stamp_count + 10, 'loyalty_fifty_reward_available' => true, 'loyalty_free_reward_available' => true]);
+        if (in_array($reward, ['fifty_percent', 'physical_fifth'], true)) {
+            $customer->update(['loyalty_fifty_reward_available' => true]);
+        }
+        if (in_array($reward, ['free_cup', 'physical_tenth'], true)) {
+            $customer->update(['loyalty_stamp_count' => $customer->loyalty_stamp_count + 10, 'loyalty_fifty_reward_available' => true, 'loyalty_free_reward_available' => true]);
+        }
         $customer->refresh();
     }
 
     private function consumeReward(Customer $customer, string $reward): void
     {
-        if ($reward === 'fifty_percent') $customer->update(['loyalty_fifty_reward_available' => false]);
-        if ($reward === 'physical_fifth') $customer->update(['loyalty_stamp_count' => max(5, $customer->loyalty_stamp_count), 'loyalty_fifty_reward_available' => false]);
-        if ($reward === 'physical_tenth') $customer->update(['loyalty_stamp_count' => max(10, $customer->loyalty_stamp_count) - 10, 'loyalty_fifty_reward_available' => false, 'loyalty_free_reward_available' => false]);
-        if ($reward === 'free_cup') $customer->update(['loyalty_stamp_count' => max(0, $customer->loyalty_stamp_count - 10), 'loyalty_fifty_reward_available' => false, 'loyalty_free_reward_available' => false]);
+        if ($reward === 'fifty_percent') {
+            $customer->update(['loyalty_fifty_reward_available' => false]);
+        }
+        if ($reward === 'physical_fifth') {
+            $customer->update(['loyalty_stamp_count' => max(5, $customer->loyalty_stamp_count), 'loyalty_fifty_reward_available' => false]);
+        }
+        if ($reward === 'physical_tenth') {
+            $customer->update(['loyalty_stamp_count' => max(10, $customer->loyalty_stamp_count) - 10, 'loyalty_fifty_reward_available' => false, 'loyalty_free_reward_available' => false]);
+        }
+        if ($reward === 'free_cup') {
+            $customer->update(['loyalty_stamp_count' => max(0, $customer->loyalty_stamp_count - 10), 'loyalty_fifty_reward_available' => false, 'loyalty_free_reward_available' => false]);
+        }
     }
 
     private function restorePreviousState(PosSale $sale, int $branchId, User $actor, string $reason): void

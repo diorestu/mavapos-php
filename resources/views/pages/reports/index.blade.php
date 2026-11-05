@@ -77,11 +77,39 @@
             </div>
         </section>
 
+        <section class="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]">
+            <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+                <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Retur Penjualan</h2>
+                <p class="mt-1 text-xs text-gray-600 dark:text-gray-300">Refund {{ $rupiah($summary['refund_total']) }} · Penerimaan setelah retur {{ $rupiah($summary['net_after_refunds']) }}</p>
+                <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">Mengikuti tanggal refund. Penerimaan mencakup POS dan billing lunas setelah potongan merchant. Pemulihan HPP barang dikembalikan: {{ $rupiah($summary['refund_cost_recovery']) }}.</p>
+            </div>
+            <div class="max-w-full overflow-x-auto custom-scrollbar">
+                <table class="w-full min-w-[720px] text-left text-xs">
+                    <thead class="bg-gray-50 text-gray-500 dark:bg-gray-900/40"><tr>
+                        <th scope="col" class="px-4 py-2">Retur / Invoice</th><th scope="col" class="px-4 py-2">Tanggal Refund</th><th scope="col" class="px-4 py-2">Metode</th><th scope="col" class="px-4 py-2">Alasan</th><th scope="col" class="px-4 py-2 text-right">Refund</th>
+                    </tr></thead>
+                    <tbody class="text-gray-700 dark:text-gray-200">
+                        @forelse ($refunds as $refund)
+                            <tr class="border-t border-gray-100 dark:border-gray-800">
+                                <td class="px-4 py-3 font-semibold">{{ $refund->refund_number }}<div class="mt-1 font-normal text-gray-500">{{ $refund->sale?->invoice_number }}</div></td>
+                                <td class="px-4 py-3">{{ $refund->refunded_at->timezone('Asia/Makassar')->format('d M Y H:i') }}</td>
+                                <td class="px-4 py-3">{{ \App\Models\SaleRefund::METHODS[$refund->refund_method] ?? $refund->refund_method }}</td>
+                                <td class="max-w-xs break-words px-4 py-3">{{ $refund->reason }}</td>
+                                <td class="px-4 py-3 text-right font-semibold tabular-nums">{{ $rupiah($refund->amount) }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="5" class="px-4 py-6 text-center text-gray-500">Belum ada retur dalam periode ini.</td></tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
         <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
             <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Estimasi Laba/Rugi</p>
                 <p class="mt-2 text-xl font-semibold tabular-nums {{ $summary['net_profit_estimate'] >= 0 ? 'text-success-600 dark:text-success-400' : 'text-error-600 dark:text-error-400' }}">{{ $rupiah($summary['net_profit_estimate']) }}</p>
-                <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">Pendapatan POS + billing lunas - HPP - pengeluaran</p>
+                <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">Pendapatan POS + billing lunas - retur - HPP - pengeluaran</p>
             </div>
             <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Total Pengeluaran</p>
@@ -91,12 +119,12 @@
             <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400">Laba Kotor</p>
                 <p class="mt-2 text-xl font-semibold tabular-nums {{ $summary['gross_profit'] >= 0 ? 'text-success-600 dark:text-success-400' : 'text-error-600 dark:text-error-400' }}">{{ $rupiah($summary['gross_profit']) }}</p>
-                <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">Pendapatan POS + billing lunas - HPP</p>
+                <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">Pendapatan POS + billing lunas - retur - HPP</p>
             </div>
             <div class="rounded-xl border border-gray-200 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
                 <p class="text-xs font-medium text-gray-500 dark:text-gray-400">HPP Terjual</p>
                 <p class="mt-2 text-xl font-semibold tabular-nums text-gray-900 dark:text-white">{{ $rupiah($summary['cost_of_goods_sold']) }}</p>
-                <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">Stok keluar x harga beli</p>
+                <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">Stok keluar x harga beli, dikurangi pemulihan retur</p>
             </div>
         </section>
 

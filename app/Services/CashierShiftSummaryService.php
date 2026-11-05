@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\CashierShift;
 use App\Models\PosSale;
 use App\Models\PosSaleItem;
+use App\Models\SaleRefund;
 use App\Models\StoreSetting;
 use App\Support\LocalTime;
 
@@ -52,6 +53,7 @@ class CashierShiftSummaryService
         $setting = StoreSetting::current();
 
         $merchantSales = $shift->sales()->active()->where('payment_method', 'online_merchant')->get();
+        $refunds = $this->refundSummary($shift);
 
         return [
             'id' => $shift->id,
@@ -69,7 +71,8 @@ class CashierShiftSummaryService
             'onlineMerchantTotal' => (int) $merchantSales->sum('paid_amount'),
             'onlineMerchantDeduction' => (int) $merchantSales->sum('online_merchant_deduction'),
             'openingCashAmount' => $shift->opening_cash_amount,
-            'expectedCashInDrawer' => $shift->opening_cash_amount + $shift->cash_total,
+            'expectedCashInDrawer' => $shift->opening_cash_amount + $shift->cash_total - $refunds['cashRefundTotal'],
+            ...$refunds,
             'validatedCashAmount' => $shift->validated_cash_amount,
             'validatedCardAmount' => $shift->validated_card_amount,
             'handoverValidatedAt' => LocalTime::format($shift->handover_validated_at, 'd/m/Y H:i', ''),
@@ -100,6 +103,18 @@ class CashierShiftSummaryService
                 'label_font' => $setting->printer_label_font,
                 'label_font_size' => $setting->printer_label_font_size,
             ],
+        ];
+    }
+
+    public function refundSummary(CashierShift $shift): array
+    {
+        $refunds = SaleRefund::query()->where('cashier_shift_id', $shift->id)->where('branch_id', $shift->branch_id)->get(['refund_method', 'amount']);
+
+        return [
+            'refundTotal' => (int) $refunds->sum('amount'),
+            'cashRefundTotal' => (int) $refunds->where('refund_method', 'cash')->sum('amount'),
+            'qrisRefundTotal' => (int) $refunds->where('refund_method', 'qris')->sum('amount'),
+            'cardRefundTotal' => (int) $refunds->where('refund_method', 'card')->sum('amount'),
         ];
     }
 }

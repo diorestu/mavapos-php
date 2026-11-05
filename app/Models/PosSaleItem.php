@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class PosSaleItem extends Model
 {
@@ -26,6 +27,11 @@ class PosSaleItem extends Model
             'unit_price' => 'integer',
             'line_total' => 'integer',
         ];
+    }
+
+    public function refundItems(): HasMany
+    {
+        return $this->hasMany(SaleRefundItem::class);
     }
 
     public function sale(): BelongsTo

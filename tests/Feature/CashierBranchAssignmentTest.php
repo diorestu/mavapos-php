@@ -1,8 +1,8 @@
 <?php
 
 use App\Models\Branch;
-use App\Models\User;
 use App\Models\CashierShift;
+use App\Models\User;
 use App\Services\SalesBonusService;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;

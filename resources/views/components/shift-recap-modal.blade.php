@@ -17,6 +17,8 @@
                 ['Kartu', shiftRecap?.cardTotal || 0, true],
                 ['Online Merchant', shiftRecap?.onlineMerchantTotal || 0, true],
                 ['Potongan Online Merchant', shiftRecap?.onlineMerchantDeduction || 0, true],
+                ['Total refund', shiftRecap?.refundTotal || 0, true],
+                ['Refund tunai', shiftRecap?.cashRefundTotal || 0, true],
                 ['Total uang laci', shiftRecap?.expectedCashInDrawer || 0, true],
             ]" :key="item[0]">
                 <div class="rounded-xl bg-gray-50 p-3 dark:bg-white/[0.04]">

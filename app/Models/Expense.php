@@ -2,10 +2,9 @@
 
 namespace App\Models;
 
+use App\Traits\TenantScoped;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-
-use App\Traits\TenantScoped;
 
 class Expense extends Model
 {

@@ -4,11 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Billing;
 use App\Models\User;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
-use Illuminate\Http\RedirectResponse;
-use Illuminate\Http\Request;
 
 class SuperAdminMembershipController extends Controller
 {
@@ -24,6 +24,7 @@ class SuperAdminMembershipController extends Controller
             $active = $endsAt ? Carbon::parse($endsAt)->endOfDay()->isFuture() : false;
 
             $override = $owner->subscription_override_until?->isFuture();
+
             return ['owner' => $owner, 'plan' => Arr::get($subscription, 'plan_name', '-'), 'status' => $override ? 'Bypass' : ($active ? 'Aktif' : ($owner->isTrialActive() ? 'Trial' : 'Expired')), 'period_ends_at' => $endsAt, 'override_until' => $owner->subscription_override_until, 'revenue' => (int) $memberBillings->whereIn('payment_status', ['paid', 'completed'])->sum('amount')];
         });
 

@@ -2,9 +2,9 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
-
+use App\Support\BranchContext;
 use App\Traits\TenantScoped;
+use Illuminate\Database\Eloquent\Model;
 
 class StoreSetting extends Model
 {
@@ -110,7 +110,7 @@ class StoreSetting extends Model
 
     public static function current(): self
     {
-        $branchId = app(\App\Support\BranchContext::class)->activeId();
+        $branchId = app(BranchContext::class)->activeId();
 
         $branchSetting = self::query()->where('branch_id', $branchId)->first();
         if ($branchSetting) {

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\CashierShift;
+use App\Models\SaleRefund;
 use App\Models\User;
 use App\Services\CashierShiftSummaryService;
 use App\Support\BranchContext;
@@ -122,10 +123,13 @@ class CashierShiftController extends Controller
             $sales = $shift->sales()->active()->with('payments')->get();
             $payments = $sales->reduce(function (array $totals, $sale): array {
                 if ($sale->payments->isNotEmpty()) {
-                    foreach ($sale->payments as $payment) $totals[$payment->payment_method] += $payment->amount;
+                    foreach ($sale->payments as $payment) {
+                        $totals[$payment->payment_method] += $payment->amount;
+                    }
                 } elseif (array_key_exists($sale->payment_method, $totals)) {
                     $totals[$sale->payment_method] += $sale->total;
                 }
+
                 return $totals;
             }, ['cash' => 0, 'qris' => 0, 'card' => 0]);
             $shift->setAttribute('sales_count', $sales->count());
@@ -148,6 +152,13 @@ class CashierShiftController extends Controller
                 ->whereNotNull('closed_at')
                 ->lockForUpdate()
                 ->firstOrFail();
+
+            abort_if(
+                $shift->sales()->where('branch_id', $branchId)->whereHas('refunds')->exists()
+                || SaleRefund::query()->where('branch_id', $branchId)->where('cashier_shift_id', $shift->id)->exists(),
+                422,
+                'Shift dengan riwayat refund tidak dapat dihapus.',
+            );
 
             $shift->delete();
         });

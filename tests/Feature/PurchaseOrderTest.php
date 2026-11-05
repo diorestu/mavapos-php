@@ -8,6 +8,7 @@ use App\Models\PurchaseOrder;
 use App\Models\StockMovement;
 use App\Models\Supplier;
 use App\Models\User;
+use App\Support\BranchContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
@@ -57,7 +58,7 @@ test('owner dapat membuat purchase order tanpa langsung mengubah stok', function
 test('purchase order diterima akan menambah stok dan mencatat expense', function () {
     $user = User::factory()->create();
     $this->actingAs($user);
-    $branch = app(\App\Support\BranchContext::class)->active();
+    $branch = app(BranchContext::class)->active();
     $supplier = Supplier::query()->create([
         'name' => 'Supplier Kopi',
         'code' => 'SUP-KOPI',

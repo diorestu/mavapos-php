@@ -1,4 +1,6 @@
 import './bootstrap';
+import { accountDeletionManager } from './account-deletion.js';
+import { createPosOutbox, initPosOfflineShell, purgePosOfflineShell } from './pos-offline.js';
 import { receiptPaperWidth } from './receipt-format.js';
 import Alpine from 'alpinejs';
 import Toastify from 'toastify-js';
@@ -6,7 +8,12 @@ import 'toastify-js/src/toastify.css';
 import Quill from 'quill';
 import 'quill/dist/quill.snow.css';
 
+document.addEventListener('submit', (event) => {
+    if (event.target?.getAttribute('action')?.endsWith('/logout')) purgePosOfflineShell().catch(() => {});
+});
+
 window.Alpine = Alpine;
+Alpine.data('accountDeletionManager', accountDeletionManager);
 window.Quill = Quill;
 
 const BLUETOOTH_PRINTER_STORAGE_KEY = 'mava.bluetooth-printer-device';
@@ -2140,6 +2147,19 @@ Alpine.data('salesVoidManager', (endpointTemplate = '') => ({
 
 Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShift = null, blockingShift = null, lastClosedShift = null, initialSopHtml = '', availableStaff = [], cashierFeatures = {}, endpoints = {}) => ({
     items: initialItems,
+    offlineSourceItems: structuredClone(initialItems),
+    outbox: null,
+    offlineRows: [],
+    offlineOnline: navigator.onLine,
+    offlineReady: false,
+    offlineBusy: false,
+    offlineStorageError: '',
+    offlineShellReady: false,
+    offlineShellError: '',
+    offlineReceipt: null,
+    offlineOnlineHandler: null,
+    offlineOfflineHandler: null,
+    offlineUnsubscribe: null,
     categories: initialCategories,
     shift: initialShift,
     blockingShift,
@@ -2211,6 +2231,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
     init() {
         this.loadPrintPreferences();
+        this.initOfflineQueue();
         this.$watch('cart', () => this.pushDisplayState('cart'), { deep: true });
         this.$watch('discountValue', () => this.pushDisplayState('cart'));
         this.$watch('paidAmount', () => this.pushDisplayState('cart'));
@@ -2224,6 +2245,113 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         });
         this.$watch('splitPayments', () => this.pushDisplayState('cart'), { deep: true });
         this.maybeOpenCustomerDisplay();
+    },
+
+    offlineQueueContext() {
+        const base = this.endpoints.offlineContext || {};
+        return { userId: base.userId, cashierId: this.shift?.cashierId || base.cashierId,
+            branchId: base.branchId, shiftId: this.shift?.id || base.shiftId || null };
+    },
+
+    async initOfflineQueue() {
+        try {
+            this.outbox = createPosOutbox({
+                context: this.offlineQueueContext(),
+                send: async (order) => {
+                    const response = await fetch(this.endpoints.checkout, {
+                        method: 'POST', credentials: 'same-origin',
+                        headers: { Accept: 'application/json', 'Content-Type': 'application/json',
+                            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
+                            'Idempotency-Key': order.id },
+                        body: JSON.stringify(order.payload),
+                    });
+                    let data;
+                    try { data = await response.json(); } catch (error) {
+                        if (response.ok) throw new Error('Respons server belum terkonfirmasi. Coba lagi dengan ID transaksi yang sama.');
+                        data = { message: 'Server belum dapat memproses transaksi.' };
+                    }
+                    if (response.ok && !data?.sale?.id) throw new Error('Transaksi belum terkonfirmasi oleh server.');
+                    if (response.ok) data.replayed = response.headers.get('Idempotent-Replayed') === 'true';
+                    return { ok: response.ok, status: response.status, data };
+                },
+                onSynced: async (data, order) => {
+                    if (data.replayed && navigator.onLine) {
+                        const liveResponse = await fetch('/pos', { headers: { Accept: 'application/json' } });
+                        const live = await liveResponse.json();
+                        if (liveResponse.ok && live.offlineContext?.userId === this.endpoints.offlineContext.userId && live.branch?.id === this.endpoints.offlineContext.branchId) {
+                            data.items = live.items;
+                            data.shift = live.activeShift;
+                            this.blockingShift = live.blockingShift;
+                        } else { data.items = null; data.shift = null; }
+                    }
+                    this.offlineSourceItems = JSON.parse(JSON.stringify(data.items || this.offlineSourceItems));
+                    if (this.shift?.id === Number(order.context.shiftId)) this.shift = data.replayed ? (data.shift || null) : (data.shift?.closedAt ? null : (data.shift || this.shift));
+                    this.lastReceipt = data.sale;
+                    if (this.offlineReceipt?.id === order.id) this.offlineReceipt = null;
+                    await this.refreshOfflineRows();
+                    this.refreshOfflineShell();
+                },
+            });
+            this.offlineUnsubscribe = this.outbox.subscribe(() => this.refreshOfflineRows());
+            this.$watch('shift', (value, previous) => { this.outbox.setContext(this.offlineQueueContext()); this.refreshOfflineRows(); if (value?.id !== previous?.id) this.refreshOfflineShell(true); });
+            await this.refreshOfflineRows();
+            this.offlineReady = true;
+            this.offlineOnlineHandler = () => { this.offlineOnline = true; this.syncOfflineOrders(); };
+            this.offlineOfflineHandler = () => { this.offlineOnline = false; };
+            window.addEventListener('online', this.offlineOnlineHandler);
+            window.addEventListener('offline', this.offlineOfflineHandler);
+            const base = this.endpoints.offlineContext;
+            if (navigator.onLine) {
+                this.refreshOfflineShell();
+                this.syncOfflineOrders();
+            }
+        } catch (error) {
+            this.offlineStorageError = 'Penyimpanan transaksi perangkat tidak tersedia. '+error.message;
+        }
+    },
+
+    async refreshOfflineShell(invalidate = false) {
+        this.offlineShellReady = false;
+        try {
+            if (invalidate) await purgePosOfflineShell();
+            if (!navigator.onLine) return;
+            const base = this.endpoints.offlineContext;
+            const result = await initPosOfflineShell({ userId: base.userId, branchId: base.branchId });
+            this.offlineShellReady = Boolean(result?.ok);
+            this.offlineShellError = this.offlineShellReady ? '' : 'Halaman offline belum siap. Buka kasir saat online terlebih dahulu.';
+        } catch (error) { this.offlineShellError = 'Halaman offline belum siap: '+error.message; }
+    },
+
+    async refreshOfflineRows() {
+        if (!this.outbox) return;
+        this.offlineRows = await this.outbox.listOwned();
+        const reserved = new Map();
+        for (const order of this.offlineRows) for (const item of order.payload.items) reserved.set(item.id, (reserved.get(item.id) || 0) + item.quantity);
+        const reserve = item => ({ ...item, stock: item.stockMode === 'inventory' ? Math.max(0, Number(item.stock) - (reserved.get(item.id) || 0)) : item.stock });
+        this.items = this.offlineSourceItems.map(item => ({ ...reserve(item), variants: item.variants?.map(reserve) || [] }));
+    },
+
+    async syncOfflineOrders(id = null) {
+        if (!this.outbox || this.offlineBusy || this.checkoutLoading || !navigator.onLine) return;
+        this.offlineBusy = true;
+        try {
+            this.outbox.setContext(this.offlineQueueContext());
+            if (id) await this.outbox.retry(id); else await this.outbox.retryOwned();
+            await this.refreshOfflineRows();
+        } catch (error) { this.offlineStorageError = error.message; }
+        finally { this.offlineBusy = false; }
+    },
+
+    async cancelOfflineOrder(id) {
+        if (!window.confirm('Batalkan antrean yang sudah ditolak server? Barang dan uang untuk pesanan ini perlu diperiksa kembali.')) return;
+        try { await this.outbox.cancel(id); await this.refreshOfflineRows(); }
+        catch (error) { this.offlineStorageError = error.message; }
+    },
+
+    destroy() {
+        if (this.offlineOnlineHandler) window.removeEventListener('online', this.offlineOnlineHandler);
+        if (this.offlineOfflineHandler) window.removeEventListener('offline', this.offlineOfflineHandler);
+        this.offlineUnsubscribe?.();
     },
 
     get customerDisplayUrl() {
@@ -2637,7 +2765,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
     },
 
     pushDisplayState(mode = 'cart') {
-        if (!this.endpoints?.displayPush) {
+        if (!navigator.onLine || !this.endpoints?.displayPush) {
             return;
         }
 
@@ -3552,14 +3680,10 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         this.checkoutLoading = true;
 
         try {
-            const response = await fetch(this.endpoints.checkout, {
-                method: 'POST',
-                headers: {
-                    Accept: 'application/json',
-                    'Content-Type': 'application/json',
-                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.content || '',
-                },
-                body: JSON.stringify({
+            if (!this.offlineReady || !this.outbox) throw new Error('Penyimpanan transaksi belum siap. Tunggu sebentar lalu coba lagi.');
+            if (!navigator.onLine && (this.isOnlineMerchant || this.loyaltyReward || this.loyaltyStamp || isComplimentary)) throw new Error('Jenis transaksi ini memerlukan koneksi internet.');
+            this.outbox.setContext(this.offlineQueueContext());
+            const orderPayload = {
                     items: this.cart.map((item) => ({
                         id: item.id,
                         quantity: item.quantity,
@@ -3580,19 +3704,38 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                     online_merchant: this.cashierFeatures.onlineMerchant && this.salesChannel === 'online' ? this.onlineMerchant : null,
                     loyalty_reward: isComplimentary ? null : (this.loyaltyReward || null),
                     loyalty_stamp: isComplimentary ? false : this.loyaltyStamp,
-                }),
-            });
-
-            const payload = await response.json().catch(() => ({}));
-
-            if (!response.ok) {
-                this.checkoutError = payload.message || 'Transaksi gagal diselesaikan.';
-                notify(this.checkoutError, 'error');
+                    client_transaction_id: crypto.randomUUID(),
+                    client_created_at: new Date().toISOString(),
+                    cashier_shift_id: this.shift.id,
+                    cashier_id: this.shift.cashierId || this.endpoints.offlineContext.cashierId,
+                    expected_total: isComplimentary ? 0 : this.total,
+                };
+            const durableOrder = await this.outbox.enqueue(orderPayload, { id: orderPayload.client_transaction_id });
+            this.offlineReceipt = { id: durableOrder.id, total: orderPayload.expected_total };
+            this.clearCart();
+            this.showMobileCart = false;
+            this.customerName = ''; this.customerPhone = ''; this.buyerNationality = '';
+            const result = navigator.onLine
+                ? await this.outbox.submit(orderPayload, { id: durableOrder.id })
+                : { status: 'pending', id: durableOrder.id };
+            await this.refreshOfflineRows();
+            if (result.status !== 'synced') {
+                if (result.status === 'pending') {
+                    this.offlineReceipt = { id: result.id, total: orderPayload.expected_total };
+                    this.clearCart(); this.showMobileCart = false;
+                    this.customerName = ''; this.customerPhone = ''; this.buyerNationality = '';
+                    notify('Transaksi tersimpan di perangkat. Menunggu sinkronisasi.');
+                } else {
+                    this.checkoutError = result.error?.message || 'Transaksi ditolak atau sesi login kedaluwarsa. Periksa antrean.';
+                    notify(this.checkoutError, 'error');
+                }
                 return;
             }
-
-            this.items = payload.items || this.items;
-            this.shift = payload.shift || this.shift;
+            const payload = result.data;
+            this.offlineReceipt = null;
+            this.offlineSourceItems = structuredClone(payload.items || this.offlineSourceItems);
+            await this.refreshOfflineRows();
+            this.shift = payload.shift?.closedAt ? null : (payload.shift || this.shift);
             this.lastReceipt = payload.sale || null;
             this.syncPrintPreferencesFromReceipt(this.lastReceipt);
             this.clearCart();
@@ -3608,6 +3751,9 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
                 setTimeout(() => this.printReceipt(), 150);
             }
             notify(payload.message || 'Transaksi berhasil diselesaikan.');
+        } catch (error) {
+            this.checkoutError = error.message || 'Transaksi belum dapat diproses.';
+            notify(this.checkoutError, 'error');
         } finally {
             this.checkoutLoading = false;
         }

@@ -214,7 +214,7 @@
                     <tbody>
                         @forelse ($sales as $sale)
                             @php
-                                $canVoidSale = ! $sale->voided_at && (
+                                $canVoidSale = ! $sale->voided_at && $sale->refunds->isEmpty() && (
                                     $currentUser?->hasRole(['owner', 'admin'])
                                     || ($currentUser?->hasRole('kasir')
                                         && $sale->user_id === $currentUser->id
@@ -273,13 +273,17 @@
                                     @if ($sale->payments->isNotEmpty())
                                         <span class="mt-1 block text-[10px] text-gray-500 dark:text-gray-400">{{ $sale->payments->map(fn ($payment) => strtoupper($payment->payment_method).' '.$rupiah($payment->amount))->join(' · ') }}</span>
                                     @endif
+                                    @if (! $sale->voided_at && $currentUser?->hasRole(['owner', 'admin']))
+                                        <a href="{{ route('sales.refund', $sale) }}" class="mt-2 block text-[11px] font-semibold text-brand-600 hover:text-brand-700">Retur / Riwayat Refund</a>
+                                        @if ($sale->refunds->isNotEmpty())<span class="mt-1 block text-[11px] text-error-600">Refund {{ $rupiah($sale->refunds->sum('amount')) }}</span>@endif
+                                    @endif
                                     @if ($canVoidSale)
                                         <button type="button" @click="openVoid(@js(['id' => $sale->id, 'invoice' => $sale->invoice_number, 'total' => $sale->total]))" class="mt-2 block w-full text-[11px] font-semibold text-error-600 hover:text-error-700">Batalkan Transaksi</button>
                                     @endif
-                                    @if (! $sale->voided_at && $currentUser?->hasRole('admin'))
+                                    @if (! $sale->voided_at && $sale->refunds->isEmpty() && $currentUser?->hasRole('admin'))
                                         <a href="{{ route('sales.edit', $sale) }}" class="mt-2 block text-[11px] font-semibold text-brand-600 hover:text-brand-700">Edit Transaksi</a>
                                     @endif
-                                    @if (! $sale->voided_at && $currentUser?->hasRole(['owner', 'admin']) && $transferShifts->isNotEmpty())
+                                    @if (! $sale->voided_at && $sale->refunds->isEmpty() && $currentUser?->hasRole(['owner', 'admin']) && $transferShifts->isNotEmpty())
                                         <details class="mt-2 text-left">
                                             <summary class="cursor-pointer text-[11px] font-semibold text-warning-700">Pindah Cabang</summary>
                                             <form method="POST" action="{{ route('sales.transfer', $sale) }}" class="mt-2 space-y-1" onsubmit="return confirm('Pindahkan transaksi ini ke shift cabang tujuan?')">

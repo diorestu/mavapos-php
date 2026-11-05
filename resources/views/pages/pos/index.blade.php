@@ -4,6 +4,8 @@
 {{-- Hallmark · genre: modern-minimal · macrostructure: Workbench · theme: existing TailAdmin tokens · enrichment: none · nav: app-sidebar · footer: none · tone: utilitarian --}}
 
 @section('content')
+    <meta name="pos-offline-user" content="{{ $offlineContext['userId'] }}">
+    <meta name="pos-offline-branch" content="{{ $offlineContext['branchId'] }}">
     <div x-data="posManager(
         @js($items),
         @js($categories),
@@ -20,8 +22,28 @@
             checkout: @js(route('pos.checkout')),
             displayPush: @js(route('display.push')),
             displayStand: @js(route('display.stand')),
+            offlineContext: @js($offlineContext),
         }
         )" class="space-y-4">
+        <section class="rounded-xl border border-gray-200 bg-white p-3 text-sm dark:border-gray-800 dark:bg-gray-900" aria-label="Status koneksi dan sinkronisasi transaksi">
+            <div class="flex flex-wrap items-center justify-between gap-2">
+                <p role="status"><strong x-text="offlineOnline ? 'Online' : 'Offline'"></strong> · <span x-text="offlineRows.length"></span> transaksi menunggu sinkronisasi</p>
+                <button type="button" @click="syncOfflineOrders()" :disabled="offlineBusy || !offlineOnline" class="min-h-10 rounded-lg border border-gray-300 px-3 font-semibold disabled:opacity-50 dark:border-gray-700" x-text="offlineBusy ? 'Menyinkronkan…' : 'Sinkronkan Sekarang'"></button>
+            </div>
+            <p x-show="!offlineOnline" class="mt-2 text-xs text-gray-500">Gunakan shift yang sudah dibuka. Transaksi offline tersimpan di perangkat ini sampai server mengonfirmasi. Loyalitas, gratis, dan Online Merchant memerlukan koneksi.</p>
+            <p x-show="offlineShellError" x-text="offlineShellError" class="mt-2 text-xs text-warning-700 dark:text-warning-300"></p>
+            <p x-show="offlineStorageError" x-text="offlineStorageError" role="alert" class="mt-2 text-error-600"></p>
+            <p x-show="offlineReceipt" class="mt-2 rounded-lg bg-warning-50 p-2 text-warning-800 dark:bg-warning-500/10 dark:text-warning-200">Bukti sementara belum tersinkron: <strong x-text="offlineReceipt?.id"></strong> · <span x-text="formatRupiah(offlineReceipt?.total || 0)"></span>. Nomor transaksi resmi tersedia setelah sinkronisasi.</p>
+            <p x-show="lastReceipt && !receiptModal" class="mt-2 text-xs text-success-700 dark:text-success-300">Transaksi terkonfirmasi: <strong x-text="lastReceipt?.invoice_number"></strong> <button type="button" @click="receiptModal = true" class="ml-2 min-h-10 rounded border px-2 font-semibold">Lihat Struk</button></p>
+            <ul x-show="offlineRows.length" class="mt-2 max-h-48 space-y-2 overflow-y-auto">
+                <template x-for="order in offlineRows" :key="order.id">
+                    <li class="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 pt-2 dark:border-gray-800">
+                        <div><span class="break-all text-xs" x-text="order.id"></span> · <span x-text="formatRupiah(order.payload.expected_total)"></span><p class="text-xs text-error-600" x-text="order.error?.message || 'Tersimpan di perangkat, menunggu konfirmasi server.'"></p></div>
+                        <div class="flex gap-2"><button type="button" @click="syncOfflineOrders(order.id)" :disabled="offlineBusy || !offlineOnline" class="min-h-10 rounded border px-2 disabled:opacity-50">Coba Lagi</button><button type="button" x-show="order.status === 'error' && [400,403,404,422].includes(order.error?.status)" @click="cancelOfflineOrder(order.id)" class="min-h-10 rounded border px-2 text-error-600">Batalkan Antrean Ditolak</button></div>
+                    </li>
+                </template>
+            </ul>
+        </section>
         <div class="hidden">
             <div class="min-w-0">
                 <nav aria-label="Breadcrumb">

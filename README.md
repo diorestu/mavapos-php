@@ -1,6 +1,6 @@
 # Mava Backend
 
-Mava Backend is a Laravel 12 admin application for managing store operations: products, product categories, inventory movement, suppliers, customers, store settings, and QRIS billing through Pakasir.
+Mava Backend is a Laravel 12 admin application for managing store operations: products, product categories, inventory movement, suppliers, customers, store settings, and QRIS billing through SumoPod.
 
 The UI is built with Blade, Tailwind CSS, Alpine.js, and Vite.
 
@@ -13,8 +13,8 @@ The UI is built with Blade, Tailwind CSS, Alpine.js, and Vite.
 - Inventory management with stock-in and stock-out transaction history.
 - Customer and supplier management.
 - Store settings for business identity and product behavior.
-- SaaS billing module for Basic and Plus plan QRIS payment generation through Pakasir.
-- Pakasir webhook endpoint for automated payment status updates.
+- SaaS billing module for Basic and Plus plan QRIS payment generation through SumoPod.
+- SumoPod webhook endpoint for automated payment status updates.
 - Pest feature tests for core workflows.
 
 ## Requirements
@@ -116,7 +116,7 @@ Build production assets:
 npm run build
 ```
 
-## Billing and Pakasir QRIS
+## Billing and SumoPod QRIS
 
 The billing module is available from Pengaturan > Billing, using this route:
 
@@ -124,7 +124,7 @@ The billing module is available from Pengaturan > Billing, using this route:
 /billings
 ```
 
-It creates a local billing record, calls Pakasir to create a QRIS transaction, stores the payment URL/payment metadata, and updates payment status from webhook callbacks or manual status checks.
+It creates a local billing record, calls SumoPod to create a QRIS transaction, stores the payment URL/payment metadata, and updates payment status from webhook callbacks or manual status checks.
 
 Available SaaS plan presets:
 
@@ -136,22 +136,21 @@ Plus Plan    Rp249.000
 Set these variables in `.env`:
 
 ```env
-PAKASIR_PROJECT=your-pakasir-project
-PAKASIR_API_KEY=your-pakasir-api-key
-PAKASIR_BASE_URL=https://app.pakasir.com/api
-PAKASIR_TIMEOUT=30
+SUMOPOD_API_KEY=your-sumopod-api-key
+SUMOPOD_BASE_URL=https://api-pay.sumopod.com/api/v1
+SUMOPOD_TIMEOUT=30
 ```
 
-Register this webhook URL in Pakasir:
+Register this webhook URL in SumoPod:
 
 ```text
-https://your-domain.com/pakasir/webhook
+https://your-domain.com/sumopod/webhook
 ```
 
 For local webhook testing, expose your local server with a tunnel such as ngrok or Cloudflare Tunnel, then use the public tunnel URL:
 
 ```text
-https://your-tunnel-url/pakasir/webhook
+https://your-tunnel-url/sumopod/webhook
 ```
 
 Important billing routes:
@@ -160,7 +159,7 @@ Important billing routes:
 GET  /billings
 POST /billings
 POST /billings/{billing}/refresh
-POST /pakasir/webhook
+POST /sumopod/webhook
 ```
 
 ## Main Routes
@@ -199,7 +198,7 @@ Or use the Composer script:
 composer run test
 ```
 
-The tests cover authentication, dashboard rendering, product and variant workflows, inventory movement, categories, suppliers, customers, settings, billing creation, and Pakasir webhook payment completion.
+The tests cover authentication, dashboard rendering, product and variant workflows, inventory movement, categories, suppliers, customers, settings, billing creation, and SumoPod webhook payment completion.
 
 ## Useful Commands
 
@@ -232,7 +231,7 @@ Format PHP code with Pint:
 ```text
 app/Http/Controllers     Web controllers
 app/Models               Eloquent models
-app/Services             External service clients, including Pakasir
+app/Services             External service clients, including SumoPod
 database/migrations      Database schema
 database/seeders         Sample/bootstrap data
 resources/views          Blade pages and components
@@ -264,4 +263,4 @@ php artisan route:cache
 php artisan view:cache
 ```
 
-Make sure `/pakasir/webhook` is reachable publicly so Pakasir can automate payment status updates.
+Make sure `/sumopod/webhook` is reachable publicly so SumoPod can automate payment status updates.

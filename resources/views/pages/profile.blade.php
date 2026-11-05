@@ -201,5 +201,48 @@
             </form>
             @error('profile_photo')<p class="mt-2 text-xs text-error-600">{{ $message }}</p>@enderror
         </section>
+        <section x-data="accountDeletionManager(@js($user->id), { open: @js($errors->accountDeletion->any() || session()->has('account_deletion.google')), googleVerified: @js($googleDeletionVerified), verification: @js(old('verification', $googleDeletionVerified ? 'google' : 'password')) })" class="rounded-xl border border-error-200 bg-white p-5 dark:border-error-500/30 dark:bg-white/[0.03]">
+            <h2 class="text-base font-semibold text-error-700 dark:text-error-400">Hapus Akun</h2>
+            <p class="mt-2 text-sm text-gray-600 dark:text-gray-300">Akun login dan data profil pribadi Anda akan dihapus. Anda akan keluar dari semua perangkat. Riwayat penjualan, stok, cabang, serta akun staf tetap tersimpan untuk catatan usaha.</p>
+            <p class="mt-2 text-xs text-gray-500 dark:text-gray-400">Tutup shift Anda dan selesaikan sinkronisasi transaksi pada semua perangkat sebelum melanjutkan. Penghapusan akun ini tidak dapat dibatalkan melalui aplikasi.</p>
+            <button type="button" x-show="!open" @click="open = true; $nextTick(() => $refs.deleteConfirmation.focus())" class="mt-4 min-h-11 rounded-lg border border-error-300 px-4 text-sm font-semibold text-error-700 hover:bg-error-50 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-error-500 dark:text-error-400">Hapus Akun Saya</button>
+            <div x-cloak x-show="open" class="mt-4 max-w-xl space-y-4">
+                @if ($errors->accountDeletion->any())
+                    <div role="alert" class="rounded-lg bg-error-50 p-3 text-sm text-error-700 dark:bg-error-500/10 dark:text-error-300">@foreach ($errors->accountDeletion->all() as $message)<p>{{ $message }}</p>@endforeach</div>
+                @endif
+                @if(session('status'))<p role="status" class="text-sm text-success-700 dark:text-success-300">{{ session('status') }}</p>@endif
+                @if ($user->google_id)
+                    <div class="space-y-2 rounded-lg border border-gray-200 p-3 text-sm dark:border-gray-700">
+                        <p>Pilih verifikasi kata sandi atau verifikasi ulang akun Google yang terhubung.</p>
+                        <a href="{{ route('profile.delete.google') }}" class="inline-flex min-h-11 items-center rounded-lg border border-gray-300 px-3 font-semibold dark:border-gray-600">Verifikasi Ulang dengan Google</a>
+                        @if($googleDeletionVerified)<p class="text-success-700 dark:text-success-300">Google terverifikasi. Berlaku selama 5 menit.</p>@endif
+                    </div>
+                @endif
+                <form method="POST" action="{{ route('profile.destroy') }}" @submit="submit($event)" class="space-y-4">
+                    @csrf
+                    @method('DELETE')
+                    @if ($user->google_id)
+                        <fieldset class="flex flex-wrap gap-4 text-sm text-gray-700 dark:text-gray-300"><legend class="mb-2 font-medium">Verifikasi identitas</legend>
+                            <label class="flex min-h-10 items-center gap-2"><input type="radio" name="verification" value="password" x-model="verification">Kata sandi</label>
+                            <label class="flex min-h-10 items-center gap-2"><input type="radio" name="verification" value="google" x-model="verification" :disabled="!googleVerified">Google terverifikasi</label>
+                        </fieldset>
+                    @else
+                        <input type="hidden" name="verification" value="password">
+                    @endif
+                    <label x-show="verification === 'password'" class="block text-sm font-medium text-gray-700 dark:text-gray-300">Kata sandi saat ini
+                        <input type="password" name="password" autocomplete="current-password" :required="verification === 'password'" class="mt-1 h-11 w-full rounded-lg border border-gray-300 px-3 dark:border-gray-700 dark:bg-gray-900">
+                    </label>
+                    <label class="block text-sm font-medium text-gray-700 dark:text-gray-300">Ketik HAPUS AKUN untuk mengonfirmasi
+                        <input x-ref="deleteConfirmation" type="text" name="confirmation" required autocomplete="off" value="{{ old('confirmation') }}" class="mt-1 h-11 w-full rounded-lg border border-gray-300 px-3 dark:border-gray-700 dark:bg-gray-900">
+                    </label>
+                    <label class="flex items-start gap-2 text-sm text-gray-600 dark:text-gray-300"><input type="checkbox" name="understand" value="1" required class="mt-1 rounded border-gray-300">Saya memahami dampak penghapusan akun dan telah menyelesaikan transaksi yang belum tersinkron di semua perangkat.</label>
+                    <p x-show="queueError" x-text="queueError" role="alert" class="text-sm text-error-600 dark:text-error-400"></p>
+                    <div class="flex flex-wrap gap-2">
+                        <button type="submit" :disabled="busy || (verification === 'google' && !googleVerified)" class="min-h-11 rounded-lg bg-error-600 px-4 text-sm font-semibold text-white hover:bg-error-700 disabled:opacity-50" x-text="busy ? 'Menghapus akun…' : 'Hapus Akun Saya'">Hapus Akun Saya</button>
+                        <button type="button" @click="open = false" :disabled="busy" class="min-h-11 rounded-lg border border-gray-300 px-4 text-sm font-semibold text-gray-700 disabled:opacity-50 dark:border-gray-700 dark:text-gray-300">Batal</button>
+                    </div>
+                </form>
+            </div>
+        </section>
     </div>
 @endsection

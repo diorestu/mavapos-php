@@ -6,6 +6,7 @@ use App\Models\Billing;
 use App\Models\Expense;
 use App\Models\PosSale;
 use App\Models\Product;
+use App\Models\SaleRefund;
 use App\Models\StockMovement;
 use App\Models\StoreSetting;
 use App\Models\User;
@@ -14,6 +15,7 @@ use App\Support\BranchContext;
 use App\Support\BranchInventoryManager;
 use App\Support\LocalTime;
 use Barryvdh\DomPDF\Facade\Pdf;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\View\View;
@@ -82,7 +84,7 @@ class ReportController extends Controller
             $to->format('Y-m-d'),
         );
 
-        return $exporter->download($transactions, $fileName, $branch->name);
+        return $exporter->download($transactions, $fileName, $branch->name, $this->refundQuery($branch->id, $from, $to)->orderBy('refunded_at')->lazy());
     }
 
     public function journal(Request $request): View
@@ -111,6 +113,10 @@ class ReportController extends Controller
                 $lines->push($this->journalLine($expense->spent_at, $expense->expense_number, $expense->title, $debit, 'Kas', $expense->amount));
             });
 
+        $this->refundQuery($branch->id, $from, $to)->get()->each(function (SaleRefund $refund) use ($lines): void {
+            $lines->push(...$this->refundJournalLines($refund));
+        });
+
         $totalDebit = $lines->sum('debit');
 
         return view('pages.reports.journal', [
@@ -126,6 +132,7 @@ class ReportController extends Controller
     public function downloadFinancial(Request $request): Response
     {
         $data = $this->financialData($request);
+
         return Pdf::loadView('pages.reports.financial-pdf', $data)->setPaper('a4')->download(
             'laporan-keuangan-'.$data['filters']['date_from'].'-sampai-'.$data['filters']['date_to'].'.pdf'
         );
@@ -134,6 +141,7 @@ class ReportController extends Controller
     public function downloadProfitLoss(Request $request): Response
     {
         $data = $this->financialData($request);
+
         return Pdf::loadView('pages.reports.profit-loss-pdf', $data)->setPaper('a4')->download(
             'laporan-laba-rugi-'.$data['filters']['date_from'].'-sampai-'.$data['filters']['date_to'].'.pdf'
         );
@@ -147,11 +155,27 @@ class ReportController extends Controller
         $branch = app(BranchContext::class)->active();
         $sales = PosSale::query()->active()->with(['items.product', 'payments'])->where('branch_id', $branch->id)->whereBetween('sold_at', [$from, $to])->orderBy('sold_at')->get();
         $expenses = Expense::query()->where('branch_id', $branch->id)->whereBetween('spent_at', [$from, $to])->orderBy('spent_at')->get();
+        $refunds = $this->refundQuery($branch->id, $from, $to)->get();
+        $refundTotal = (int) $refunds->sum('amount');
+        $refundCostRecovery = (int) $refunds->sum(fn (SaleRefund $refund): int => $this->refundCostRecovery($refund));
         $revenue = (int) $sales->sum('total');
         $cogs = (int) $sales->sum(fn (PosSale $sale): int => $sale->items->sum(fn ($item): int => $item->quantity * (int) ($item->product?->buy_price ?? 0)));
+        $cogs -= $refundCostRecovery;
         $merchantDeduction = (int) $sales->sum('online_merchant_deduction');
         $expenseTotal = (int) $expenses->sum('amount');
-        return ['store' => StoreSetting::current(), 'activeBranch' => $branch, 'sales' => $sales, 'expenses' => $expenses, 'journalLines' => $this->summarizeJournalLines($this->journalLines($sales, $expenses)), 'filters' => ['date_from' => $from->toDateString(), 'date_to' => $to->toDateString()], 'summary' => compact('revenue', 'cogs', 'expenseTotal', 'merchantDeduction') + ['grossProfit' => $revenue - $cogs, 'netProfit' => $revenue - $cogs - $expenseTotal - $merchantDeduction]];
+
+        $journalLines = $this->journalLines($sales, $expenses);
+        foreach ($refunds as $refund) {
+            array_push($journalLines, ...$this->refundJournalLines($refund));
+        }
+
+        return ['store' => StoreSetting::current(), 'activeBranch' => $branch, 'sales' => $sales, 'expenses' => $expenses, 'refunds' => $refunds, 'journalLines' => $this->summarizeJournalLines($journalLines), 'filters' => ['date_from' => $from->toDateString(), 'date_to' => $to->toDateString()], 'summary' => compact('revenue', 'cogs', 'expenseTotal', 'merchantDeduction') + [
+            'refund_total' => $refundTotal,
+            'refund_cost_recovery' => $refundCostRecovery,
+            'net_after_refunds' => $revenue - $merchantDeduction - $refundTotal,
+            'grossProfit' => $revenue - $refundTotal - $cogs,
+            'netProfit' => $revenue - $refundTotal - $cogs - $expenseTotal - $merchantDeduction,
+        ]];
     }
 
     private function journalLines($sales, $expenses): array
@@ -163,6 +187,7 @@ class ReportController extends Controller
         foreach ($expenses as $expense) {
             $lines[] = $this->journalLine($expense->spent_at, $expense->expense_number, $expense->title, $expense->type === 'stock' ? 'Persediaan' : 'Beban Operasional', 'Kas', $expense->amount);
         }
+
         return $lines;
     }
 
@@ -289,8 +314,12 @@ class ReportController extends Controller
         $costOfGoodsSold = $periodMovements
             ->where('type', 'out')
             ->sum(fn (StockMovement $movement): int => $movement->quantity * (int) ($movement->product?->buy_price ?? 0));
+        $refunds = $this->refundQuery($activeBranch->id, $from, $to)->orderByDesc('refunded_at')->get();
+        $refundTotal = (int) $refunds->sum('amount');
+        $refundCostRecovery = (int) $refunds->sum(fn (SaleRefund $refund): int => $this->refundCostRecovery($refund));
+        $costOfGoodsSold -= $refundCostRecovery;
         $totalRevenue = $paidRevenue + $posRevenue;
-        $grossProfit = $totalRevenue - $costOfGoodsSold;
+        $grossProfit = $totalRevenue - $refundTotal - $costOfGoodsSold;
         $netProfitEstimate = $grossProfit - $totalExpense;
 
         $inventoryValue = $products->sum(fn (Product $product): int => $product->stock * $product->buy_price);
@@ -301,9 +330,13 @@ class ReportController extends Controller
         $cashierSales = (clone $posSaleQuery)->with('payments')->get();
         $cashierRows = $cashierSales->groupBy('user_id')->map(function ($sales, $userId) {
             $payments = $sales->reduce(function (array $totals, PosSale $sale): array {
-                foreach ($this->salePayments($sale) as $payment) $totals[$payment['method']] += $payment['amount'];
+                foreach ($this->salePayments($sale) as $payment) {
+                    $totals[$payment['method']] += $payment['amount'];
+                }
+
                 return $totals;
             }, ['cash' => 0, 'qris' => 0, 'card' => 0, 'online_merchant' => 0]);
+
             return (object) ['user_id' => $userId, 'sales_count' => $sales->count(), 'gross_sales' => $sales->sum('subtotal'), 'discount_total' => $sales->sum('discount'), 'net_sales' => $sales->sum('total'), 'cash_total' => $payments['cash'], 'qris_total' => $payments['qris'], 'card_total' => $payments['card'], 'online_merchant_total' => $payments['online_merchant']];
         })->sortByDesc('net_sales')->values();
         $dailyCashierRows = $cashierSales
@@ -311,7 +344,10 @@ class ReportController extends Controller
             ->sortKeysDesc()
             ->flatMap(fn ($sales, string $date) => $sales->groupBy('user_id')->map(function ($userSales, $userId) use ($date): object {
                 $payments = $userSales->reduce(function (array $totals, PosSale $sale): array {
-                    foreach ($this->salePayments($sale) as $payment) $totals[$payment['method']] += $payment['amount'];
+                    foreach ($this->salePayments($sale) as $payment) {
+                        $totals[$payment['method']] += $payment['amount'];
+                    }
+
                     return $totals;
                 }, ['cash' => 0, 'qris' => 0, 'card' => 0, 'online_merchant' => 0]);
 
@@ -369,6 +405,9 @@ class ReportController extends Controller
                 'paid_revenue' => $paidRevenue,
                 'pos_revenue' => $posRevenue,
                 'total_revenue' => $totalRevenue,
+                'refund_total' => $refundTotal,
+                'refund_cost_recovery' => $refundCostRecovery,
+                'net_after_refunds' => $totalRevenue - $merchantDeduction - $refundTotal,
                 'pending_revenue' => $pendingRevenue,
                 'cost_of_goods_sold' => $costOfGoodsSold,
                 'restock_expense' => $restockExpense,
@@ -407,7 +446,39 @@ class ReportController extends Controller
                 ])
                 ->values(),
             'transactions' => $transactions,
+            'refunds' => $refunds,
         ];
+    }
+
+    private function refundQuery(int $branchId, Carbon $from, Carbon $to): Builder
+    {
+        return SaleRefund::query()->with(['sale', 'items.saleItem.product'])
+            ->where('tenant_id', auth()->user()->tenantOwnerId())
+            ->where('branch_id', $branchId)
+            ->whereBetween('refunded_at', [
+                Carbon::parse($from->toDateString(), LocalTime::TIMEZONE)->startOfDay()->utc(),
+                Carbon::parse($to->toDateString(), LocalTime::TIMEZONE)->endOfDay()->utc(),
+            ]);
+    }
+
+    private function refundCostRecovery(SaleRefund $refund): int
+    {
+        return (int) $refund->items->where('restock', true)->sum(
+            fn ($item): int => $item->quantity * (int) ($item->saleItem?->product?->buy_price ?? 0)
+        );
+    }
+
+    private function refundJournalLines(SaleRefund $refund): array
+    {
+        $account = ['cash' => 'Kas', 'qris' => 'Bank / QRIS', 'card' => 'Bank / Kartu', 'bank_transfer' => 'Bank'][$refund->refund_method] ?? 'Bank';
+        $date = $refund->refunded_at->copy()->timezone(LocalTime::TIMEZONE);
+        $lines = [$this->journalLine($date, $refund->refund_number, 'Retur '.$refund->sale?->invoice_number.' — '.$refund->reason, 'Retur Penjualan', $account, $refund->amount)];
+        $costRecovery = $this->refundCostRecovery($refund);
+        if ($costRecovery > 0) {
+            $lines[] = $this->journalLine($date, $refund->refund_number, 'Pemulihan persediaan retur', 'Persediaan', 'Beban Pokok Penjualan', $costRecovery);
+        }
+
+        return $lines;
     }
 
     private function salePayments(PosSale $sale): array

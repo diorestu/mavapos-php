@@ -18,6 +18,7 @@ class SaleBranchTransferService
         return DB::transaction(function () use ($sale, $fromBranchId, $targetShiftId, $actor, $reason): PosSale {
             $sale = PosSale::query()->with(['items.product', 'items.productVariant', 'shift'])
                 ->whereKey($sale->id)->where('branch_id', $fromBranchId)->lockForUpdate()->firstOrFail();
+            abort_if($sale->refunds()->exists(), 422, 'Transaksi dengan refund tidak dapat dibatalkan, diedit, atau dipindahkan.');
             abort_if($sale->voided_at, 422, 'Transaksi yang sudah di-void tidak dapat dipindahkan.');
 
             $targetShift = CashierShift::query()->with('branch')

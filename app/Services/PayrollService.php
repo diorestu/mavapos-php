@@ -13,6 +13,7 @@ class PayrollService
     {
         $bonus = app(SalesBonusService::class)->forUserMonth($user->id, $branchId, $month);
         $basic = (int) $user->basic_salary;
+
         return ['basic_salary' => $basic, 'fixed_allowance' => 0, 'sales_count' => $bonus['salesCount'], 'sales_bonus' => $bonus['bonus'], 'total_amount' => $basic + $bonus['bonus']];
     }
 
@@ -26,6 +27,7 @@ class PayrollService
                 ['user_id' => $user->id, 'branch_id' => $branchId, 'period_month' => $month->copy()->startOfMonth()->toDateString()] + $this->calculate($user, $branchId, $month)
             );
         }
+
         return $users->count();
     }
 

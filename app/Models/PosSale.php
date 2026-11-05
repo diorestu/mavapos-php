@@ -89,6 +89,11 @@ class PosSale extends Model
         return $this->hasMany(PosSaleItem::class);
     }
 
+    public function refunds(): HasMany
+    {
+        return $this->hasMany(SaleRefund::class);
+    }
+
     public function payments(): HasMany
     {
         return $this->hasMany(PosSalePayment::class);

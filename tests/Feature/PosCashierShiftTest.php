@@ -1,7 +1,6 @@
 <?php
 
 use App\Models\Branch;
-use App\Models\StoreSetting;
 use App\Models\BranchInventory;
 use App\Models\CashierShift;
 use App\Models\Expense;
@@ -10,8 +9,11 @@ use App\Models\PosSaleItem;
 use App\Models\Product;
 use App\Models\ProductRecipeItem;
 use App\Models\RawMaterial;
+use App\Models\StoreSetting;
 use App\Models\User;
+use App\Support\BranchContext;
 use App\Support\BranchInventoryManager;
+use App\Support\LocalTime;
 use Database\Seeders\DatabaseSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -25,10 +27,10 @@ beforeEach(function () {
 test('POS menampilkan SOP custom dari cabang aktif', function () {
     $owner = User::factory()->create(['role' => 'owner']);
     $this->actingAs($owner);
-    $branch = app(\App\Support\BranchContext::class)->active();
+    $branch = app(BranchContext::class)->active();
     $cashier = User::factory()->create(['role' => 'kasir', 'tenant_owner_id' => $owner->id]);
     $this->actingAs($cashier);
-    app(\App\Support\BranchContext::class)->setActive($branch->id);
+    app(BranchContext::class)->setActive($branch->id);
 
     StoreSetting::query()->create([
         'branch_id' => $branch->id,
@@ -45,7 +47,7 @@ test('POS menampilkan SOP custom dari cabang aktif', function () {
 test('laporan jurnal menampilkan pasangan debit kredit transaksi cabang aktif', function () {
     $owner = User::factory()->create(['role' => 'owner']);
     $this->actingAs($owner);
-    $branch = app(\App\Support\BranchContext::class)->active();
+    $branch = app(BranchContext::class)->active();
     $shift = CashierShift::query()->create([
         'user_id' => $owner->id,
         'branch_id' => $branch->id,
@@ -93,7 +95,7 @@ test('laporan jurnal menampilkan pasangan debit kredit transaksi cabang aktif', 
 test('owner dapat menyimpan SOP custom untuk cabang aktif', function () {
     $owner = User::factory()->create(['role' => 'owner']);
     $this->actingAs($owner);
-    $branch = app(\App\Support\BranchContext::class)->active();
+    $branch = app(BranchContext::class)->active();
 
     $this->patch(route('settings.update'), [
         'store_name' => 'Mava Cabang',
@@ -159,7 +161,7 @@ test('laporan penjualan membagikan bonus tim kepada seluruh staff yang hadir', f
     $assistant = User::factory()->create(['role' => 'kasir', 'tenant_owner_id' => $owner->id]);
     $offStaff = User::factory()->create(['role' => 'kasir', 'tenant_owner_id' => $owner->id]);
     $this->actingAs($owner);
-    $branch = app(\App\Support\BranchContext::class)->active();
+    $branch = app(BranchContext::class)->active();
     CashierShift::query()->create(['user_id' => $owner->id, 'branch_id' => $branch->id, 'opened_at' => now()->startOfDay()]);
     $shift = CashierShift::query()->create([
         'user_id' => $cashier->id,
@@ -178,7 +180,7 @@ test('laporan penjualan membagikan bonus tim kepada seluruh staff yang hadir', f
         ]);
     }
 
-    $today = now()->setTimezone(\App\Support\LocalTime::TIMEZONE)->toDateString();
+    $today = now()->setTimezone(LocalTime::TIMEZONE)->toDateString();
     $this->actingAs($owner)->get(route('sales', ['date_from' => $today, 'date_to' => $today]))->assertOk()->assertViewHas('bonus', function ($bonus) use ($owner, $cashier, $assistant, $offStaff): bool {
         $rows = collect($bonus['staffBreakdown'])->keyBy('userId');
 
@@ -197,7 +199,7 @@ test('sync bonus harian memperbarui payslip dari bonus tim bulan aktif', functio
     $staff = User::factory()->create(['role' => 'kasir', 'tenant_owner_id' => $owner->id, 'basic_salary' => 3000000, 'fixed_allowance' => 500000]);
     $warehouse = User::factory()->create(['role' => 'warehouse', 'tenant_owner_id' => $owner->id, 'basic_salary' => 4000000]);
     $this->actingAs($owner);
-    $branch = app(\App\Support\BranchContext::class)->active();
+    $branch = app(BranchContext::class)->active();
     $shift = CashierShift::query()->create(['user_id' => $staff->id, 'branch_id' => $branch->id, 'opened_at' => now()->startOfDay()]);
 
     foreach (range(1, 41) as $number) {
@@ -210,7 +212,7 @@ test('sync bonus harian memperbarui payslip dari bonus tim bulan aktif', functio
         ]);
     }
 
-    $month = now()->setTimezone(\App\Support\LocalTime::TIMEZONE)->format('Y-m');
+    $month = now()->setTimezone(LocalTime::TIMEZONE)->format('Y-m');
     $this->post(route('payrolls.sync-bonus'), ['month' => $month])->assertRedirect();
 
     $this->assertDatabaseHas('payrolls', [
@@ -290,20 +292,20 @@ test('kasir wajib mulai shift sebelum checkout dan report menampilkan pendapatan
     ]);
 
     $this->actingAs($cashier);
-    $branch = app(\App\Support\BranchContext::class)->active();
+    $branch = app(BranchContext::class)->active();
     $product = Product::withoutGlobalScopes()->where('sku', 'SKU-001')->firstOrFail();
     $product->update(['user_id' => $owner->id]);
     app(BranchInventoryManager::class)->forProduct($branch->id, $product)->update(['stock' => $product->stock]);
     $startingStock = $product->stock;
 
     $this->postJson(route('pos.checkout'), [
-            'items' => [
-                ['id' => 'product-SKU-001', 'quantity' => 1],
-            ],
-            'payment_method' => 'cash',
-            'discount' => 0,
-            'paid_amount' => 20000,
-        ])
+        'items' => [
+            ['id' => 'product-SKU-001', 'quantity' => 1],
+        ],
+        'payment_method' => 'cash',
+        'discount' => 0,
+        'paid_amount' => 20000,
+    ])
         ->assertUnprocessable()
         ->assertJsonPath('message', 'Mulai shift kasir sebelum menyelesaikan transaksi.');
 
@@ -591,7 +593,7 @@ test('owner dapat menghapus riwayat shift tetapi kasir tidak', function () {
     $owner = User::factory()->create(['role' => 'owner']);
     $cashier = User::factory()->create(['role' => 'kasir', 'tenant_owner_id' => $owner->id]);
     $this->actingAs($owner);
-    $branch = app(\App\Support\BranchContext::class)->active();
+    $branch = app(BranchContext::class)->active();
     $shift = CashierShift::query()->create([
         'user_id' => $cashier->id,
         'branch_id' => $branch->id,
@@ -624,7 +626,7 @@ test('aksi hapus riwayat shift hanya tampil untuk owner dan admin', function () 
     $cashier = User::factory()->create(['role' => 'kasir', 'tenant_owner_id' => $owner->id]);
     $admin = User::factory()->create(['role' => 'admin', 'tenant_owner_id' => $owner->id]);
     $this->actingAs($owner);
-    $branch = app(\App\Support\BranchContext::class)->active();
+    $branch = app(BranchContext::class)->active();
     CashierShift::query()->create([
         'user_id' => $cashier->id,
         'branch_id' => $branch->id,
@@ -682,7 +684,7 @@ test('halaman penjualan menampilkan transaksi pos dan filter invoice', function 
         'tenant_owner_id' => $owner->id,
     ]);
     $this->actingAs($owner);
-    $branch = app(\App\Support\BranchContext::class)->active();
+    $branch = app(BranchContext::class)->active();
     $product = Product::withoutGlobalScopes()->where('sku', 'SKU-001')->firstOrFail();
     $product->update(['user_id' => $owner->id]);
     app(BranchInventoryManager::class)->forProduct($branch->id, $product)->update(['stock' => $product->stock]);
@@ -728,7 +730,7 @@ test('cabang aktif mengatur scope transaksi kasir dan laporan', function () {
         'role' => 'kasir', 'tenant_owner_id' => $owner->id,
     ]);
     $this->actingAs($owner);
-    $defaultBranch = app(\App\Support\BranchContext::class)->active();
+    $defaultBranch = app(BranchContext::class)->active();
     $secondBranch = Branch::query()->create([
         'user_id' => $owner->id,
         'name' => 'Cabang Dua',
@@ -796,7 +798,7 @@ test('stok produk berbeda per cabang dan checkout hanya mengurangi cabang aktif'
         'role' => 'kasir', 'tenant_owner_id' => $owner->id,
     ]);
     $this->actingAs($owner);
-    $defaultBranch = app(\App\Support\BranchContext::class)->active();
+    $defaultBranch = app(BranchContext::class)->active();
     $secondBranch = Branch::query()->create([
         'user_id' => $owner->id,
         'name' => 'Cabang Stok',
@@ -852,7 +854,7 @@ test('checkout mengurangi stok bahan baku sesuai resep produk', function () {
         'role' => 'kasir', 'tenant_owner_id' => $owner->id,
     ]);
     $this->actingAs($owner);
-    $branch = app(\App\Support\BranchContext::class)->active();
+    $branch = app(BranchContext::class)->active();
     $product = Product::withoutGlobalScopes()->where('sku', 'SKU-001')->firstOrFail();
     $product->update(['user_id' => $owner->id, 'stock_mode' => 'recipe']);
     app(BranchInventoryManager::class)->forProduct($branch->id, $product)->update(['stock' => $product->stock]);
@@ -897,7 +899,7 @@ test('laporan nilai stok mengikuti stok cabang aktif', function () {
         'email' => 'owner-report-cabang@example.com',
     ]);
     $this->actingAs($owner);
-    $defaultBranch = app(\App\Support\BranchContext::class)->active();
+    $defaultBranch = app(BranchContext::class)->active();
     $secondBranch = Branch::query()->create([
         'user_id' => $owner->id,
         'name' => 'Cabang Report Stok',

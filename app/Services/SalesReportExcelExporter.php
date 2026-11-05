@@ -2,6 +2,8 @@
 
 namespace App\Services;
 
+use App\Models\SaleRefund;
+use App\Support\LocalTime;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -11,7 +13,7 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class SalesReportExcelExporter
 {
-    public function download(iterable $transactions, string $fileName, string $branchName): StreamedResponse
+    public function download(iterable $transactions, string $fileName, string $branchName, iterable $refunds = []): StreamedResponse
     {
         $workbook = new Spreadsheet;
         $workbook->getProperties()->setTitle('Laporan Penjualan')->setSubject($branchName);
@@ -116,6 +118,36 @@ class SalesReportExcelExporter
             $summary->getColumnDimension($column)->setWidth($width);
         }
         $summary->freezePane('A2');
+        $returns = $workbook->createSheet();
+        $returns->setTitle('Retur');
+        $returns->fromArray([['Nomor Retur', 'Invoice Asli', 'Tanggal Retur', 'Nominal Refund', 'Metode Refund', 'Alasan']]);
+        $refundRow = 2;
+        $refundTotal = 0;
+        foreach ($refunds as $refund) {
+            $returns->setCellValueExplicit('A'.$refundRow, $refund->refund_number, DataType::TYPE_STRING);
+            $returns->setCellValueExplicit('B'.$refundRow, $refund->sale?->invoice_number ?? '', DataType::TYPE_STRING);
+            $returns->setCellValue('C'.$refundRow, Date::PHPToExcel($refund->refunded_at->copy()->timezone(LocalTime::TIMEZONE)));
+            $returns->setCellValue('D'.$refundRow, $refund->amount);
+            $returns->setCellValueExplicit('E'.$refundRow, SaleRefund::METHODS[$refund->refund_method] ?? $refund->refund_method, DataType::TYPE_STRING);
+            $returns->setCellValueExplicit('F'.$refundRow, $refund->reason, DataType::TYPE_STRING);
+            $refundTotal += $refund->amount;
+            $refundRow++;
+        }
+        $returns->setAutoFilter('A1:F'.max(1, $refundRow - 1));
+        if ($refundRow > 2) {
+            $returns->getStyle('C2:C'.($refundRow - 1))->getNumberFormat()->setFormatCode('dd/mm/yyyy hh:mm:ss');
+        }
+        $returns->setCellValue('A'.$refundRow, 'Total');
+        $returns->setCellValue('D'.$refundRow, $refundTotal);
+        $returns->getStyle('D2:D'.$refundRow)->getNumberFormat()->setFormatCode('#,##0');
+        $returns->getStyle('A'.$refundRow.':F'.$refundRow)->getFont()->setBold(true);
+        $returns->getStyle('A1:F1')->getFont()->setBold(true);
+        $returns->getStyle('A1:F1')->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFE5E7EB');
+        foreach (['A' => 28, 'B' => 28, 'C' => 24, 'D' => 24, 'E' => 24, 'F' => 60] as $column => $width) {
+            $returns->getColumnDimension($column)->setWidth($width);
+        }
+        $returns->getStyle('F1:F'.$refundRow)->getAlignment()->setWrapText(true);
+        $returns->freezePane('A2');
         $workbook->setActiveSheetIndex(0);
 
         return response()->streamDownload(function () use ($workbook): void {

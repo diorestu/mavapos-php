@@ -1131,21 +1131,23 @@ test('pengguna dapat membuka halaman pelanggan', function () {
         ->assertSee('pelanggan');
 });
 
-test('pengguna dapat membuat tagihan langganan qris pakasir tanpa isi data diri', function () {
+test('pengguna dapat membuat tagihan langganan qris sumopod tanpa isi data diri', function () {
     config([
-        'services.pakasir.project' => 'mava-test',
-        'services.pakasir.api_key' => 'secret-test',
+        'services.sumopod.api_key' => 'secret-test',
     ]);
 
     Http::fake([
-        'https://app.pakasir.com/api/transactioncreate/qris' => Http::response([
-            'payment' => [
-                'fee' => 350,
-                'total_payment' => 2689550,
-                'payment_number' => 'QRIS-CODE',
-                'expired_at' => '2026-06-17T14:30:00+08:00',
-            ],
-        ]),
+        'https://api-pay.sumopod.com/api/v1/payments' => Http::response([
+            'payment_id' => 'sumo-pay-123',
+            'order_id' => 'INV-TEST',
+            'amount' => 2689550,
+            'fee' => 350,
+            'net_amount' => 2689200,
+            'currency' => 'IDR',
+            'payment_link_url' => 'https://checkout.pymnt.app/payment-links/test-link',
+            'status' => 'pending',
+            'expires_at' => '2026-06-17T14:30:00+08:00',
+        ], 201),
     ]);
 
     $user = User::factory()->create();
@@ -1168,14 +1170,15 @@ test('pengguna dapat membuat tagihan langganan qris pakasir tanpa isi data diri'
         ->and($billing->fee)->toBe(350)
         ->and($billing->total_payment)->toBe(2689550)
         ->and($billing->payment_status)->toBe('pending')
+        ->and($billing->payment_url)->toBe('https://checkout.pymnt.app/payment-links/test-link')
         ->and($billing->provider_payload['subscription']['billing_cycle'])->toBe('yearly')
         ->and($billing->provider_payload['subscription']['yearly_discount_percent'])->toBe(10);
 
-    Http::assertSent(fn ($request) => $request->url() === 'https://app.pakasir.com/api/transactioncreate/qris'
-        && $request['project'] === 'mava-test'
+    Http::assertSent(fn ($request) => $request->url() === 'https://api-pay.sumopod.com/api/v1/payments'
+        && $request->hasHeader('X-Api-Key', 'secret-test')
         && $request['order_id'] === $billing->invoice_number
         && $request['amount'] === 2689200
-        && $request['api_key'] === 'secret-test');
+        && $request['payment_method_type_code'] === 'QRIS');
 });
 
 test('form buat tagihan langganan hanya muncul pada masa renewal h-7 atau subscription tidak aktif', function () {
@@ -1247,12 +1250,7 @@ test('form buat tagihan langganan hanya muncul pada masa renewal h-7 atau subscr
     Carbon::setTestNow();
 });
 
-test('webhook pakasir menandai tagihan lunas setelah verifikasi detail', function () {
-    config([
-        'services.pakasir.project' => 'mava-test',
-        'services.pakasir.api_key' => 'secret-test',
-    ]);
-
+test('webhook sumopod menandai tagihan lunas setelah verifikasi detail', function () {
     $billing = Billing::query()->create([
         'invoice_number' => 'INV-TEST-001',
         'customer_name' => 'Pelanggan QRIS',
@@ -1261,26 +1259,17 @@ test('webhook pakasir menandai tagihan lunas setelah verifikasi detail', functio
         'payment_status' => 'pending',
     ]);
 
-    Http::fake([
-        'https://app.pakasir.com/api/transactiondetail*' => Http::response([
-            'transaction' => [
-                'project' => 'mava-test',
-                'order_id' => $billing->invoice_number,
-                'amount' => 75000,
-                'status' => 'completed',
-                'payment_method' => 'qris',
-                'completed_at' => '2026-06-17T15:00:00+08:00',
-            ],
-        ]),
-    ]);
-
-    $this->postJson('/pakasir/webhook', [
-        'project' => 'mava-test',
-        'order_id' => $billing->invoice_number,
-        'amount' => 75000,
-        'status' => 'completed',
-        'payment_method' => 'qris',
-        'completed_at' => '2026-06-17T15:00:00+08:00',
+    $this->postJson('/sumopod/webhook', [
+        'event_type' => 'payment.completed',
+        'data' => [
+            'payment_id' => 'sumo-pay-001',
+            'order_id' => $billing->invoice_number,
+            'amount' => 75350,
+            'fee' => 350,
+            'net_amount' => 75000,
+            'status' => 'completed',
+            'paid_at' => '2026-06-17T15:00:00+08:00',
+        ],
     ])
         ->assertOk()
         ->assertJsonPath('status', 'ok')
@@ -1293,12 +1282,49 @@ test('webhook pakasir menandai tagihan lunas setelah verifikasi detail', functio
         ->and($billing->paid_at)->not->toBeNull();
 });
 
-test('webhook pakasir menerima status paid sebagai pembayaran berhasil', function () {
-    config([
-        'services.pakasir.project' => 'mava-test',
-        'services.pakasir.api_key' => 'secret-test',
+test('refresh tagihan memperbarui status kedaluwarsa atau memberi info status', function () {
+    $user = User::factory()->create();
+
+    $expiredBilling = Billing::query()->create([
+        'user_id' => $user->id,
+        'invoice_number' => 'INV-EXP',
+        'customer_name' => 'Mava Mart',
+        'title' => 'Plus Plan - Bulanan',
+        'amount' => 249000,
+        'payment_status' => 'pending',
+        'expires_at' => now()->subDay(),
     ]);
 
+    $this->actingAs($user)
+        ->from('/billings')
+        ->post("/billings/{$expiredBilling->id}/refresh")
+        ->assertRedirect('/billings')
+        ->assertSessionHas('info');
+
+    $expiredBilling->refresh();
+    expect($expiredBilling->payment_status)->toBe('expired');
+
+    $pendingBilling = Billing::query()->create([
+        'user_id' => $user->id,
+        'invoice_number' => 'INV-PENDING',
+        'customer_name' => 'Mava Mart',
+        'title' => 'Plus Plan - Bulanan',
+        'amount' => 249000,
+        'payment_status' => 'pending',
+        'expires_at' => now()->addDay(),
+    ]);
+
+    $this->actingAs($user)
+        ->from('/billings')
+        ->post("/billings/{$pendingBilling->id}/refresh")
+        ->assertRedirect('/billings')
+        ->assertSessionHas('info');
+
+    $pendingBilling->refresh();
+    expect($pendingBilling->payment_status)->toBe('pending');
+});
+
+test('webhook sumopod menerima status paid sebagai pembayaran berhasil', function () {
     $billing = Billing::query()->create([
         'invoice_number' => 'INV-TEST-PAID',
         'customer_name' => 'Mava Mart',
@@ -1307,25 +1333,15 @@ test('webhook pakasir menerima status paid sebagai pembayaran berhasil', functio
         'payment_status' => 'pending',
     ]);
 
-    Http::fake([
-        'https://app.pakasir.com/api/transactiondetail*' => Http::response([
-            'transaction' => [
-                'project' => 'mava-test',
-                'order_id' => $billing->invoice_number,
-                'amount' => 249000,
-                'status' => 'paid',
-                'payment_method' => 'qris',
-                'paid_at' => '2026-06-17T15:00:00+08:00',
-            ],
-        ]),
-    ]);
-
-    $this->postJson('/pakasir/webhook', [
-        'project' => 'mava-test',
-        'order_id' => $billing->invoice_number,
-        'amount' => 249000,
-        'status' => 'paid',
-        'payment_method' => 'qris',
+    $this->postJson('/sumopod/webhook', [
+        'event_type' => 'payment.completed',
+        'data' => [
+            'payment_id' => 'sumo-pay-002',
+            'order_id' => $billing->invoice_number,
+            'amount' => 249000,
+            'status' => 'paid',
+            'paid_at' => '2026-06-17T15:00:00+08:00',
+        ],
     ])
         ->assertOk()
         ->assertJsonPath('status', 'ok')
@@ -1335,8 +1351,7 @@ test('webhook pakasir menerima status paid sebagai pembayaran berhasil', functio
     $billing->refresh();
 
     expect($billing->payment_status)->toBe('completed')
-        ->and($billing->paid_at)->not->toBeNull()
-        ->and($billing->provider_payload['verified_detail'])->not->toBeEmpty();
+        ->and($billing->paid_at)->not->toBeNull();
 });
 
 test('pengguna dapat membuat pelanggan dan tersimpan ke database', function () {
@@ -1740,7 +1755,7 @@ test('payload cpcl tidak membungkus teks dengan tanda kutip literal', function (
     $script = file_get_contents(resource_path('js/app.js'));
 
     expect($script)
-        ->toContain("if (/^\\d+\\s*x\\s*Rp/i.test(clean))")
+        ->toContain('if (/^\\d+\\s*x\\s*Rp/i.test(clean))')
         ->toContain('const rightMargin = 16;')
         ->toContain('const centerX = Math.max(leftMargin, Math.floor((printWidth - (clean.length * characterWidth)) / 2));')
         ->toContain('const nominalX = Math.max(leftMargin, printWidth - rightMargin - (nominal.length * characterWidth));')

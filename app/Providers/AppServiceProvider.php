@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Services\PakasirClient;
+use App\Services\SumopodClient;
 use App\Support\BranchContext;
 use Illuminate\Support\Facades\Blade;
 use Illuminate\Support\Facades\View;
@@ -15,6 +16,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(SumopodClient::class, function (): SumopodClient {
+            $config = config('services.sumopod');
+
+            return new SumopodClient(
+                apiKey: (string) ($config['api_key'] ?? ''),
+                baseUrl: (string) ($config['base_url'] ?? 'https://api-pay.sumopod.com/api/v1'),
+                timeout: (int) ($config['timeout'] ?? 30),
+            );
+        });
+
         $this->app->singleton(PakasirClient::class, function (): PakasirClient {
             $config = config('services.pakasir');
 

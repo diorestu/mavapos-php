@@ -2,7 +2,10 @@
 <h1>Laporan Laba Rugi</h1><div class="muted">{{ $store->store_name }} · {{ $activeBranch->name }} · {{ $filters['date_from'] }} s/d {{ $filters['date_to'] }}</div>
 <div class="section">Pendapatan dan Beban</div>
 <div class="row"><span>Pendapatan Penjualan POS</span><span>Rp{{ number_format($summary['revenue'],0,',','.') }}</span></div>
-<div class="row"><span>HPP</span><span>(Rp{{ number_format($summary['cogs'],0,',','.') }})</span></div>
+<div class="row"><span>Retur Penjualan</span><span>(Rp{{ number_format($summary['refund_total'],0,',','.') }})</span></div>
+<div class="row"><span>Penerimaan setelah potongan merchant dan retur</span><span>Rp{{ number_format($summary['net_after_refunds'],0,',','.') }}</span></div>
+<div class="row"><span>Pemulihan HPP barang dikembalikan</span><span>Rp{{ number_format($summary['refund_cost_recovery'],0,',','.') }}</span></div>
+<div class="row"><span>HPP setelah pemulihan retur</span><span>(Rp{{ number_format($summary['cogs'],0,',','.') }})</span></div>
 <div class="row total"><span>Laba Kotor</span><span>Rp{{ number_format($summary['grossProfit'],0,',','.') }}</span></div>
 <div class="row"><span>Total Pengeluaran</span><span>(Rp{{ number_format($summary['expenseTotal'],0,',','.') }})</span></div>
 <div class="row"><span>Potongan Online Merchant</span><span>(Rp{{ number_format($summary['merchantDeduction'],0,',','.') }})</span></div>

@@ -19,6 +19,7 @@ use App\Support\BranchContext;
 use App\Support\BranchInventoryManager;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
@@ -77,6 +78,7 @@ class PosController extends Controller
 
         if ($request->wantsJson()) {
             $activeBranch = app(BranchContext::class)->active();
+
             return response()->json([
                 'branch' => [
                     'id' => $activeBranch->id,
@@ -90,6 +92,7 @@ class PosController extends Controller
                 'items' => $itemsPayload,
                 'cashierFeatures' => StoreSetting::current()->only(['cashier_online_merchant_enabled']),
                 'onlineMerchants' => PosSale::ONLINE_MERCHANTS,
+                'offlineContext' => ['userId' => auth()->id(), 'cashierId' => $cashier->id, 'branchId' => $branchId, 'shiftId' => $activeShift?->id],
             ]);
         }
 
@@ -108,6 +111,7 @@ class PosController extends Controller
                 'cashier_online_merchant_enabled',
             ]),
             'availableStaff' => User::query()->where('tenant_owner_id', auth()->user()->tenantOwnerId())->whereKeyNot($cashier->id)->whereIn('role', ['owner', 'admin', 'kasir'])->orderBy('name')->get(['id', 'name', 'role']),
+            'offlineContext' => ['userId' => auth()->id(), 'cashierId' => $cashier->id, 'branchId' => $branchId, 'shiftId' => $activeShift?->id],
         ]);
     }
 
@@ -157,11 +161,12 @@ class PosController extends Controller
 
             if ($previousShift && $previousShift->closed_at?->isToday()) {
                 $previousShift = app(CashierShiftSummaryService::class)->refresh($previousShift);
+                $previousRefunds = app(CashierShiftSummaryService::class)->refundSummary($previousShift);
                 // Rekap shift sebelumnya tetap tersimpan untuk audit, tetapi kas awal
                 // shift baru boleh berbeda karena uang dapat disetor atau dipindahkan.
                 $amountsMatch = $validatedCashAmount !== null && $validatedCardAmount !== null
-                    && (int) $validatedCashAmount === (int) ($previousShift->opening_cash_amount + $previousShift->cash_total)
-                    && (int) $validatedCardAmount === (int) $previousShift->card_total;
+                    && (int) $validatedCashAmount === (int) ($previousShift->opening_cash_amount + $previousShift->cash_total - $previousRefunds['cashRefundTotal'])
+                    && (int) $validatedCardAmount === (int) ($previousShift->card_total - $previousRefunds['cardRefundTotal']);
                 $handoverValidatedAt = $amountsMatch ? now() : null;
             }
 
@@ -311,8 +316,13 @@ class PosController extends Controller
             $request->merge(['payment_method' => 'online_merchant', 'payments' => null]);
         }
         $validated = $request->validate([
+            'client_transaction_id' => ['required_with:client_created_at', 'nullable', 'uuid'],
+            'client_created_at' => ['nullable', 'date'],
+            'cashier_shift_id' => ['required_with:client_created_at', 'nullable', 'integer', 'min:1'],
+            'cashier_id' => ['required_with:client_created_at', 'nullable', 'integer', 'min:1'],
+            'expected_total' => ['required_with:client_created_at', 'nullable', 'integer', 'min:0'],
             'items' => ['required', 'array', 'min:1'],
-            'items.*.id' => ['required', 'string'],
+            'items.*.id' => ['required', 'string', 'distinct'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
             'payment_method' => ['required', 'in:cash,qris,card,split,free,online_merchant'],
             'payments' => ['required_if:payment_method,split', 'nullable', 'array', 'min:2', 'max:3'],
@@ -340,13 +350,17 @@ class PosController extends Controller
             abort_unless(StoreSetting::current()->cashier_loyalty_card_enabled, 422, 'Kartu Loyalitas dinonaktifkan di pengaturan cabang ini.');
         }
 
-        $sale = DB::transaction(function () use ($validated, $branchId): PosSale {
-            $shift = CashierShift::query()
-                ->where('user_id', $this->activeCashier()->id)
-                ->where('branch_id', $branchId)
-                ->whereNull('closed_at')
-                ->lockForUpdate()
-                ->first();
+        $capturedAt = ! empty($validated['client_created_at']) ? Carbon::parse($validated['client_created_at'])->utc() : null;
+        $sale = DB::transaction(function () use ($validated, $branchId, $capturedAt): PosSale {
+            $shiftQuery = CashierShift::query()->with('user')->where('branch_id', $branchId)->lockForUpdate();
+            if ($capturedAt) {
+                $shift = $shiftQuery->whereKey($validated['cashier_shift_id'])->where('user_id', $validated['cashier_id'])->first();
+                abort_unless($shift && $shift->user?->tenantOwnerId() === auth()->user()->tenantOwnerId(), 422, 'Shift transaksi tersimpan tidak sesuai akun atau cabang.');
+                abort_if(auth()->user()->role === 'kasir' && ! in_array($shift->user_id, [auth()->id(), $this->activeCashier()->id], true), 403);
+                abort_if($capturedAt->lt($shift->opened_at) || ($shift->closed_at && $capturedAt->gt($shift->closed_at)) || $capturedAt->gt(now()->addMinutes(2)), 422, 'Waktu transaksi tersimpan berada di luar shift.');
+            } else {
+                $shift = $shiftQuery->where('user_id', $this->activeCashier()->id)->whereNull('closed_at')->first();
+            }
 
             if (! $shift) {
                 abort(422, 'Mulai shift kasir sebelum menyelesaikan transaksi.');
@@ -408,6 +422,7 @@ class PosController extends Controller
 
             $discount = $isComplimentary ? $subtotal : ($loyaltyReward ? $loyaltyDiscount : min((int) ($validated['discount'] ?? 0), $subtotal));
             $total = $subtotal - $discount;
+            abort_if($capturedAt && $total !== (int) $validated['expected_total'], 422, 'Harga atau diskon berubah. Periksa transaksi tersimpan sebelum sinkronisasi.');
             $splitPayments = collect($validated['payments'] ?? [])
                 ->map(fn (array $payment): array => [
                     'method' => $payment['method'],
@@ -430,7 +445,7 @@ class PosController extends Controller
             $sale = PosSale::query()->create([
                 'cashier_shift_id' => $shift->id,
                 'branch_id' => $branchId,
-                'user_id' => $this->activeCashier()->id,
+                'user_id' => $shift->user_id,
                 'customer_id' => $customer?->id,
                 'buyer_nationality' => $validated['buyer_nationality'] ?? null,
                 'online_merchant' => $validated['online_merchant'] ?? null,
@@ -444,7 +459,7 @@ class PosController extends Controller
                 'total' => $total,
                 'paid_amount' => $paidAmount,
                 'change_amount' => max(0, $paidAmount - $total),
-                'sold_at' => now(),
+                'sold_at' => $capturedAt ?? now(),
             ]);
 
             if ($validated['payment_method'] === 'split') {
@@ -802,8 +817,11 @@ class PosController extends Controller
 
     private function shiftPayload(CashierShift $shift): array
     {
+        $refunds = app(CashierShiftSummaryService::class)->refundSummary($shift);
+
         return [
             'id' => $shift->id,
+            'cashierId' => $shift->user_id,
             'cashier' => $shift->user?->name ?? 'Kasir',
             'branch' => $shift->branch?->name ?? 'Cabang',
             'openedAt' => $shift->opened_at?->timezone('Asia/Makassar')->format('d M Y H:i'),
@@ -814,7 +832,8 @@ class PosController extends Controller
             'qrisTotal' => $shift->qris_total,
             'cardTotal' => $shift->card_total,
             'openingCashAmount' => $shift->opening_cash_amount,
-            'cashInDrawer' => $shift->opening_cash_amount + $shift->cash_total,
+            'cashInDrawer' => $shift->opening_cash_amount + $shift->cash_total - $refunds['cashRefundTotal'],
+            ...$refunds,
             'validatedCashAmount' => $shift->validated_cash_amount,
             'validatedCardAmount' => $shift->validated_card_amount,
             'handoverValidatedAt' => $shift->handover_validated_at?->timezone('Asia/Makassar')->format('d M Y H:i'),

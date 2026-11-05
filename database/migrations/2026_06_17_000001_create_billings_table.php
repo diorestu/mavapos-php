@@ -19,7 +19,7 @@ return new class extends Migration
             $table->unsignedBigInteger('amount');
             $table->unsignedBigInteger('fee')->nullable();
             $table->unsignedBigInteger('total_payment')->nullable();
-            $table->string('payment_provider')->default('pakasir');
+            $table->string('payment_provider')->default('sumopod');
             $table->string('payment_method')->default('qris');
             $table->string('payment_status')->default('pending');
             $table->string('payment_url')->nullable();

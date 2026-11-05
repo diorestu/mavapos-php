@@ -16,7 +16,9 @@ return new class extends Migration
         DB::table('users')->where('role', 'owner')->update(['tenant_owner_id' => DB::raw('id')]);
         DB::table('users')->where('role', '!=', 'owner')->whereNull('tenant_owner_id')->get()->each(function ($user): void {
             $ownerId = DB::table('users')->where('role', 'owner')->where('trial_ends_at', $user->trial_ends_at)->value('id');
-            if ($ownerId) DB::table('users')->where('id', $user->id)->update(['tenant_owner_id' => $ownerId]);
+            if ($ownerId) {
+                DB::table('users')->where('id', $user->id)->update(['tenant_owner_id' => $ownerId]);
+            }
         });
 
         $firstOwnerId = DB::table('users')->where('role', 'owner')->orderBy('id')->value('id');

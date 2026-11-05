@@ -1,6 +1,7 @@
 @extends('layouts.fullscreen-layout')
 
 @section('content')
+    @if(session('status'))<p role="status" class="mx-auto my-4 max-w-md rounded-lg bg-success-50 p-3 text-sm text-success-700">{{ session('status') }}</p>@endif
     <div class="relative z-1 bg-white p-6 sm:p-0 dark:bg-gray-900">
         <div class="relative flex h-screen w-full flex-col justify-center sm:p-0 lg:flex-row dark:bg-gray-900">
             <!-- Form -->

@@ -41,6 +41,13 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI', env('APP_URL').'/auth/google/callback'),
     ],
 
+    'sumopod' => [
+        'api_key' => env('SUMOPOD_API_KEY', ''),
+        'base_url' => env('SUMOPOD_BASE_URL', 'https://api-pay.sumopod.com/api/v1'),
+        'timeout' => (int) env('SUMOPOD_TIMEOUT', 30),
+        'webhook_token' => env('SUMOPOD_WEBHOOK_TOKEN', ''),
+    ],
+
     'pakasir' => [
         'project' => env('PAKASIR_PROJECT', ''),
         'api_key' => env('PAKASIR_API_KEY', ''),

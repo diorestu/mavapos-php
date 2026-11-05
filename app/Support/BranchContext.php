@@ -3,6 +3,7 @@
 namespace App\Support;
 
 use App\Models\Branch;
+use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Session;
 use Illuminate\Support\Str;
@@ -34,7 +35,7 @@ class BranchContext
             if ($ownerId) {
                 $query->where(function ($q) use ($ownerId) {
                     $q->where('user_id', $ownerId);
-                    if (\App\Models\User::query()->where('role', 'owner')->count() === 1) {
+                    if (User::query()->where('role', 'owner')->count() === 1) {
                         $q->orWhereNull('user_id');
                     }
                 });
@@ -66,7 +67,7 @@ class BranchContext
         if ($ownerId) {
             $query->where(function ($q) use ($ownerId) {
                 $q->where('user_id', $ownerId);
-                if (\App\Models\User::query()->where('role', 'owner')->count() === 1) {
+                if (User::query()->where('role', 'owner')->count() === 1) {
                     $q->orWhereNull('user_id');
                 }
             });

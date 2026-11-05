@@ -2,8 +2,8 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\Schema;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -17,7 +17,7 @@ return new class extends Migration
         });
 
         // Assign existing branches to the first owner/admin user
-        $firstOwnerId = DB::table('users')->where('role', 'owner')->orderBy('id')->value('id') 
+        $firstOwnerId = DB::table('users')->where('role', 'owner')->orderBy('id')->value('id')
             ?? DB::table('users')->orderBy('id')->value('id');
 
         if ($firstOwnerId) {

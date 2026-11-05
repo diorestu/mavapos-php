@@ -10,6 +10,8 @@ use App\Models\Supplier;
 use App\Models\User;
 // use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 class DatabaseSeeder extends Seeder
 {
@@ -200,8 +202,8 @@ class DatabaseSeeder extends Seeder
         );
 
         foreach (['products', 'product_categories', 'suppliers', 'customers', 'expenses', 'raw_materials', 'store_settings', 'branches'] as $table) {
-            if (\Illuminate\Support\Facades\Schema::hasColumn($table, 'user_id')) {
-                \Illuminate\Support\Facades\DB::table($table)->whereNull('user_id')->update(['user_id' => $owner->id]);
+            if (Schema::hasColumn($table, 'user_id')) {
+                DB::table($table)->whereNull('user_id')->update(['user_id' => $owner->id]);
             }
         }
     }

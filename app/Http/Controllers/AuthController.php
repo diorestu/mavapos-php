@@ -38,8 +38,8 @@ class AuthController extends Controller
                 return response()->json([
                     'message' => 'Email atau kata sandi tidak sesuai.',
                     'errors' => [
-                        'email' => ['Email atau kata sandi tidak sesuai.']
-                    ]
+                        'email' => ['Email atau kata sandi tidak sesuai.'],
+                    ],
                 ], 422);
             }
 
@@ -73,6 +73,18 @@ class AuthController extends Controller
 
     public function handleGoogleCallback(): RedirectResponse
     {
+        if (request()->session()->has('account_deletion.oauth')) {
+            try {
+                $googleUser = Socialite::driver('google')->user();
+            } catch (\Exception $error) {
+                $googleUser = null;
+            }
+
+            return app(ProfileController::class)->completeGoogleDeletion(request(), $googleUser);
+        }
+        if (Auth::check()) {
+            return redirect()->route('profile');
+        }
         $googleUser = Socialite::driver('google')->user();
 
         $user = User::query()->where('google_id', $googleUser->getId())->first();

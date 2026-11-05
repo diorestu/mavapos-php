@@ -13,21 +13,23 @@ use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\PosController;
 use App\Http\Controllers\ProductCategoryController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductRecipeController;
-use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\PayrollController;
+use App\Http\Controllers\PurchaseOrderController;
 use App\Http\Controllers\RawMaterialController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\SaleController;
+use App\Http\Controllers\SaleRefundController;
 use App\Http\Controllers\SettingController;
 use App\Http\Controllers\StockTransferController;
-use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\SuperAdminMembershipController;
+use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
+use App\Http\Middleware\IdempotentCheckout;
 use App\Models\StoreSetting;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Storage;
@@ -36,11 +38,13 @@ Route::middleware('guest')->group(function () {
     Route::get('/signin', [AuthController::class, 'showSignIn'])->name('signin');
     Route::post('/signin', [AuthController::class, 'signIn'])->name('signin.store');
     Route::get('/auth/google/redirect', [AuthController::class, 'redirectToGoogle'])->name('auth.google.redirect');
-    Route::get('/auth/google/callback', [AuthController::class, 'handleGoogleCallback'])->name('auth.google.callback');
     Route::get('/signup', [AuthController::class, 'showSignUp'])->name('signup');
     Route::post('/signup', [AuthController::class, 'signUp'])->name('signup.store');
 });
 
+Route::get('/auth/google/callback', [AuthController::class, 'handleGoogleCallback'])->name('auth.google.callback');
+
+Route::post('/sumopod/webhook', [BillingController::class, 'webhook'])->name('sumopod.webhook');
 Route::post('/pakasir/webhook', [BillingController::class, 'webhook'])->name('pakasir.webhook');
 
 Route::get('/', function () {
@@ -70,6 +74,8 @@ Route::middleware('auth:web,sanctum')->group(function () {
     Route::post('/notifications/mark-all-read', [NotificationController::class, 'markAllAsRead'])->name('notifications.mark-all-read');
     Route::post('/branches/active', [BranchController::class, 'switch'])->name('branches.switch');
     Route::post('/profile/photo', [ProfileController::class, 'updatePhoto'])->name('profile.photo.update');
+    Route::delete('/profile', [ProfileController::class, 'destroy'])->middleware(['auth:web', 'throttle:5,1'])->name('profile.destroy');
+    Route::get('/profile/delete/google', [ProfileController::class, 'verifyGoogleDeletion'])->middleware(['auth:web', 'throttle:5,1'])->name('profile.delete.google');
     Route::middleware('superadmin')->prefix('superadmin')->name('superadmin.')->group(function () {
         Route::get('/memberships', [SuperAdminMembershipController::class, 'index'])->name('memberships');
         Route::post('/memberships/{user}/extend', [SuperAdminMembershipController::class, 'extend'])->name('memberships.extend');
@@ -136,7 +142,7 @@ Route::middleware('auth:web,sanctum')->group(function () {
             Route::post('/pos/shift/start', [PosController::class, 'startShift'])->name('pos.shift.start');
             Route::post('/pos/shift/change', [PosController::class, 'changeShift'])->name('pos.shift.change');
             Route::post('/pos/shift/close', [PosController::class, 'closeShift'])->name('pos.shift.close');
-            Route::post('/pos/checkout', [PosController::class, 'checkout'])->name('pos.checkout');
+            Route::post('/pos/checkout', [PosController::class, 'checkout'])->middleware(IdempotentCheckout::class)->name('pos.checkout');
             Route::get('/cashier-shifts', [CashierShiftController::class, 'index'])->name('cashier-shifts');
             Route::get('/sales', [SaleController::class, 'index'])->name('sales');
             Route::post('/sales/{sale}/void', [SaleController::class, 'void'])->name('sales.void');
@@ -155,6 +161,8 @@ Route::middleware('auth:web,sanctum')->group(function () {
 
         Route::middleware('role:owner,admin')->group(function () {
             Route::post('/sales/{sale}/transfer', [SaleController::class, 'transfer'])->name('sales.transfer');
+            Route::get('/sales/{sale}/refund', [SaleRefundController::class, 'show'])->name('sales.refund');
+            Route::post('/sales/{sale}/refund', [SaleRefundController::class, 'store'])->name('sales.refund.store');
             Route::post('/cashier-shifts/{cashierShift}/force-close', [CashierShiftController::class, 'forceClose'])->name('cashier-shifts.force-close');
             Route::get('/customers', [CustomerController::class, 'index'])->name('customers');
             Route::post('/customers', [CustomerController::class, 'store'])->name('customers.store');
@@ -218,5 +226,6 @@ Route::get('/profile', function () {
         'user' => auth()->user(),
         'setting' => $setting,
         'logoUrl' => $setting->logo_path ? Storage::url($setting->logo_path) : asset('/images/user/owner.jpg'),
+        'googleDeletionVerified' => app(ProfileController::class)->googleDeletionVerified(request()),
     ]);
-})->name('profile');
+})->middleware('auth:web')->name('profile');

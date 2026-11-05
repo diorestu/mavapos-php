@@ -4,9 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\ProductVariant;
+use App\Models\RawMaterial;
 use App\Models\StockMovement;
 use App\Support\BranchContext;
 use App\Support\BranchInventoryManager;
+use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,18 +16,19 @@ use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
-use Barryvdh\DomPDF\Facade\Pdf;
-use App\Models\RawMaterial;
+use Symfony\Component\HttpFoundation\Response;
 
 class InventoryController extends Controller
 {
-    public function morningPrint(): \Symfony\Component\HttpFoundation\Response
+    public function morningPrint(): Response
     {
         $branch = app(BranchContext::class)->active();
         $materials = RawMaterial::query()->orderBy('name')->get();
+
         return Pdf::loadView('pages.inventory.morning-pdf', ['branch' => $branch, 'materials' => $materials, 'printedAt' => now()])
             ->setPaper('a4')->download('inventaris-pagi-'.$branch->code.'-'.now()->toDateString().'.pdf');
     }
+
     public function index(Request $request): View
     {
         $filters = $request->validate([
@@ -192,10 +195,11 @@ class InventoryController extends Controller
                         ->first();
                     $vStock = $inventoryManager->forVariant($branchId, $variant)->stock;
                     $vMinStock = $inventoryManager->forVariant($branchId, $variant)->min_stock;
+
                     return [
                         'name' => $variant->name,
-                        'fullName' => $product->name . ' - ' . $variant->name,
-                        'sku' => $variant->sku ?? $product->sku . '-' . $variant->id,
+                        'fullName' => $product->name.' - '.$variant->name,
+                        'sku' => $variant->sku ?? $product->sku.'-'.$variant->id,
                         'category' => $product->category?->name ?? 'Umum',
                         'stock' => $vStock,
                         'minStock' => $vMinStock,
@@ -356,12 +360,12 @@ class InventoryController extends Controller
     private function movementPayload(StockMovement $movement): array
     {
         $sku = $movement->productVariant
-            ? ($movement->productVariant->sku ?? ($movement->product?->sku . '-' . $movement->productVariant->id))
+            ? ($movement->productVariant->sku ?? ($movement->product?->sku.'-'.$movement->productVariant->id))
             : ($movement->product?->sku ?? '-');
 
         $productName = $movement->product?->name ?? '-';
         if ($movement->productVariant) {
-            $productName .= ' - ' . $movement->productVariant->name;
+            $productName .= ' - '.$movement->productVariant->name;
         }
 
         return [

@@ -43,9 +43,9 @@
             </div>
         @endif
 
-        @unless ($pakasirConfigured)
+        @unless ($sumopodConfigured ?? $pakasirConfigured)
             <div class="rounded-lg border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700 dark:border-warning-500/20 dark:bg-warning-500/10 dark:text-warning-300">
-                Pakasir belum aktif. Isi <span class="font-semibold">PAKASIR_PROJECT</span> dan <span class="font-semibold">PAKASIR_API_KEY</span> di .env, lalu set webhook Pakasir ke <span class="font-semibold">{{ route('pakasir.webhook') }}</span>.
+                SumoPod belum aktif. Isi <span class="font-semibold">SUMOPOD_API_KEY</span> di .env, lalu set webhook SumoPod ke <span class="font-semibold">{{ route('sumopod.webhook') }}</span>.
             </div>
         @endunless
 
@@ -143,8 +143,8 @@
 
                         <button type="submit"
                             class="mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30 disabled:cursor-not-allowed disabled:opacity-50"
-                            @disabled(! $pakasirConfigured)>
-                            Generate QRIS Pakasir
+                            @disabled(! ($sumopodConfigured ?? $pakasirConfigured))>
+                            Generate QRIS SumoPod
                         </button>
                     </form>
                 @else
@@ -188,7 +188,7 @@
                 <div class="flex flex-col gap-2 border-b border-gray-100 px-4 py-3 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Riwayat Tagihan Langganan</h2>
-                        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Tagihan bulanan/tahunan dapat dibayar via QRIS dan status otomatis berubah dari webhook Pakasir.</p>
+                        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Tagihan bulanan/tahunan dapat dibayar via QRIS dan status otomatis berubah dari webhook SumoPod.</p>
                     </div>
                     <span class="rounded-lg bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-500 dark:bg-gray-900/60 dark:text-gray-400">
                         {{ $billings->count() }} tagihan

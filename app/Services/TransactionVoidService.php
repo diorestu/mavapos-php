@@ -24,6 +24,7 @@ class TransactionVoidService
                 abort_unless($sale->user_id === $actor->id && $sale->shift?->closed_at === null, 403);
             }
 
+            abort_if($sale->refunds()->exists(), 422, 'Transaksi dengan refund tidak dapat dibatalkan, diedit, atau dipindahkan.');
             abort_if($sale->voided_at, 409, 'Transaksi sudah dibatalkan sebelumnya.');
 
             foreach ($sale->items as $item) {

@@ -19,7 +19,7 @@ test('sales Excel contains merchant details in ordered data columns even without
     $workbook = ExcelExport::read($response);
 
     expect($response->headers->get('content-disposition'))->toContain('laporan-2026-07-01-sampai-2026-07-20.xlsx');
-    expect($workbook->getSheetCount())->toBe(2);
+    expect($workbook->getSheetCount())->toBe(3);
     expect($workbook->getSheetByName('Ringkasan Harian')->toArray())->toBe([[
         'Tanggal', 'Metode Pembayaran', 'Jumlah Transaksi', 'Total Penjualan', 'Total Diskon', 'Total Diterima (Real)',
         'Online Merchant', 'Nama Merchant', 'Potongan Online Merchant',

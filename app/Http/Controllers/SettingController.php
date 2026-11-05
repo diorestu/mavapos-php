@@ -3,11 +3,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\StoreSetting;
+use App\Services\TenantSqlTransferService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\View\View;
-use App\Services\TenantSqlTransferService;
 use Symfony\Component\HttpFoundation\Response;
 
 class SettingController extends Controller
@@ -133,6 +133,7 @@ class SettingController extends Controller
     public function exportData(TenantSqlTransferService $transfer): Response
     {
         $ownerId = auth()->user()->tenantOwnerId();
+
         return response($transfer->export($ownerId), 200, ['Content-Type' => 'application/sql', 'Content-Disposition' => 'attachment; filename="mava-tenant-'.$ownerId.'.sql"']);
     }
 
@@ -140,6 +141,7 @@ class SettingController extends Controller
     {
         $request->validate(['sql_file' => ['required', 'file', 'extensions:sql', 'max:51200']]);
         $count = $transfer->import($request->file('sql_file')->get(), auth()->user()->tenantOwnerId());
+
         return back()->with('status', $count.' statement SQL berhasil di-merge. Data yang sudah ada tidak dihapus.');
     }
 

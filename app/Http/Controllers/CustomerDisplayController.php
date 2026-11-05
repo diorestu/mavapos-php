@@ -12,6 +12,7 @@ use Illuminate\View\View;
 class CustomerDisplayController extends Controller
 {
     private const CACHE_TTL_SECONDS = 60;
+
     private const CACHE_KEY_PREFIX = 'pos:display:';
 
     public function push(Request $request, BranchContext $branchContext): JsonResponse
