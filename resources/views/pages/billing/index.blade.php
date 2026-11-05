@@ -131,9 +131,6 @@
                                             <span class="text-sm font-semibold text-gray-800 dark:text-white/90">{{ $cycle['label'] }}</span>
                                             <span class="mt-1 text-xs leading-5 text-gray-500 dark:text-gray-400">
                                                 {{ $cycle['months'] }} bulan
-                                                @if ($cycle['slug'] === 'yearly')
-                                                    · diskon 10%
-                                                @endif
                                             </span>
                                         </span>
                                     </label>

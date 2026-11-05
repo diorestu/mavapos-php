@@ -28,7 +28,11 @@ test('guest melihat landing page saat membuka dashboard', function () {
 
     $response->assertOk()
         ->assertSee('Satu Aplikasi Kasir untuk')
-        ->assertSee('Mulai Coba Gratis 14 Hari');
+        ->assertSee('Mulai Coba Gratis 14 Hari')
+        ->assertSee('Rp 199.000')
+        ->assertSee('Rp 1.999.000')
+        ->assertSee('Rp 249.000')
+        ->assertSee('Rp 2.499.000');
 });
 
 test('halaman masuk dan daftar dapat dibuka guest', function () {
@@ -1131,7 +1135,7 @@ test('pengguna dapat membuka halaman pelanggan', function () {
         ->assertSee('pelanggan');
 });
 
-test('pengguna dapat membuat tagihan langganan qris sumopod tanpa isi data diri', function () {
+test('pengguna dapat membuat tagihan langganan qris sumopod tanpa isi data diri', function (string $slug, string $cycle, int $amount, string $title) {
     config([
         'services.sumopod.api_key' => 'secret-test',
     ]);
@@ -1140,9 +1144,9 @@ test('pengguna dapat membuat tagihan langganan qris sumopod tanpa isi data diri'
         'https://api-pay.sumopod.com/api/v1/payments' => Http::response([
             'payment_id' => 'sumo-pay-123',
             'order_id' => 'INV-TEST',
-            'amount' => 2689550,
+            'amount' => $amount + 350,
             'fee' => 350,
-            'net_amount' => 2689200,
+            'net_amount' => $amount,
             'currency' => 'IDR',
             'payment_link_url' => 'https://checkout.pymnt.app/payment-links/test-link',
             'status' => 'pending',
@@ -1154,8 +1158,8 @@ test('pengguna dapat membuat tagihan langganan qris sumopod tanpa isi data diri'
 
     $this->actingAs($user)
         ->post('/billings', [
-            'plan_slug' => 'plus',
-            'billing_cycle' => 'yearly',
+            'plan_slug' => $slug,
+            'billing_cycle' => $cycle,
         ])
         ->assertRedirect('/billings');
 
@@ -1165,21 +1169,25 @@ test('pengguna dapat membuat tagihan langganan qris sumopod tanpa isi data diri'
         ->not->toBeNull()
         ->and($billing->customer_name)->toBe('Mava Mart')
         ->and($billing->customer_phone)->toBe('081234567890')
-        ->and($billing->title)->toBe('Plus Plan - Tahunan')
-        ->and($billing->amount)->toBe(2689200)
+        ->and($billing->title)->toBe($title)
+        ->and($billing->amount)->toBe($amount)
         ->and($billing->fee)->toBe(350)
-        ->and($billing->total_payment)->toBe(2689550)
+        ->and($billing->total_payment)->toBe($amount + 350)
         ->and($billing->payment_status)->toBe('pending')
         ->and($billing->payment_url)->toBe('https://checkout.pymnt.app/payment-links/test-link')
-        ->and($billing->provider_payload['subscription']['billing_cycle'])->toBe('yearly')
-        ->and($billing->provider_payload['subscription']['yearly_discount_percent'])->toBe(10);
+        ->and($billing->provider_payload['subscription']['billing_cycle'])->toBe($cycle);
 
     Http::assertSent(fn ($request) => $request->url() === 'https://api-pay.sumopod.com/api/v1/payments'
         && $request->hasHeader('X-Api-Key', 'secret-test')
         && $request['order_id'] === $billing->invoice_number
-        && $request['amount'] === 2689200
+        && $request['amount'] === $amount
         && $request['payment_method_type_code'] === 'QRIS');
-});
+})->with([
+    ['basic', 'monthly', 199000, 'Basic Plan - Bulanan'],
+    ['basic', 'yearly', 1999000, 'Basic Plan - Tahunan'],
+    ['plus', 'monthly', 249000, 'Pro Plan - Bulanan'],
+    ['plus', 'yearly', 2499000, 'Pro Plan - Tahunan'],
+]);
 
 test('form buat tagihan langganan hanya muncul pada masa renewal h-7 atau subscription tidak aktif', function () {
     Carbon::setTestNow('2026-06-21 10:00:00');

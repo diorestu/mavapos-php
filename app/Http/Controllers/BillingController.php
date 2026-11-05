@@ -18,21 +18,6 @@ use Throwable;
 
 class BillingController extends Controller
 {
-    private const PLANS = [
-        'basic' => [
-            'name' => 'Basic Plan',
-            'monthly_amount' => 149000,
-            'rank' => 1,
-            'description' => 'Fitur basic untuk operasional toko harian.',
-        ],
-        'plus' => [
-            'name' => 'Plus Plan',
-            'monthly_amount' => 249000,
-            'rank' => 2,
-            'description' => 'Full-feature untuk bisnis yang butuh seluruh modul.',
-        ],
-    ];
-
     private const BILLING_CYCLES = [
         'monthly' => [
             'label' => 'Bulanan',
@@ -51,14 +36,14 @@ class BillingController extends Controller
         $setting = StoreSetting::current();
         $currentSubscription = $this->currentSubscription();
         $currentPlanRank = $currentSubscription['plan_slug']
-            ? (self::PLANS[$currentSubscription['plan_slug']]['rank'] ?? null)
+            ? (config('billing.plans')[$currentSubscription['plan_slug']]['rank'] ?? null)
             : null;
 
         return view('pages.billing.index', [
             'title' => 'Billing',
             'sumopodConfigured' => $this->sumopod->isConfigured(),
             'pakasirConfigured' => $this->sumopod->isConfigured(),
-            'plans' => collect(self::PLANS)
+            'plans' => collect(config('billing.plans'))
                 ->map(function (array $plan, string $slug) use ($currentSubscription, $currentPlanRank): array {
                     $yearlyBaseAmount = $plan['monthly_amount'] * self::BILLING_CYCLES['yearly']['months'];
                     $yearlyAmount = $this->planAmount($slug, 'yearly');
@@ -100,7 +85,7 @@ class BillingController extends Controller
     public function store(Request $request): RedirectResponse
     {
         $validated = $request->validate([
-            'plan_slug' => ['required', Rule::in(array_keys(self::PLANS))],
+            'plan_slug' => ['required', Rule::in(array_keys(config('billing.plans')))],
             'billing_cycle' => ['required', Rule::in(array_keys(self::BILLING_CYCLES))],
         ]);
 
@@ -111,7 +96,7 @@ class BillingController extends Controller
         }
 
         $setting = StoreSetting::current();
-        $plan = self::PLANS[$validated['plan_slug']];
+        $plan = config('billing.plans')[$validated['plan_slug']];
         $cycle = self::BILLING_CYCLES[$validated['billing_cycle']];
         $amount = $this->planAmount($validated['plan_slug'], $validated['billing_cycle']);
         $accountName = $setting->store_name ?: $request->user()->name;
@@ -141,7 +126,6 @@ class BillingController extends Controller
                             'billing_cycle_label' => $cycle['label'],
                             'months' => $cycle['months'],
                             'monthly_amount' => $plan['monthly_amount'],
-                            'yearly_discount_percent' => $validated['billing_cycle'] === 'yearly' ? 10 : 0,
                             'period_starts_at' => $periodStartsAt->toDateString(),
                             'period_ends_at' => $periodEndsAt->toDateString(),
                         ],
@@ -356,15 +340,9 @@ class BillingController extends Controller
 
     private function planAmount(string $planSlug, string $billingCycle): int
     {
-        $plan = self::PLANS[$planSlug];
-        $cycle = self::BILLING_CYCLES[$billingCycle];
-        $baseAmount = $plan['monthly_amount'] * $cycle['months'];
+        $plan = config('billing.plans')[$planSlug];
 
-        if ($billingCycle === 'yearly') {
-            return (int) round($baseAmount * 0.9);
-        }
-
-        return $baseAmount;
+        return $plan[$billingCycle === 'yearly' ? 'yearly_amount' : 'monthly_amount'];
     }
 
     private function planChangeLabel(int $planRank, ?int $currentPlanRank, bool $subscriptionActive): string

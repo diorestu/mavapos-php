@@ -1,5 +1,10 @@
 @extends('layouts.fullscreen-layout')
 
+@php
+    $plans = config('billing.plans');
+    $price = fn (int $amount) => 'Rp '.number_format($amount, 0, ',', '.');
+@endphp
+
 @section('content')
 <!-- Fonts -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -684,7 +689,7 @@
                     <div class="space-y-2 text-center md:text-left">
                         <span class="inline-block bg-white/20 px-3 py-1 rounded-full text-xs font-bold text-brand-100">PROMO HEMAT HINGGA 30%</span>
                         <h3 class="text-2xl font-bold sm:text-3xl">Langganan Tahunan MavaPOS</h3>
-                        <p class="text-sm text-brand-100/80">Mulai dari Rp 149.000 per outlet per bulan jika bayar annually.</p>
+                        <p class="text-sm text-brand-100/80">Mulai dari {{ $price($plans['basic']['monthly_amount']) }} per outlet per bulan.</p>
                     </div>
                     <a href="{{ route('signup') }}" class="rounded-full bg-white px-6 py-3.5 font-bold text-brand-600 shadow-theme-md transition hover:bg-brand-50 hover:scale-[1.02] shrink-0">
                         Ambil Promo Sekarang
@@ -753,9 +758,8 @@
                         <p class="mt-2 text-sm text-gray-500">Untuk outlet yang membutuhkan sistem kasir online inti dengan laporan dasar.</p>
 
                         <div class="my-8">
-                            <span class="text-5xl font-extrabold text-gray-900" x-text="billing === 'annual' ? 'Rp 149.000' : 'Rp 199.000'"></span>
-                            <span class="text-gray-500">/ outlet / bulan</span>
-                            <p class="mt-2 text-sm font-semibold text-brand-600" x-text="billing === 'annual' ? 'Ditagih tahunan' : 'Rp 149.000 / outlet / bulan jika bayar annually'"></p>
+                            <span class="text-3xl font-extrabold text-gray-900 lg:text-4xl" x-text="billing === 'annual' ? @js($price($plans['basic']['yearly_amount'])) : @js($price($plans['basic']['monthly_amount']))">{{ $price($plans['basic']['monthly_amount']) }}</span>
+                            <span class="text-gray-500" x-text="billing === 'annual' ? '/ outlet / tahun' : '/ outlet / bulan'">/ outlet / bulan</span>
                         </div>
 
                         <ul class="space-y-4 text-sm text-gray-600 mb-8 border-t border-gray-100 pt-6">
@@ -778,9 +782,8 @@
                         <p class="mt-2 text-sm text-gray-500">Sistem kasir online lengkap untuk bisnis aktif, retail, kafe, & salon.</p>
                         
                         <div class="my-8">
-                            <span class="text-5xl font-extrabold text-gray-900" x-text="billing === 'annual' ? 'Rp 199.000' : 'Rp 249.000'"></span>
-                            <span class="text-gray-500">/ outlet / bulan</span>
-                            <p class="mt-2 text-sm font-semibold text-brand-600" x-text="billing === 'annual' ? 'Ditagih tahunan' : 'Rp 199.000 / outlet / bulan jika bayar annually'"></p>
+                            <span class="text-3xl font-extrabold text-gray-900 lg:text-4xl" x-text="billing === 'annual' ? @js($price($plans['plus']['yearly_amount'])) : @js($price($plans['plus']['monthly_amount']))">{{ $price($plans['plus']['monthly_amount']) }}</span>
+                            <span class="text-gray-500" x-text="billing === 'annual' ? '/ outlet / tahun' : '/ outlet / bulan'">/ outlet / bulan</span>
                         </div>
 
                         <ul class="space-y-4 text-sm text-gray-600 mb-8 border-t border-gray-100 pt-6">
@@ -796,6 +799,35 @@
                             Berlangganan Mava Pro
                         </a>
                     </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="hardware" aria-labelledby="hardware-title" class="scroll-mt-24 border-t border-gray-100 px-4 py-16 lg:py-20">
+            <div class="mx-auto max-w-6xl">
+                <div class="mb-8">
+                    <h2 id="hardware-title" class="text-3xl font-extrabold tracking-tight text-gray-900">Harga Hardware Kasir</h2>
+                    <p class="mt-2 text-gray-600">Tablet dan printer struk untuk melengkapi perangkat kasir Anda.</p>
+                </div>
+
+                <div class="grid gap-5 md:grid-cols-3">
+                    @foreach (config('hardware.products') as $hardware)
+                        <article class="flex min-w-0 flex-col rounded-2xl border border-gray-200 bg-white p-6">
+                            <h3 class="text-lg font-bold text-gray-900">{{ $hardware['name'] }}</h3>
+                            <p class="mt-2 text-sm leading-relaxed text-gray-600">{{ $hardware['description'] }}</p>
+                            <div class="mt-auto pt-6">
+                                @if ($hardware['price'] !== null)
+                                    <p class="text-sm font-semibold text-gray-600">Mulai dari</p>
+                                    <p class="mb-4 text-2xl font-extrabold tabular-nums text-gray-900">{{ $price($hardware['price']) }}</p>
+                                @endif
+                                <a href="https://api.whatsapp.com/send?phone=6285710999144&amp;text={{ rawurlencode('Halo MavaPOS! Saya ingin bertanya tentang harga dan ketersediaan '.$hardware['name'].'.') }}"
+                                    target="_blank" rel="noopener" aria-label="Tanya harga {{ $hardware['name'] }} lewat WhatsApp"
+                                    class="inline-flex min-h-11 items-center rounded-lg border border-gray-300 px-4 text-sm font-bold text-gray-700 transition hover:border-brand-500 hover:text-brand-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500">
+                                    Tanya Harga via WhatsApp
+                                </a>
+                            </div>
+                        </article>
+                    @endforeach
                 </div>
             </div>
         </section>
@@ -894,6 +926,7 @@
                         <li><a href="#fitur" class="hover:text-brand-500">Fitur Kasir</a></li>
                         <li><a href="#jenis-usaha" class="hover:text-brand-500">Solusi Bisnis</a></li>
                         <li><a href="#harga" class="hover:text-brand-500">Paket Harga</a></li>
+                        <li><a href="#hardware" class="hover:text-brand-500">Harga Hardware</a></li>
                         <li><a href="#faq" class="hover:text-brand-500">Pusat Bantuan (FAQ)</a></li>
                     </ul>
                 </div>

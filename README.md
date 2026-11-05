@@ -13,7 +13,7 @@ The UI is built with Blade, Tailwind CSS, Alpine.js, and Vite.
 - Inventory management with stock-in and stock-out transaction history.
 - Customer and supplier management.
 - Store settings for business identity and product behavior.
-- SaaS billing module for Basic and Plus plan QRIS payment generation through SumoPod.
+- SaaS billing module for Basic and Pro plan QRIS payment generation through SumoPod.
 - SumoPod webhook endpoint for automated payment status updates.
 - Pest feature tests for core workflows.
 
@@ -129,8 +129,8 @@ It creates a local billing record, calls SumoPod to create a QRIS transaction, s
 Available SaaS plan presets:
 
 ```text
-Basic Plan   Rp149.000
-Plus Plan    Rp249.000
+Basic Plan   Rp199.000/bulan atau Rp1.999.000/tahun
+Pro Plan     Rp249.000/bulan atau Rp2.499.000/tahun
 ```
 
 Set these variables in `.env`:
