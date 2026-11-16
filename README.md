@@ -15,6 +15,7 @@ The UI is built with Blade, Tailwind CSS, Alpine.js, and Vite.
 - Store settings for business identity and product behavior.
 - SaaS billing module for Basic and Pro plan QRIS payment generation through SumoPod.
 - SumoPod webhook endpoint for automated payment status updates.
+- Read-only third-party REST API for merchant outlets, catalog and sales, with signed creation webhooks and fixture sandbox. See [Partner API guide](docs/partner-api.md) and [OpenAPI specification](docs/partner-api.openapi.json).
 - Pest feature tests for core workflows.
 
 ## Requirements

@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Middleware\AuthenticatePartner;
 use App\Http\Middleware\EnsureSubscriptionAccess;
 use App\Http\Middleware\EnsureSuperAdmin;
 use App\Http\Middleware\EnsureUserRole;
@@ -9,6 +10,7 @@ use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Illuminate\Routing\Middleware\ThrottleRequests;
 use Illuminate\Support\Facades\Route;
 
 return Application::configure(basePath: dirname(__DIR__))
@@ -23,6 +25,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->appendToGroup('api', ForceApiJson::class);
+        $middleware->prependToPriorityList(ThrottleRequests::class, AuthenticatePartner::class);
         $middleware->redirectGuestsTo('/signin');
         $middleware->redirectUsersTo('/');
         $middleware->alias([

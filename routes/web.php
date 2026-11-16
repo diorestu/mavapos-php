@@ -13,6 +13,7 @@ use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\InventoryController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\Partner\KeyController;
 use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\PosController;
 use App\Http\Controllers\ProductCategoryController;
@@ -96,6 +97,11 @@ Route::middleware('auth:web,sanctum')->group(function () {
         Route::patch('/settings', [SettingController::class, 'update'])->name('settings.update');
         Route::get('/settings/data-export', [SettingController::class, 'exportData'])->name('settings.data.export');
         Route::post('/settings/data-import', [SettingController::class, 'importData'])->name('settings.data.import');
+        Route::middleware('auth:web')->group(function (): void {
+            Route::get('/settings/partner-keys', [KeyController::class, 'index']);
+            Route::post('/settings/partner-keys', [KeyController::class, 'store']);
+            Route::delete('/settings/partner-keys/{key}', [KeyController::class, 'destroy'])->whereNumber('key');
+        });
         Route::get('/settings/tokens', [DeveloperApiController::class, 'getTokens'])->name('settings.tokens.index');
         Route::post('/settings/tokens', [DeveloperApiController::class, 'createToken'])->name('settings.tokens.store');
         Route::delete('/settings/tokens/{id}', [DeveloperApiController::class, 'revokeToken'])->name('settings.tokens.destroy');
@@ -163,6 +169,7 @@ Route::middleware('auth:web,sanctum')->group(function () {
             Route::post('/sales/{sale}/transfer', [SaleController::class, 'transfer'])->name('sales.transfer');
             Route::get('/sales/{sale}/refund', [SaleRefundController::class, 'show'])->name('sales.refund');
             Route::post('/sales/{sale}/refund', [SaleRefundController::class, 'store'])->name('sales.refund.store');
+            Route::delete('/cashier-shifts/{cashierShift}/companions', [CashierShiftController::class, 'removeCompanions'])->name('cashier-shifts.companions.destroy');
             Route::post('/cashier-shifts/{cashierShift}/force-close', [CashierShiftController::class, 'forceClose'])->name('cashier-shifts.force-close');
             Route::get('/customers', [CustomerController::class, 'index'])->name('customers');
             Route::post('/customers', [CustomerController::class, 'store'])->name('customers.store');

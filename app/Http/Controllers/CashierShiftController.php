@@ -87,6 +87,26 @@ class CashierShiftController extends Controller
             ->with('shiftRecap', $recap);
     }
 
+    public function removeCompanions(Request $request, CashierShift $cashierShift): RedirectResponse
+    {
+        $branchId = app(BranchContext::class)->activeId();
+        $ownerId = $request->user()->tenantOwnerId();
+        $allowLegacyBranch = User::query()->where('role', 'owner')->count() === 1;
+
+        DB::transaction(function () use ($cashierShift, $branchId, $ownerId, $allowLegacyBranch): void {
+            $shift = CashierShift::query()
+                ->whereKey($cashierShift->id)
+                ->where('branch_id', $branchId)
+                ->whereHas('branch', fn ($query) => $query->withoutGlobalScope('tenant')->where(fn ($owner) => $owner->where('user_id', $ownerId)->when($allowLegacyBranch, fn ($legacy) => $legacy->orWhereNull('user_id'))))
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            $shift->update(['companion_staff_ids' => []]);
+        });
+
+        return redirect()->route('cashier-shifts')->with('success', 'Pendamping dihapus. Shift sekarang tercatat bekerja sendiri. Jika payslip sudah dibuat, lakukan Sync Bonus Harian untuk memperbaruinya.');
+    }
+
     public function update(Request $request, CashierShift $cashierShift): RedirectResponse
     {
         $validated = $request->validate([

@@ -3,6 +3,10 @@
 use App\Models\Branch;
 use App\Models\CashierShift;
 use App\Models\Customer;
+use App\Models\PartnerApiKey;
+use App\Models\PartnerWebhook;
+use App\Models\PartnerWebhookDelivery;
+use App\Models\PosSale;
 use App\Models\Product;
 use App\Models\StoreSetting;
 use App\Models\User;
@@ -147,4 +151,25 @@ test('captured checkout replays after delegated cashier session resets', functio
     $this->postJson(route('pos.checkout'), [...$payload, 'cashier_id' => $this->owner->id])->assertConflict();
     $this->assertDatabaseCount('pos_sales', 1);
     expect($this->inventory->fresh()->stock)->toBe(8);
+});
+
+test('partner webhook outbox emits once for successful checkout and never for idempotent replay', function () {
+    [$key] = PartnerApiKey::issue($this->owner, 'ERP checkout', false, now()->addDay());
+    PartnerWebhook::create(['partner_api_key_id' => $key->id, 'url' => 'https://hooks.example.org/sales', 'signing_secret' => 'test-secret']);
+    $first = $this->postJson(route('pos.checkout'), $this->payload, ['Idempotency-Key' => $this->key])->assertOk();
+    $this->postJson(route('pos.checkout'), $this->payload, ['Idempotency-Key' => $this->key])->assertOk()->assertHeader('Idempotent-Replayed', 'true');
+    $this->assertDatabaseCount('partner_webhook_deliveries', 1);
+    expect(PartnerWebhookDelivery::firstOrFail()->payload['data']['transaction_number'])->toBe($first->json('sale.invoice_number'));
+});
+
+test('partner reads actual checkout receipts for cash and online merchant sales', function () {
+    [, $plain] = PartnerApiKey::issue($this->owner, 'ERP receipts', false, now()->addDay());
+    $cash = $this->postJson(route('pos.checkout'), $this->payload)->assertOk();
+    $cashSale = PosSale::where('invoice_number', $cash->json('sale.invoice_number'))->firstOrFail();
+    StoreSetting::current()->update(['cashier_online_merchant_enabled' => true]);
+    $online = $this->postJson(route('pos.checkout'), [...$this->payload, 'sales_channel' => 'online', 'online_merchant' => 'grabfood', 'paid_amount' => 30000])->assertOk();
+    $onlineSale = PosSale::where('invoice_number', $online->json('sale.invoice_number'))->firstOrFail();
+    expect($cashSale->payments()->count())->toBe(0)->and($onlineSale->payments()->count())->toBe(0);
+    $this->withToken($plain)->getJson('/api/partner/v1/transactions/'.$cashSale->id)->assertOk()->assertJsonPath('data.payments.0.amount', $cashSale->total);
+    $this->getJson('/api/partner/v1/transactions/'.$onlineSale->id)->assertOk()->assertJsonPath('data.received_amount', 30000)->assertJsonPath('data.merchant_deduction', $onlineSale->total - 30000);
 });

@@ -2,8 +2,11 @@
 
 use App\Http\Controllers\MobileAccountController;
 use App\Http\Controllers\MobileAuthController;
+use App\Http\Controllers\Partner\ReportController;
+use App\Http\Controllers\Partner\WebhookController;
 use App\Http\Controllers\PosController;
 use App\Http\Controllers\SaleRefundController;
+use App\Http\Middleware\AuthenticatePartner;
 use App\Http\Middleware\IdempotentCheckout;
 use App\Http\Middleware\RequirePersonalAccessToken;
 use Illuminate\Support\Facades\Route;
@@ -28,3 +31,17 @@ Route::prefix('mobile/v1')->group(function (): void {
         Route::post('/sales/{sale}/refund', [SaleRefundController::class, 'store']);
     });
 });
+
+foreach (['partner/v1', 'partner/sandbox/v1'] as $prefix) {
+    Route::prefix($prefix)->middleware([AuthenticatePartner::class, 'throttle:partner'])->group(function (): void {
+        Route::get('/webhook', [WebhookController::class, 'show']);
+        Route::post('/webhook', [WebhookController::class, 'store']);
+        Route::delete('/webhook', [WebhookController::class, 'destroy']);
+        Route::post('/webhook/test', [WebhookController::class, 'test']);
+        Route::get('/outlets', [ReportController::class, 'outlets']);
+        Route::get('/products', [ReportController::class, 'products']);
+        Route::get('/transactions', [ReportController::class, 'transactions']);
+        Route::get('/transactions/{transaction}', [ReportController::class, 'transaction'])->whereNumber('transaction');
+        Route::get('/sales-summary', [ReportController::class, 'summary']);
+    });
+}

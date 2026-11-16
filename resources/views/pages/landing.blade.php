@@ -813,6 +813,11 @@
                 <div class="grid gap-5 md:grid-cols-3">
                     @foreach (config('hardware.products') as $hardware)
                         <article class="flex min-w-0 flex-col rounded-2xl border border-gray-200 bg-white p-6">
+                            <div class="mb-5 aspect-[4/3] overflow-hidden rounded-xl bg-gray-50">
+                                <img src="{{ asset($hardware['image']) }}" alt="{{ $hardware['image_alt'] }}"
+                                    width="{{ $hardware['image_width'] }}" height="{{ $hardware['image_height'] }}"
+                                    loading="lazy" decoding="async" class="h-full w-full object-contain" />
+                            </div>
                             <h3 class="text-lg font-bold text-gray-900">{{ $hardware['name'] }}</h3>
                             <p class="mt-2 text-sm leading-relaxed text-gray-600">{{ $hardware['description'] }}</p>
                             <div class="mt-auto pt-6">

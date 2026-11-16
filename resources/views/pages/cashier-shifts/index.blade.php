@@ -63,6 +63,7 @@
                         </div>
                     </div>
                 </div>
+                <div class="mt-3">@include('pages.cashier-shifts.partials.companions', ['shift' => $activeShift])</div>
                 @if ($canForceCloseShift)
                     <form method="POST" action="{{ route('cashier-shifts.force-close', $activeShift) }}" class="mt-4 rounded-lg border border-success-200 bg-white/70 p-3 dark:border-success-500/20 dark:bg-white/[0.04]" onsubmit="return confirm(@js('Tutup paksa shift '.($activeShift->user?->name ?? 'Kasir').'?'));">
                         @csrf
@@ -108,6 +109,7 @@
                                 <td class="px-4 py-3">
                                     <p class="text-[13px] font-semibold text-gray-800 dark:text-white/90">{{ $shift->user?->name ?? 'Kasir' }}</p>
                                     <p class="text-[11px] text-gray-500 dark:text-gray-400">{{ $shift->user?->email }}</p>
+                                    @include('pages.cashier-shifts.partials.companions', ['shift' => $shift])
                                 </td>
                                 <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">@localtime($shift->opened_at)</td>
                                 <td class="px-4 py-3 text-xs text-gray-600 dark:text-gray-300">@localtime($shift->closed_at)</td>

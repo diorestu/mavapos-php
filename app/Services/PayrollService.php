@@ -22,8 +22,8 @@ class PayrollService
         $branchId = app(BranchContext::class)->activeId();
         $users = User::query()->where('tenant_owner_id', auth()->user()->tenantOwnerId())->where('role', 'kasir')->get();
         foreach ($users as $user) {
-            Payroll::query()->updateOrCreate(
-                ['user_id' => $user->id, 'branch_id' => $branchId, 'period_month' => $month->copy()->startOfMonth()->toDateString()],
+            Payroll::query()->whereDate('period_month', $month->copy()->startOfMonth()->toDateString())->updateOrCreate(
+                ['user_id' => $user->id, 'branch_id' => $branchId],
                 ['user_id' => $user->id, 'branch_id' => $branchId, 'period_month' => $month->copy()->startOfMonth()->toDateString()] + $this->calculate($user, $branchId, $month)
             );
         }
@@ -38,9 +38,9 @@ class PayrollService
 
         foreach ($users as $user) {
             $calculated = $this->calculate($user, $branchId, $month);
-            Payroll::query()->updateOrCreate(
-                ['user_id' => $user->id, 'branch_id' => $branchId, 'period_month' => $month->copy()->startOfMonth()->toDateString()],
-                $calculated
+            Payroll::query()->whereDate('period_month', $month->copy()->startOfMonth()->toDateString())->updateOrCreate(
+                ['user_id' => $user->id, 'branch_id' => $branchId],
+                ['period_month' => $month->copy()->startOfMonth()->toDateString()] + $calculated
             );
         }
 
