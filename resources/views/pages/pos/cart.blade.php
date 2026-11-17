@@ -162,6 +162,14 @@
             </button>
         </div>
 
+        @if ($gatewayConfigured)
+            <div x-show="!isOnlineMerchant" class="mt-2">
+                <button type="button" @click="selectPaymentMethod('midtrans')" class="min-h-11 w-full rounded-lg border px-3 text-xs font-semibold"
+                    :class="paymentMethod === 'midtrans' ? 'border-brand-500 bg-brand-500 text-white' : 'border-gray-300 text-gray-700 dark:text-gray-300'">Midtrans / Payment Gateway</button>
+                <p x-show="paymentMethod === 'midtrans'" class="mt-2 text-xs text-gray-500">Online saja. Transaksi menunggu konfirmasi pembayaran. Split dan kartu loyalitas tidak digunakan pada metode ini.</p>
+            </div>
+        @endif
+
         <div x-show="!isOnlineMerchant && cashierFeatures.splitPayment && paymentMethod === 'split'" class="mt-3.5 space-y-2 animate-fadeIn">
             <p class="text-[11px] font-semibold text-gray-600 dark:text-gray-300">Bagi pembayaran ke beberapa metode</p>
             <template x-for="(payment, index) in splitPayments" :key="payment.method">
@@ -214,7 +222,7 @@
                 <span x-show="!checkoutLoading">Selesaikan Pembayaran</span>
                 <span x-show="checkoutLoading">Memproses...</span>
             </button>
-            <button x-show="!isOnlineMerchant" type="button" @click="openComplimentary()" :disabled="checkoutLoading || cart.length === 0"
+            <button x-show="!isOnlineMerchant && paymentMethod !== 'midtrans'" type="button" @click="openComplimentary()" :disabled="checkoutLoading || cart.length === 0"
                 class="h-11 rounded-lg border border-warning-300 px-4 text-sm font-semibold text-warning-700 transition hover:bg-warning-50 disabled:cursor-not-allowed disabled:opacity-50 dark:border-warning-500/40 dark:text-warning-300 dark:hover:bg-warning-500/10">Gratis</button>
         </div>
     </div>

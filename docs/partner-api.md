@@ -265,3 +265,7 @@ Untuk uji verifikasi webhook, daftarkan `/webhook` menggunakan key sandbox (host
 | 429 | Rate limit tercapai; tunggu sesuai `Retry-After` |
 
 Kesalahan berbentuk JSON dengan `message`; 422 juga memiliki `errors` per field. Endpoint bisnis tidak menerima mutasi melalui key partner. Respons sukses diberi `Cache-Control: private, no-store`. Jangan gunakan URL contoh domain atau key placeholder sebagai kredensial aktual.
+
+## Pending POS gateway transactions
+
+Transaksi POS Midtrans yang belum dibayar memiliki `status: pending`, `received_amount: 0`, `net_total: 0`, dan `payments: []`. `total` tetap menunjukkan nilai pesanan. Ringkasan penjualan hanya mencakup transaksi paid non-void. Notifikasi `transaction.created` untuk transaksi gateway diterbitkan setelah pembayaran terverifikasi, bukan saat reservasi stok. Refund/reversal yang terverifikasi terlihat sebagai penyesuaian keuangan tanpa menebak jumlah barang yang kembali.

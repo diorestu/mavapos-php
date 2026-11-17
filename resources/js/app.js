@@ -1,5 +1,7 @@
 import './bootstrap';
 import { accountDeletionManager } from './account-deletion.js';
+import { submitPosGateway } from './pos-gateway.js';
+import { billingPaymentWatcher } from './billing-payment-status.js';
 import { createPosOutbox, initPosOfflineShell, purgePosOfflineShell } from './pos-offline.js';
 import { receiptPaperWidth } from './receipt-format.js';
 import Alpine from 'alpinejs';
@@ -14,6 +16,7 @@ document.addEventListener('submit', (event) => {
 
 window.Alpine = Alpine;
 Alpine.data('accountDeletionManager', accountDeletionManager);
+Alpine.data('billingPaymentWatcher', billingPaymentWatcher);
 window.Quill = Quill;
 
 const BLUETOOTH_PRINTER_STORAGE_KEY = 'mava.bluetooth-printer-device';
@@ -2564,6 +2567,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
 
     selectPaymentMethod(method) {
         this.paymentMethod = method;
+        if (method === 'midtrans') { this.loyaltyStamp = false; this.loyaltyReward = ''; }
         if (method !== 'cash') this.paidAmount = '';
     },
 
@@ -2583,6 +2587,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             card: 'Kartu',
             split: 'Split Payment',
             online_merchant: 'Online Merchant',
+            midtrans: 'Midtrans',
         }[method] || method || '-';
     },
 
@@ -3665,6 +3670,27 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
         this.complimentaryConfirming = false;
     },
 
+    async checkoutGateway() {
+        this.checkoutLoading = true;
+        this.checkoutError = '';
+        try {
+            if (!navigator.onLine) throw new Error('Payment gateway memerlukan koneksi internet.');
+            if (this.loyaltyStamp || this.loyaltyReward) throw new Error('Matikan kartu loyalitas untuk checkout gateway.');
+            const data = await submitPosGateway({
+                endpoint: this.endpoints.gatewayCheckout,
+                context: { ...this.endpoints.offlineContext, shiftId: this.shift.id },
+                payload: { items: this.cart.map(item => ({ id: item.id, quantity: item.quantity })), discount: this.discountValue, expected_total: this.total, customer_name: this.customerName.trim() || null, customer_phone: this.customerPhone.trim() || null, buyer_nationality: this.buyerNationality, sales_channel: 'direct' },
+            });
+            this.clearCart();
+            window.location.assign(data.redirect_url);
+        } catch (error) {
+            this.checkoutError = error.message || 'Checkout gateway belum dapat diproses.';
+            notify(this.checkoutError, 'error');
+        } finally {
+            this.checkoutLoading = false;
+        }
+    },
+
     async checkout(isComplimentary = false) {
         if (this.isOnlineMerchant && isComplimentary) return;
         if (this.cashierFeatures.onlineMerchant && this.salesChannel === 'online' && !this.onlineMerchant) {
@@ -3676,6 +3702,7 @@ Alpine.data('posManager', (initialItems = [], initialCategories = [], initialShi
             return;
         }
 
+        if (!isComplimentary && !this.isOnlineMerchant && this.paymentMethod === 'midtrans') return this.checkoutGateway();
         this.checkoutError = '';
         this.checkoutLoading = true;
 

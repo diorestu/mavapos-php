@@ -218,7 +218,7 @@ class ReportController extends Controller
                 continue;
             }
 
-            $account = ['cash' => 'Kas', 'qris' => 'Bank / QRIS', 'card' => 'Bank / Kartu'][$payment['method']] ?? 'Kas';
+            $account = ['cash' => 'Kas', 'qris' => 'Bank / QRIS', 'card' => 'Bank / Kartu', 'midtrans' => 'Dana Payment Gateway'][$payment['method']] ?? 'Kas';
             $lines[] = $this->journalLine($sale->sold_at, $sale->invoice_number, $description, $account, $hasDiscount ? '' : $revenueAccount, $payment['amount']);
         }
 
@@ -335,7 +335,7 @@ class ReportController extends Controller
                 }
 
                 return $totals;
-            }, ['cash' => 0, 'qris' => 0, 'card' => 0, 'online_merchant' => 0]);
+            }, ['cash' => 0, 'qris' => 0, 'card' => 0, 'online_merchant' => 0, 'midtrans' => 0]);
 
             return (object) ['user_id' => $userId, 'sales_count' => $sales->count(), 'gross_sales' => $sales->sum('subtotal'), 'discount_total' => $sales->sum('discount'), 'net_sales' => $sales->sum('total'), 'cash_total' => $payments['cash'], 'qris_total' => $payments['qris'], 'card_total' => $payments['card'], 'online_merchant_total' => $payments['online_merchant']];
         })->sortByDesc('net_sales')->values();
@@ -349,7 +349,7 @@ class ReportController extends Controller
                     }
 
                     return $totals;
-                }, ['cash' => 0, 'qris' => 0, 'card' => 0, 'online_merchant' => 0]);
+                }, ['cash' => 0, 'qris' => 0, 'card' => 0, 'online_merchant' => 0, 'midtrans' => 0]);
 
                 return (object) [
                     'date' => $date,
@@ -470,7 +470,7 @@ class ReportController extends Controller
 
     private function refundJournalLines(SaleRefund $refund): array
     {
-        $account = ['cash' => 'Kas', 'qris' => 'Bank / QRIS', 'card' => 'Bank / Kartu', 'bank_transfer' => 'Bank'][$refund->refund_method] ?? 'Bank';
+        $account = ['cash' => 'Kas', 'qris' => 'Bank / QRIS', 'card' => 'Bank / Kartu', 'midtrans' => 'Dana Payment Gateway', 'bank_transfer' => 'Bank'][$refund->refund_method] ?? 'Bank';
         $date = $refund->refunded_at->copy()->timezone(LocalTime::TIMEZONE);
         $lines = [$this->journalLine($date, $refund->refund_number, 'Retur '.$refund->sale?->invoice_number.' — '.$refund->reason, 'Retur Penjualan', $account, $refund->amount)];
         $costRecovery = $this->refundCostRecovery($refund);
@@ -545,6 +545,6 @@ class ReportController extends Controller
 
     private function paymentLabel(string $method): string
     {
-        return ['cash' => 'Tunai', 'qris' => 'QRIS', 'card' => 'Kartu', 'online_merchant' => 'Online Merchant'][$method] ?? ucfirst($method);
+        return ['cash' => 'Tunai', 'qris' => 'QRIS', 'card' => 'Kartu', 'midtrans' => 'Midtrans', 'online_merchant' => 'Online Merchant'][$method] ?? ucfirst($method);
     }
 }

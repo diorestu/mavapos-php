@@ -3,10 +3,13 @@
 @php
     $selectedPlan = old('plan_slug', $currentSubscription['plan_slug'] ?: 'basic');
     $selectedCycle = old('billing_cycle', $currentSubscription['billing_cycle'] ?: 'monthly');
+    $pendingPaymentChecks = $billings->where('paymentProvider', 'midtrans')->where('paymentStatus', 'pending')->take(3)
+        ->map(fn ($billing) => ['url' => $billing['refreshUrl'], 'status' => $billing['paymentStatus']])->values();
 @endphp
 
 @section('content')
-    <div class="space-y-4">
+    <div class="space-y-4" x-data="billingPaymentWatcher({ payments: @js($pendingPaymentChecks), initialCheckout: @js($autoSnapCheckout) })"
+        @focus.window="check()" @visibilitychange.document="check()">
         <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
                 <nav aria-label="Breadcrumb">
@@ -43,11 +46,19 @@
             </div>
         @endif
 
-        @unless ($sumopodConfigured ?? $pakasirConfigured)
+        @unless ($midtransConfigured)
             <div class="rounded-lg border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700 dark:border-warning-500/20 dark:bg-warning-500/10 dark:text-warning-300">
-                SumoPod belum aktif. Isi <span class="font-semibold">SUMOPOD_API_KEY</span> di .env, lalu set webhook SumoPod ke <span class="font-semibold">{{ route('sumopod.webhook') }}</span>.
+                Pembayaran Midtrans belum tersedia. Hubungi admin untuk mengaktifkannya.
             </div>
         @endunless
+
+        @if ($midtransConfigured && ! $midtransSnap['ready'])
+            <p class="rounded-lg border border-warning-200 bg-warning-50 px-4 py-3 text-sm text-warning-700">
+                Pembayaran popup belum tersedia. Gunakan halaman pembayaran atau hubungi admin.
+            </p>
+        @endif
+        <p x-cloak x-show="paymentError" x-text="paymentError" role="alert"
+            class="rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-700"></p>
 
         <section class="grid gap-4 xl:grid-cols-[380px_minmax(0,1fr)]">
             <div class="space-y-4">
@@ -140,8 +151,8 @@
 
                         <button type="submit"
                             class="mt-4 inline-flex h-10 w-full items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white shadow-theme-xs transition hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/30 disabled:cursor-not-allowed disabled:opacity-50"
-                            @disabled(! ($sumopodConfigured ?? $pakasirConfigured))>
-                            Generate QRIS SumoPod
+                            @disabled(! ($midtransConfigured))>
+                            Buat Pembayaran Midtrans
                         </button>
                     </form>
                 @else
@@ -185,7 +196,7 @@
                 <div class="flex flex-col gap-2 border-b border-gray-100 px-4 py-3 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                         <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Riwayat Tagihan Langganan</h2>
-                        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Tagihan bulanan/tahunan dapat dibayar via QRIS dan status otomatis berubah dari webhook SumoPod.</p>
+                        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Bayar tagihan bulanan atau tahunan melalui Midtrans. Status diperiksa otomatis saat halaman terbuka atau Anda kembali dari Midtrans.</p>
                     </div>
                     <span class="rounded-lg bg-gray-50 px-2.5 py-1 text-xs font-medium text-gray-500 dark:bg-gray-900/60 dark:text-gray-400">
                         {{ $billings->count() }} tagihan
@@ -197,7 +208,7 @@
                         @php
                             $statusClass = match ($billing['paymentStatus']) {
                                 'completed', 'paid' => 'bg-success-50 text-success-600 dark:bg-success-500/15 dark:text-success-400',
-                                'expired', 'canceled' => 'bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-400',
+                                'expired', 'canceled', 'failed', 'refunded', 'chargeback' => 'bg-error-50 text-error-600 dark:bg-error-500/15 dark:text-error-400',
                                 default => 'bg-warning-50 text-warning-700 dark:bg-warning-500/15 dark:text-warning-300',
                             };
                         @endphp
@@ -232,10 +243,22 @@
                                     <p class="mt-0.5 text-[11px] text-gray-500 dark:text-gray-400">Pokok {{ $billing['amountFormatted'] }}</p>
                                 </div>
                                 <div class="flex shrink-0 items-center gap-2">
-                                    <a href="{{ $billing['paymentUrl'] }}" target="_blank" rel="noopener"
-                                        class="inline-flex h-8 items-center justify-center rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]">
-                                        QRIS
-                                    </a>
+                                    @if ($billing['paymentUrl'] && $billing['paymentStatus'] === 'pending')
+                                        @if ($billing['snapToken'] && $midtransSnap['ready'])
+                                            <button type="button" @click="pay(@js($billing['snapToken']), @js($billing['verifyUrl']))"
+                                                :disabled="popupOpen || finishing"
+                                                class="inline-flex h-8 items-center justify-center rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-700 transition hover:bg-gray-50 disabled:cursor-wait disabled:opacity-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]">
+                                                Bayar via Midtrans
+                                            </button>
+                                            <a href="{{ $billing['paymentUrl'] }}"
+                                                class="text-xs font-medium text-brand-600 underline">Buka Halaman Pembayaran</a>
+                                        @else
+                                            <a href="{{ $billing['paymentUrl'] }}" target="_blank" rel="noopener"
+                                                class="inline-flex h-8 items-center justify-center rounded-lg border border-gray-200 px-3 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/[0.03]">
+                                                {{ $billing['paymentProvider'] === 'midtrans' ? 'Buka Halaman Pembayaran' : 'Bayar Tagihan' }}
+                                            </a>
+                                        @endif
+                                    @endif
                                     <form method="POST" action="{{ $billing['refreshUrl'] }}">
                                         @csrf
                                         <button type="submit"
@@ -256,3 +279,9 @@
         </section>
     </div>
 @endsection
+
+@if ($midtransSnap['ready'])
+    @push('scripts')
+        <script src="{{ $midtransSnap['scriptUrl'] }}" data-client-key="{{ $midtransSnap['clientKey'] }}" defer></script>
+    @endpush
+@endif

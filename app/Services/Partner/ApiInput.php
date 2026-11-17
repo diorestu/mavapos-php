@@ -36,7 +36,7 @@ class ApiInput
 
     public static function window(Request $request): array
     {
-        $data = $request->validate(['outlet_id' => 'required|integer|min:1', 'from' => 'required|string|max:40', 'to' => 'required|string|max:40', 'updated_since' => 'sometimes|string|max:40', 'status' => 'sometimes|in:completed,voided,partially_refunded,refunded']);
+        $data = $request->validate(['outlet_id' => 'required|integer|min:1', 'from' => 'required|string|max:40', 'to' => 'required|string|max:40', 'updated_since' => 'sometimes|string|max:40', 'status' => 'sometimes|in:completed,voided,partially_refunded,refunded,pending']);
         $from = self::timestamp($data['from'], 'from');
         $to = self::timestamp($data['to'], 'to');
         if ($to <= $from || $from->diffInSeconds($to) > 31 * 86400) {

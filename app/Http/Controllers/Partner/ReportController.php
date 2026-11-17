@@ -64,7 +64,7 @@ class ReportController extends Controller
         if ($request->attributes->get('partner_key')->sandbox) {
             return app(Sandbox::class)->summary($request);
         }
-        $query = $this->saleQuery($request)->whereNull('voided_at');
+        $query = $this->saleQuery($request)->active();
         $totals = (clone $query)->selectRaw('COUNT(*) AS transaction_count, COALESCE(SUM(subtotal), 0) AS gross_sales, COALESCE(SUM(discount), 0) AS discount, COALESCE(SUM(total), 0) AS total_sales')->first();
         $saleIds = (clone $query)->select('pos_sales.id');
         $refunds = (int) SaleRefund::whereIn('pos_sale_id', $saleIds)->sum('amount');
@@ -93,8 +93,10 @@ class ReportController extends Controller
         $status = $data['status'] ?? null;
         if ($status === 'voided') {
             $query->whereNotNull('voided_at');
+        } elseif ($status === 'pending') {
+            $query->whereNull('voided_at')->where('payment_status', 'pending');
         } elseif ($status) {
-            $query->whereNull('voided_at');
+            $query->whereNull('voided_at')->where('payment_status', 'paid');
             if ($status === 'completed') {
                 $query->whereDoesntHave('refunds');
             } else {

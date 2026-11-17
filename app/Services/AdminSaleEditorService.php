@@ -25,6 +25,7 @@ class AdminSaleEditorService
         return DB::transaction(function () use ($sale, $branchId, $actor, $data): PosSale {
             $sale = PosSale::query()->with(['items.product', 'items.productVariant', 'rawMaterialUsages', 'payments', 'shift', 'customer'])
                 ->whereKey($sale->id)->where('branch_id', $branchId)->lockForUpdate()->firstOrFail();
+            abort_if($sale->payment_method === 'midtrans', 422, 'Transaksi gateway harus ditangani melalui status dan refund Midtrans, tanpa mengubah nilai atau atribusi asli.');
             abort_if($sale->refunds()->exists(), 422, 'Transaksi dengan refund tidak dapat dibatalkan, diedit, atau dipindahkan.');
             abort_if($sale->voided_at, 422, 'Transaksi yang sudah di-void tidak dapat diedit.');
 

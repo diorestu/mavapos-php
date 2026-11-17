@@ -9,3 +9,5 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('partner:webhooks:send')->everyMinute()->withoutOverlapping(10);
+
+Schedule::command('gateway:reconcile')->everyMinute()->withoutOverlapping(10);

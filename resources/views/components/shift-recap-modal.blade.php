@@ -15,6 +15,7 @@
                 ['Tunai', shiftRecap?.cashTotal || 0, true],
                 ['QRIS', shiftRecap?.qrisTotal || 0, true],
                 ['Kartu', shiftRecap?.cardTotal || 0, true],
+                ['Midtrans', shiftRecap?.gatewayTotal || 0, true],
                 ['Online Merchant', shiftRecap?.onlineMerchantTotal || 0, true],
                 ['Potongan Online Merchant', shiftRecap?.onlineMerchantDeduction || 0, true],
                 ['Total refund', shiftRecap?.refundTotal || 0, true],

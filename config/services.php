@@ -41,6 +41,13 @@ return [
         'redirect' => env('GOOGLE_REDIRECT_URI', env('APP_URL').'/auth/google/callback'),
     ],
 
+    'midtrans' => [
+        'server_key' => env('MIDTRANS_SERVER_KEY', ''),
+        'client_key' => env('MIDTRANS_CLIENT_KEY', ''),
+        'is_production' => (bool) env('MIDTRANS_IS_PRODUCTION', false),
+        'timeout' => (int) env('MIDTRANS_TIMEOUT', 20),
+    ],
+
     'sumopod' => [
         'api_key' => env('SUMOPOD_API_KEY', ''),
         'base_url' => env('SUMOPOD_BASE_URL', 'https://api-pay.sumopod.com/api/v1'),

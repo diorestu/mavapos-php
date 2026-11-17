@@ -1135,53 +1135,28 @@ test('pengguna dapat membuka halaman pelanggan', function () {
         ->assertSee('pelanggan');
 });
 
-test('pengguna dapat membuat tagihan langganan qris sumopod tanpa isi data diri', function (string $slug, string $cycle, int $amount, string $title) {
-    config([
-        'services.sumopod.api_key' => 'secret-test',
-    ]);
-
+test('pengguna dapat membuat tagihan langganan Midtrans tanpa isi data diri', function (string $slug, string $cycle, int $amount, string $title) {
+    config(['services.midtrans.server_key' => 'SB-Mid-server-test', 'services.midtrans.is_production' => false]);
     Http::fake([
-        'https://api-pay.sumopod.com/api/v1/payments' => Http::response([
-            'payment_id' => 'sumo-pay-123',
-            'order_id' => 'INV-TEST',
-            'amount' => $amount + 350,
-            'fee' => 350,
-            'net_amount' => $amount,
-            'currency' => 'IDR',
-            'payment_link_url' => 'https://checkout.pymnt.app/payment-links/test-link',
-            'status' => 'pending',
-            'expires_at' => '2026-06-17T14:30:00+08:00',
+        'https://app.sandbox.midtrans.com/snap/v1/transactions' => Http::response([
+            'token' => 'snap-token-test',
+            'redirect_url' => 'https://app.sandbox.midtrans.com/snap/v2/vtweb/snap-token-test',
         ], 201),
     ]);
-
     $user = User::factory()->create();
-
-    $this->actingAs($user)
-        ->post('/billings', [
-            'plan_slug' => $slug,
-            'billing_cycle' => $cycle,
-        ])
-        ->assertRedirect('/billings');
-
-    $billing = Billing::query()->first();
-
-    expect($billing)
-        ->not->toBeNull()
-        ->and($billing->customer_name)->toBe('Mava Mart')
+    $this->actingAs($user)->post('/billings', ['plan_slug' => $slug, 'billing_cycle' => $cycle])->assertRedirect('/billings')->assertSessionHasNoErrors();
+    $billing = Billing::query()->firstOrFail();
+    expect($billing->customer_name)->toBe('Mava Mart')
         ->and($billing->customer_phone)->toBe('081234567890')
-        ->and($billing->title)->toBe($title)
-        ->and($billing->amount)->toBe($amount)
-        ->and($billing->fee)->toBe(350)
-        ->and($billing->total_payment)->toBe($amount + 350)
-        ->and($billing->payment_status)->toBe('pending')
-        ->and($billing->payment_url)->toBe('https://checkout.pymnt.app/payment-links/test-link')
+        ->and($billing->title)->toBe($title)->and($billing->amount)->toBe($amount)
+        ->and($billing->fee)->toBe(0)->and($billing->total_payment)->toBe($amount)
+        ->and($billing->payment_provider)->toBe('midtrans')->and($billing->payment_status)->toBe('pending')
+        ->and($billing->payment_url)->toBe('https://app.sandbox.midtrans.com/snap/v2/vtweb/snap-token-test')
         ->and($billing->provider_payload['subscription']['billing_cycle'])->toBe($cycle);
-
-    Http::assertSent(fn ($request) => $request->url() === 'https://api-pay.sumopod.com/api/v1/payments'
-        && $request->hasHeader('X-Api-Key', 'secret-test')
-        && $request['order_id'] === $billing->invoice_number
-        && $request['amount'] === $amount
-        && $request['payment_method_type_code'] === 'QRIS');
+    Http::assertSent(fn ($request) => $request->url() === 'https://app.sandbox.midtrans.com/snap/v1/transactions'
+        && $request->hasHeader('Authorization', 'Basic '.base64_encode('SB-Mid-server-test:'))
+        && $request['transaction_details']['order_id'] === $billing->invoice_number
+        && $request['transaction_details']['gross_amount'] === $amount);
 })->with([
     ['basic', 'monthly', 199000, 'Basic Plan - Bulanan'],
     ['basic', 'yearly', 1999000, 'Basic Plan - Tahunan'],

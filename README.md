@@ -1,6 +1,6 @@
 # Mava Backend
 
-Mava Backend is a Laravel 12 admin application for managing store operations: products, product categories, inventory movement, suppliers, customers, store settings, and QRIS billing through SumoPod.
+Mava Backend is a Laravel 12 admin application for managing store operations: products, product categories, inventory movement, suppliers, customers, store settings, and subscription billing through Midtrans Snap.js.
 
 The UI is built with Blade, Tailwind CSS, Alpine.js, and Vite.
 
@@ -13,8 +13,9 @@ The UI is built with Blade, Tailwind CSS, Alpine.js, and Vite.
 - Inventory management with stock-in and stock-out transaction history.
 - Customer and supplier management.
 - Store settings for business identity and product behavior.
-- SaaS billing module for Basic and Pro plan QRIS payment generation through SumoPod.
-- SumoPod webhook endpoint for automated payment status updates.
+- SaaS billing module for Basic and Pro plans through Midtrans Snap.js popup checkout.
+- Signed Midtrans notifications and verified manual payment status checks.
+- New POS gateway checkout and merchant-isolated wallet with fee reconciliation and manually processed withdrawal requests. See [POS gateway and wallet guide](docs/pos-gateway-wallet.md).
 - Read-only third-party REST API for merchant outlets, catalog and sales, with signed creation webhooks and fixture sandbox. See [Partner API guide](docs/partner-api.md) and [OpenAPI specification](docs/partner-api.openapi.json).
 - Pest feature tests for core workflows.
 
@@ -117,51 +118,15 @@ Build production assets:
 npm run build
 ```
 
-## Billing and SumoPod QRIS
+## Subscription Billing and Midtrans
 
-The billing module is available from Pengaturan > Billing, using this route:
-
-```text
-/billings
-```
-
-It creates a local billing record, calls SumoPod to create a QRIS transaction, stores the payment URL/payment metadata, and updates payment status from webhook callbacks or manual status checks.
-
-Available SaaS plan presets:
+Subscription invoices at `/billings` use Midtrans Snap.js popup checkout with a hosted fallback. Configure matching sandbox/production credentials on the backend and register the public notification URL:
 
 ```text
-Basic Plan   Rp199.000/bulan atau Rp1.999.000/tahun
-Pro Plan     Rp249.000/bulan atau Rp2.499.000/tahun
+https://your-domain.com/midtrans/notification
 ```
 
-Set these variables in `.env`:
-
-```env
-SUMOPOD_API_KEY=your-sumopod-api-key
-SUMOPOD_BASE_URL=https://api-pay.sumopod.com/api/v1
-SUMOPOD_TIMEOUT=30
-```
-
-Register this webhook URL in SumoPod:
-
-```text
-https://your-domain.com/sumopod/webhook
-```
-
-For local webhook testing, expose your local server with a tunnel such as ngrok or Cloudflare Tunnel, then use the public tunnel URL:
-
-```text
-https://your-tunnel-url/sumopod/webhook
-```
-
-Important billing routes:
-
-```text
-GET  /billings
-POST /billings
-POST /billings/{billing}/refresh
-POST /sumopod/webhook
-```
+See [Midtrans subscription setup](docs/midtrans-subscription.md) for environment variables, dashboard setup, verification, and deployment. Existing legacy-provider invoices remain available; new invoices use Midtrans. This implements invoice payments, not automatic recurring debits.
 
 ## Main Routes
 
@@ -199,7 +164,7 @@ Or use the Composer script:
 composer run test
 ```
 
-The tests cover authentication, dashboard rendering, product and variant workflows, inventory movement, categories, suppliers, customers, settings, billing creation, and SumoPod webhook payment completion.
+The tests cover authentication, dashboard rendering, product and variant workflows, inventory movement, categories, suppliers, customers, settings, billing creation, and Midtrans checkout and verified notification handling.
 
 ## Useful Commands
 
@@ -232,7 +197,7 @@ Format PHP code with Pint:
 ```text
 app/Http/Controllers     Web controllers
 app/Models               Eloquent models
-app/Services             External service clients, including SumoPod
+app/Services             External service clients, including Midtrans and legacy providers
 database/migrations      Database schema
 database/seeders         Sample/bootstrap data
 resources/views          Blade pages and components
@@ -264,4 +229,4 @@ php artisan route:cache
 php artisan view:cache
 ```
 
-Make sure `/sumopod/webhook` is reachable publicly so SumoPod can automate payment status updates.
+Make sure `/midtrans/notification` is reachable publicly and configured in the matching Midtrans dashboard so verified payments update subscriptions automatically.

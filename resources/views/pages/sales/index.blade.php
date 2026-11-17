@@ -9,6 +9,7 @@
         'card' => 'Kartu',
         'free' => 'Gratis',
         'online_merchant' => 'Online Merchant',
+        'midtrans' => 'Midtrans',
     ];
 @endphp
 
@@ -214,7 +215,7 @@
                     <tbody>
                         @forelse ($sales as $sale)
                             @php
-                                $canVoidSale = ! $sale->voided_at && $sale->refunds->isEmpty() && (
+                                $canVoidSale = $sale->payment_method !== 'midtrans' && ! $sale->voided_at && $sale->refunds->isEmpty() && (
                                     $currentUser?->hasRole(['owner', 'admin'])
                                     || ($currentUser?->hasRole('kasir')
                                         && $sale->user_id === $currentUser->id
@@ -226,6 +227,7 @@
                                     <details>
                                         <summary class="cursor-pointer list-none">
                                             <span class="text-[13px] font-semibold text-brand-600 dark:text-brand-400">{{ $sale->invoice_number }}</span>
+                                            @if ($sale->payment_status === 'pending')<span class="ml-1 text-xs font-semibold text-warning-700">Menunggu pembayaran</span>@endif
                                             @if ($sale->voided_at)
                                                 <span class="ml-1 rounded-full bg-error-50 px-2 py-0.5 text-[10px] font-semibold text-error-700 dark:bg-error-500/15 dark:text-error-300">Dibatalkan</span>
                                                 <span class="mt-1 block text-[11px] text-error-600">{{ $sale->void_reason }} · {{ $sale->voidedBy?->name ?? 'User dihapus' }}</span>
@@ -273,17 +275,20 @@
                                     @if ($sale->payments->isNotEmpty())
                                         <span class="mt-1 block text-[10px] text-gray-500 dark:text-gray-400">{{ $sale->payments->map(fn ($payment) => strtoupper($payment->payment_method).' '.$rupiah($payment->amount))->join(' · ') }}</span>
                                     @endif
-                                    @if (! $sale->voided_at && $currentUser?->hasRole(['owner', 'admin']))
+                                    @if ($sale->gatewayPayment && ($currentUser?->hasRole(['owner','admin']) || $sale->user_id === $currentUser?->id || $sale->gatewayPayment->actor_id === $currentUser?->id))
+                                        <a class="mt-2 block text-xs font-semibold text-brand-600 underline" href="{{route('pos.gateway.show',$sale->gatewayPayment)}}">{{$sale->payment_status==='pending'?'Lanjutkan Pembayaran':'Detail Gateway'}}</a>
+                                    @endif
+                                    @if ($sale->payment_method !== 'midtrans' && ! $sale->voided_at && $currentUser?->hasRole(['owner', 'admin']))
                                         <a href="{{ route('sales.refund', $sale) }}" class="mt-2 block text-[11px] font-semibold text-brand-600 hover:text-brand-700">Retur / Riwayat Refund</a>
                                         @if ($sale->refunds->isNotEmpty())<span class="mt-1 block text-[11px] text-error-600">Refund {{ $rupiah($sale->refunds->sum('amount')) }}</span>@endif
                                     @endif
                                     @if ($canVoidSale)
                                         <button type="button" @click="openVoid(@js(['id' => $sale->id, 'invoice' => $sale->invoice_number, 'total' => $sale->total]))" class="mt-2 block w-full text-[11px] font-semibold text-error-600 hover:text-error-700">Batalkan Transaksi</button>
                                     @endif
-                                    @if (! $sale->voided_at && $sale->refunds->isEmpty() && $currentUser?->hasRole('admin'))
+                                    @if ($sale->payment_method !== 'midtrans' && ! $sale->voided_at && $sale->refunds->isEmpty() && $currentUser?->hasRole('admin'))
                                         <a href="{{ route('sales.edit', $sale) }}" class="mt-2 block text-[11px] font-semibold text-brand-600 hover:text-brand-700">Edit Transaksi</a>
                                     @endif
-                                    @if (! $sale->voided_at && $sale->refunds->isEmpty() && $currentUser?->hasRole(['owner', 'admin']) && $transferShifts->isNotEmpty())
+                                    @if ($sale->payment_method !== 'midtrans' && ! $sale->voided_at && $sale->refunds->isEmpty() && $currentUser?->hasRole(['owner', 'admin']) && $transferShifts->isNotEmpty())
                                         <details class="mt-2 text-left">
                                             <summary class="cursor-pointer text-[11px] font-semibold text-warning-700">Pindah Cabang</summary>
                                             <form method="POST" action="{{ route('sales.transfer', $sale) }}" class="mt-2 space-y-1" onsubmit="return confirm('Pindahkan transaksi ini ke shift cabang tujuan?')">

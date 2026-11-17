@@ -14,6 +14,7 @@ use App\Models\StockMovement;
 use App\Models\StoreSetting;
 use App\Models\User;
 use App\Services\CashierShiftSummaryService;
+use App\Services\MidtransClient;
 use App\Services\SalesBonusService;
 use App\Support\BranchContext;
 use App\Support\BranchInventoryManager;
@@ -98,6 +99,7 @@ class PosController extends Controller
 
         return view('pages.pos.index', [
             'title' => 'Kasir',
+            'gatewayConfigured' => app(MidtransClient::class)->isConfigured(),
             'activeShift' => $activeShiftPayload,
             'blockingShift' => $blockingShiftPayload,
             'lastClosedShift' => $lastClosedShiftPayload,
@@ -324,7 +326,7 @@ class PosController extends Controller
             'items' => ['required', 'array', 'min:1'],
             'items.*.id' => ['required', 'string', 'distinct'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
-            'payment_method' => ['required', 'in:cash,qris,card,split,free,online_merchant'],
+            'payment_method' => ['required', 'in:cash,qris,card,split,free,online_merchant,midtrans'],
             'payments' => ['required_if:payment_method,split', 'nullable', 'array', 'min:2', 'max:3'],
             'payments.*.method' => ['required_with:payments', 'in:cash,qris,card', 'distinct'],
             'payments.*.amount' => ['required_with:payments', 'integer', 'min:1'],
@@ -340,6 +342,7 @@ class PosController extends Controller
             'loyalty_stamp' => ['nullable', 'boolean'],
             'loyalty_reward' => ['nullable', 'in:fifty_percent,free_cup,physical_fifth,physical_tenth'],
         ]);
+        abort_if($validated['payment_method'] === 'midtrans' && ! $request->attributes->get('pos_gateway_checkout'), 422, 'Gunakan checkout gateway online.');
         $branchId = app(BranchContext::class)->activeId();
 
         if (! empty($validated['online_merchant'])) {
@@ -422,6 +425,7 @@ class PosController extends Controller
 
             $discount = $isComplimentary ? $subtotal : ($loyaltyReward ? $loyaltyDiscount : min((int) ($validated['discount'] ?? 0), $subtotal));
             $total = $subtotal - $discount;
+            abort_if($validated['payment_method'] === 'midtrans' && isset($validated['expected_total']) && $total !== (int) $validated['expected_total'], 422, 'Harga berubah. Periksa keranjang sebelum membayar.');
             abort_if($capturedAt && $total !== (int) $validated['expected_total'], 422, 'Harga atau diskon berubah. Periksa transaksi tersimpan sebelum sinkronisasi.');
             $splitPayments = collect($validated['payments'] ?? [])
                 ->map(fn (array $payment): array => [
@@ -452,12 +456,13 @@ class PosController extends Controller
                 'loyalty_reward' => $loyaltyReward,
                 'invoice_number' => $this->nextInvoiceNumber(),
                 'payment_method' => $validated['payment_method'],
+                'payment_status' => $validated['payment_method'] === 'midtrans' ? 'pending' : 'paid',
                 'complimentary_category' => $isComplimentary ? $validated['complimentary_category'] : null,
                 'complimentary_recipient_name' => $isComplimentary ? $validated['complimentary_recipient_name'] : null,
                 'subtotal' => $subtotal,
                 'discount' => $discount,
                 'total' => $total,
-                'paid_amount' => $paidAmount,
+                'paid_amount' => $validated['payment_method'] === 'midtrans' ? 0 : $paidAmount,
                 'change_amount' => max(0, $paidAmount - $total),
                 'sold_at' => $capturedAt ?? now(),
             ]);
@@ -595,6 +600,7 @@ class PosController extends Controller
                 ] : null,
                 'sold_at' => $sale->sold_at?->timezone('Asia/Makassar')->format('d M Y H:i'),
                 'payment_method' => $sale->payment_method,
+                'payment_status' => $sale->payment_status,
                 'payments' => $sale->payments->map(fn ($payment): array => [
                     'method' => $payment->payment_method,
                     'amount' => $payment->amount,
@@ -831,6 +837,7 @@ class PosController extends Controller
             'cashTotal' => $shift->cash_total,
             'qrisTotal' => $shift->qris_total,
             'cardTotal' => $shift->card_total,
+            'gatewayTotal' => (int) $shift->sales()->active()->where('payment_method', 'midtrans')->sum('total'),
             'openingCashAmount' => $shift->opening_cash_amount,
             'cashInDrawer' => $shift->opening_cash_amount + $shift->cash_total - $refunds['cashRefundTotal'],
             ...$refunds,

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 class PosSale extends Model
 {
@@ -26,6 +27,7 @@ class PosSale extends Model
         'loyalty_reward',
         'invoice_number',
         'payment_method',
+        'payment_status',
         'complimentary_category',
         'complimentary_recipient_name',
         'subtotal',
@@ -94,6 +96,11 @@ class PosSale extends Model
         return $this->hasMany(SaleRefund::class);
     }
 
+    public function gatewayPayment(): HasOne
+    {
+        return $this->hasOne(GatewayPayment::class);
+    }
+
     public function payments(): HasMany
     {
         return $this->hasMany(PosSalePayment::class);
@@ -111,6 +118,6 @@ class PosSale extends Model
 
     public function scopeActive(Builder $query): Builder
     {
-        return $query->whereNull('voided_at');
+        return $query->whereNull('voided_at')->where('payment_status', 'paid');
     }
 }

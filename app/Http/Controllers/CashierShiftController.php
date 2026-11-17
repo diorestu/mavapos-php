@@ -173,6 +173,8 @@ class CashierShiftController extends Controller
                 ->lockForUpdate()
                 ->firstOrFail();
 
+            abort_if($shift->sales()->whereHas('gatewayPayment')->exists(), 422, 'Shift dengan riwayat payment gateway tidak dapat dihapus.');
+
             abort_if(
                 $shift->sales()->where('branch_id', $branchId)->whereHas('refunds')->exists()
                 || SaleRefund::query()->where('branch_id', $branchId)->where('cashier_shift_id', $shift->id)->exists(),

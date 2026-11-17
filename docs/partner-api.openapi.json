@@ -339,7 +339,8 @@
                 "completed",
                 "voided",
                 "partially_refunded",
-                "refunded"
+                "refunded",
+                "pending"
               ]
             },
             "description": ""
@@ -642,7 +643,8 @@
                 "completed",
                 "voided",
                 "partially_refunded",
-                "refunded"
+                "refunded",
+                "pending"
               ]
             },
             "description": ""
@@ -1574,7 +1576,8 @@
               "completed",
               "voided",
               "partially_refunded",
-              "refunded"
+              "refunded",
+              "pending"
             ]
           },
           "subtotal": {

@@ -3,7 +3,9 @@
 namespace App\Services;
 
 use App\Models\CashierShift;
+use App\Models\GatewayPayment;
 use App\Models\User;
+use App\Models\WalletAccount;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
@@ -23,6 +25,14 @@ class SelfAccountDeletionService
             }
             if (CashierShift::query()->where('user_id', $user->id)->whereNull('closed_at')->lockForUpdate()->exists()) {
                 throw ValidationException::withMessages(['account' => 'Tutup shift kasir Anda sebelum menghapus akun.'])->errorBag('accountDeletion');
+            }
+            if ($user->role === 'owner') {
+                $wallet = WalletAccount::where('owner_id', $user->id)->where('environment', 'production')->lockForUpdate()->first();
+                $balances = $wallet ? app(WalletService::class)->balances($wallet) : ['available' => 0, 'unreconciled' => 0, 'reserved' => 0];
+                $pending = GatewayPayment::where('owner_id', $user->id)->where('environment', 'production')->whereNull('settled_at')->whereIn('status', ['pending', 'capture'])->exists();
+                if ($pending || $balances['available'] !== 0 || $balances['unreconciled'] !== 0 || $balances['reserved'] !== 0) {
+                    throw ValidationException::withMessages(['account' => 'Selesaikan dana dan kewajiban Wallet produksi sebelum menghapus akun.'])->errorBag('accountDeletion');
+                }
             }
             $photo = $user->profile_photo_path;
             $user->tokens()->delete();

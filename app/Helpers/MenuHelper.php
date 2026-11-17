@@ -133,6 +133,8 @@ class MenuHelper
             [
                 'title' => 'Keuangan',
                 'items' => [
+                    ['icon' => 'reports', 'name' => 'Wallet', 'path' => '/wallet', 'roles' => ['owner', 'admin']],
+                    ['icon' => 'reports', 'name' => 'Administrasi Wallet', 'path' => '/superadmin/wallets', 'roles' => ['superadmin']],
                     [
                         'icon' => 'expenses',
                         'name' => 'Pengeluaran',

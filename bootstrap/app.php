@@ -35,11 +35,12 @@ return Application::configure(basePath: dirname(__DIR__))
             'mobile.branch' => SetMobileBranch::class,
         ]);
         $middleware->validateCsrfTokens(except: [
+            'midtrans/notification',
             'sumopod/webhook',
             'pakasir/webhook',
             'api/mobile/*',
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
-        $exceptions->shouldRenderJsonWhen(fn (Request $request, Throwable $error): bool => $request->is('api/*', 'account/delete') || $request->expectsJson());
+        $exceptions->shouldRenderJsonWhen(fn (Request $request, Throwable $error): bool => $request->is('api/*', 'account/delete', 'midtrans/notification') || $request->expectsJson());
     })->create();

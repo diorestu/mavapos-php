@@ -44,7 +44,7 @@ class SaleController extends Controller
             'date_from' => ['nullable', 'date'],
             'date_to' => ['nullable', 'date', 'after_or_equal:date_from'],
             'cashier_id' => ['nullable', 'integer', 'exists:users,id'],
-            'payment_method' => ['nullable', 'in:cash,qris,card,split,free,online_merchant'],
+            'payment_method' => ['nullable', 'in:cash,qris,card,split,free,online_merchant,midtrans'],
             'search' => ['nullable', 'string', 'max:100'],
         ]);
 
@@ -58,7 +58,7 @@ class SaleController extends Controller
         $branchId = app(BranchContext::class)->activeId();
 
         $baseQuery = PosSale::query()
-            ->with(['user', 'branch', 'shift.user', 'items', 'payments', 'voidedBy', 'refunds'])
+            ->with(['user', 'branch', 'shift.user', 'items', 'payments', 'voidedBy', 'refunds', 'gatewayPayment'])
             ->where('branch_id', $branchId)
             ->whereBetween('sold_at', [$from->utc(), $to->utc()])
             ->when($validated['cashier_id'] ?? null, fn ($query, $cashierId) => $query->where('user_id', $cashierId))
@@ -101,7 +101,7 @@ class SaleController extends Controller
                 }
 
                 return $totals;
-            }, ['cash' => 0, 'qris' => 0, 'card' => 0, 'online_merchant' => 0]);
+            }, ['cash' => 0, 'qris' => 0, 'card' => 0, 'online_merchant' => 0, 'midtrans' => 0]);
         $soldUnits = (int) PosSaleItem::query()->whereIn('pos_sale_id', $summarySaleIds)->sum('quantity')
             + (int) PosSale::query()->whereIn('id', $summarySaleIds)->doesntHave('items')->count();
         $buyerNationalityCounts = PosSale::query()->whereIn('id', $summarySaleIds)
@@ -199,7 +199,7 @@ class SaleController extends Controller
             'items' => ['required', 'array', 'min:1'],
             'items.*.id' => ['required', 'string'],
             'items.*.quantity' => ['required', 'integer', 'min:1'],
-            'payment_method' => ['required', 'in:cash,qris,card,split,free,online_merchant'],
+            'payment_method' => ['required', 'in:cash,qris,card,split,free,online_merchant,midtrans'],
             'payments' => ['required_if:payment_method,split', 'nullable', 'array', 'min:2', 'max:3'],
             'payments.*.method' => ['required_with:payments', 'in:cash,qris,card', 'distinct'],
             'payments.*.amount' => ['required_with:payments', 'integer', 'min:1'],

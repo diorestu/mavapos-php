@@ -4,6 +4,7 @@ namespace App\Providers;
 
 use App\Models\PosSale;
 use App\Observers\PartnerSaleObserver;
+use App\Services\MidtransClient;
 use App\Services\PakasirClient;
 use App\Services\SumopodClient;
 use App\Support\BranchContext;
@@ -21,6 +22,12 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->singleton(MidtransClient::class, fn () => new MidtransClient(
+            serverKey: (string) config('services.midtrans.server_key', ''),
+            isProduction: (bool) config('services.midtrans.is_production', false),
+            timeout: (int) config('services.midtrans.timeout', 20),
+            clientKey: (string) config('services.midtrans.client_key', ''),
+        ));
         $this->app->singleton(SumopodClient::class, function (): SumopodClient {
             $config = config('services.sumopod');
 

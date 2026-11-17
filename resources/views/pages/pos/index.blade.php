@@ -20,6 +20,7 @@
             changeShift: @js(route('pos.shift.change')),
             closeShift: @js(route('pos.shift.close')),
             checkout: @js(route('pos.checkout')),
+            gatewayCheckout: @js(route('pos.gateway.checkout')),
             displayPush: @js(route('display.push')),
             displayStand: @js(route('display.stand')),
             offlineContext: @js($offlineContext),

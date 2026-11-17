@@ -4,7 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Models\Billing;
 use App\Models\StoreSetting;
-use App\Services\SumopodClient;
+use App\Services\MidtransBillingService;
+use App\Services\MidtransClient;
 use App\Support\LocalTime;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
@@ -12,6 +13,9 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Throwable;
@@ -29,20 +33,42 @@ class BillingController extends Controller
         ],
     ];
 
-    public function __construct(private readonly SumopodClient $sumopod) {}
+    public function __construct(private readonly MidtransClient $midtrans) {}
 
-    public function index(): View
+    public function index(Request $request, MidtransBillingService $service): View|RedirectResponse
     {
+        $data = $request->validate(['order_id' => ['nullable', 'string', 'max:80']]);
+        if (! empty($data['order_id'])) {
+            $billing = Billing::query()->where('payment_provider', 'midtrans')->where('invoice_number', $data['order_id'])->firstOrFail();
+            $this->limitStatusChecks($request);
+            try {
+                $service->sync($billing);
+            } catch (Throwable $exception) {
+                Log::warning('Midtrans checkout return verification failed.', ['billing_id' => $billing->id, 'exception_type' => $exception::class]);
+                $request->session()->flash('error', 'Status pembayaran belum dapat diperiksa. Silakan klik Cek untuk mencoba lagi.');
+            }
+
+            return redirect()->route('billings');
+        }
+
         $setting = StoreSetting::current();
         $currentSubscription = $this->currentSubscription();
         $currentPlanRank = $currentSubscription['plan_slug']
             ? (config('billing.plans')[$currentSubscription['plan_slug']]['rank'] ?? null)
             : null;
 
+        $billings = Billing::query()->with('customer')->latest()->get()->map(fn (Billing $billing): array => $this->payload($billing))->values();
+        $snap = $this->midtrans->snapConfiguration();
+        $autoInvoice = $billings->firstWhere('id', $request->session()->get('midtrans_snap_invoice'));
+        $autoSnapCheckout = $snap['ready'] && ! empty($autoInvoice['snapToken'])
+            ? ['token' => $autoInvoice['snapToken'], 'verifyUrl' => $autoInvoice['verifyUrl']]
+            : null;
+
         return view('pages.billing.index', [
             'title' => 'Billing',
-            'sumopodConfigured' => $this->sumopod->isConfigured(),
-            'pakasirConfigured' => $this->sumopod->isConfigured(),
+            'midtransConfigured' => $this->midtrans->isConfigured(),
+            'midtransSnap' => $snap,
+            'autoSnapCheckout' => $autoSnapCheckout,
             'plans' => collect(config('billing.plans'))
                 ->map(function (array $plan, string $slug) use ($currentSubscription, $currentPlanRank): array {
                     $yearlyBaseAmount = $plan['monthly_amount'] * self::BILLING_CYCLES['yearly']['months'];
@@ -73,12 +99,7 @@ class BillingController extends Controller
                 'email' => $setting->email ?: auth()->user()?->email,
             ],
             'currentSubscription' => $currentSubscription,
-            'billings' => Billing::query()
-                ->with('customer')
-                ->latest()
-                ->get()
-                ->map(fn (Billing $billing): array => $this->payload($billing))
-                ->values(),
+            'billings' => $billings,
         ]);
     }
 
@@ -88,88 +109,89 @@ class BillingController extends Controller
             'plan_slug' => ['required', Rule::in(array_keys(config('billing.plans')))],
             'billing_cycle' => ['required', Rule::in(array_keys(self::BILLING_CYCLES))],
         ]);
-
-        if (! $this->sumopod->isConfigured()) {
-            return back()
-                ->withInput()
-                ->withErrors(['sumopod' => 'Konfigurasi SumoPod belum lengkap. Isi SUMOPOD_API_KEY di .env.']);
+        if (! $this->midtrans->isConfigured()) {
+            return back()->withInput()->withErrors(['midtrans' => 'Pembayaran Midtrans belum tersedia. Hubungi admin untuk mengaktifkannya.']);
         }
 
         $setting = StoreSetting::current();
         $plan = config('billing.plans')[$validated['plan_slug']];
         $cycle = self::BILLING_CYCLES[$validated['billing_cycle']];
         $amount = $this->planAmount($validated['plan_slug'], $validated['billing_cycle']);
-        $accountName = $setting->store_name ?: $request->user()->name;
-        $accountPhone = $setting->whatsapp ?: $setting->phone;
-
+        $billing = null;
         try {
-            DB::transaction(function () use ($validated, $plan, $cycle, $amount, $accountName, $accountPhone): void {
-                $periodStartsAt = now();
-                $periodEndsAt = $periodStartsAt->copy()->addMonthsNoOverflow($cycle['months']);
-
-                $billing = Billing::query()->create([
-                    'invoice_number' => $this->nextInvoiceNumber(),
-                    'customer_id' => null,
-                    'customer_name' => $accountName,
-                    'customer_phone' => $accountPhone,
-                    'title' => $plan['name'].' - '.$cycle['label'],
-                    'description' => $plan['description'].' Ditagihkan '.$this->cycleSentence($validated['billing_cycle']).'.',
-                    'amount' => $amount,
-                    'payment_provider' => 'sumopod',
-                    'payment_method' => 'qris',
-                    'payment_status' => 'pending',
-                    'provider_payload' => [
-                        'subscription' => [
-                            'plan_slug' => $validated['plan_slug'],
-                            'plan_name' => $plan['name'],
-                            'billing_cycle' => $validated['billing_cycle'],
-                            'billing_cycle_label' => $cycle['label'],
-                            'months' => $cycle['months'],
-                            'monthly_amount' => $plan['monthly_amount'],
-                            'period_starts_at' => $periodStartsAt->toDateString(),
-                            'period_ends_at' => $periodEndsAt->toDateString(),
-                        ],
+            $periodStartsAt = now();
+            $billing = Billing::query()->create([
+                'invoice_number' => $this->nextInvoiceNumber(),
+                'customer_id' => null,
+                'customer_name' => $setting->store_name ?: $request->user()->name,
+                'customer_phone' => $setting->whatsapp ?: $setting->phone,
+                'title' => $plan['name'].' - '.$cycle['label'],
+                'description' => $plan['description'].' Ditagihkan '.$this->cycleSentence($validated['billing_cycle']).'.',
+                'amount' => $amount,
+                'fee' => 0,
+                'total_payment' => $amount,
+                'payment_provider' => 'midtrans',
+                'payment_method' => 'snap',
+                'payment_status' => 'pending',
+                'expires_at' => now()->addDay(),
+                'provider_payload' => [
+                    'midtrans_environment' => $this->midtrans->environment(),
+                    'subscription' => [
+                        'plan_slug' => $validated['plan_slug'], 'plan_name' => $plan['name'],
+                        'billing_cycle' => $validated['billing_cycle'], 'billing_cycle_label' => $cycle['label'],
+                        'months' => $cycle['months'], 'monthly_amount' => $plan['monthly_amount'],
+                        'period_starts_at' => $periodStartsAt->toDateString(),
+                        'period_ends_at' => $periodStartsAt->copy()->addMonthsNoOverflow($cycle['months'])->toDateString(),
                     ],
-                ]);
-
-                $successReturnUrl = route('billings', ['payment_status' => 'success']);
-                $cancelReturnUrl = route('billings', ['payment_status' => 'cancel']);
-
-                $response = $this->sumopod->createPayment(
-                    orderId: $billing->invoice_number,
-                    amount: $billing->amount,
-                    successReturnUrl: $successReturnUrl,
-                    cancelReturnUrl: $cancelReturnUrl,
-                    expiresInHours: 24,
-                    paymentMethodTypeCode: 'QRIS',
-                );
-                $payment = $response['data'] ?? $response;
-
-                $billing->update([
-                    'fee' => Arr::get($payment, 'fee', 0),
-                    'total_payment' => Arr::get($payment, 'amount', $billing->amount),
-                    'payment_number' => Arr::get($payment, 'payment_id', Arr::get($payment, 'payment_number')),
-                    'expires_at' => $this->parseDate(Arr::get($payment, 'expires_at')),
-                    'payment_url' => Arr::get($payment, 'payment_link_url'),
-                    'provider_payload' => [
-                        ...($billing->provider_payload ?? []),
-                        'create' => $response,
-                    ],
+                ],
+            ]);
+            $response = $this->midtrans->createPayment(
+                $billing->invoice_number, $billing->amount, $billing->title,
+                ['first_name' => mb_substr($billing->customer_name, 0, 100), 'email' => $setting->email ?: $request->user()->email, 'phone' => $billing->customer_phone],
+                route('billings'),
+            );
+            DB::transaction(function () use ($billing, $response): void {
+                $locked = Billing::query()->lockForUpdate()->findOrFail($billing->id);
+                $locked->update([
+                    'payment_url' => $response['redirect_url'],
+                    'provider_payload' => [...($locked->provider_payload ?? []), 'create' => $response],
                 ]);
             });
         } catch (Throwable $exception) {
-            report($exception);
+            if ($billing) {
+                Billing::query()->whereKey($billing->id)->whereNull('paid_at')->where('payment_status', 'pending')->update(['payment_status' => 'failed']);
+            }
+            Log::warning('Midtrans checkout creation failed.', ['billing_id' => $billing?->id, 'exception_type' => $exception::class]);
 
-            return back()
-                ->withInput()
-                ->withErrors(['sumopod' => 'Gagal membuat pembayaran QRIS SumoPod: '.$exception->getMessage()]);
+            return back()->withInput()->withErrors(['midtrans' => 'Gagal menyiapkan pembayaran Midtrans. Silakan coba lagi atau hubungi admin.']);
         }
 
-        return redirect()->route('billings')->with('success', 'Tagihan langganan QRIS SumoPod berhasil dibuat.');
+        return redirect()->route('billings')->with('midtrans_snap_invoice', $billing->id)->with('success', 'Tagihan langganan berhasil dibuat. Lanjutkan pembayaran melalui Midtrans.');
     }
 
-    public function refresh(Billing $billing): RedirectResponse
+    public function refresh(Request $request, Billing $billing, MidtransBillingService $service): RedirectResponse|JsonResponse
     {
+        if ($billing->payment_provider === 'midtrans') {
+            $this->limitStatusChecks($request);
+            try {
+                $billing = $service->sync($billing);
+            } catch (Throwable $exception) {
+                Log::warning('Midtrans status refresh failed.', ['billing_id' => $billing->id, 'exception_type' => $exception::class]);
+
+                if ($request->expectsJson()) {
+                    return response()->json(['message' => 'Status pembayaran belum dapat diperiksa.'], 503);
+                }
+
+                return back()->withErrors(['midtrans' => 'Status pembayaran belum dapat diperiksa. Silakan coba lagi.']);
+            }
+
+            if ($request->expectsJson()) {
+                return response()->json(['id' => $billing->id, 'payment_status' => $billing->payment_status, 'paid_at' => $billing->paid_at?->toISOString()])->header('Cache-Control', 'private, no-store');
+            }
+
+            return back()->with($billing->payment_status === 'completed' ? 'success' : 'info', "Status tagihan {$billing->invoice_number}: ".$this->statusLabel($billing->payment_status).'.');
+        }
+
         if ($billing->payment_status === 'completed' || $billing->paid_at !== null) {
             return back()->with('success', "Tagihan {$billing->invoice_number} sudah lunas.");
         }
@@ -189,7 +211,8 @@ class BillingController extends Controller
         $data = (array) ($payload['data'] ?? $payload);
 
         $orderId = $data['order_id'] ?? $payload['order_id'] ?? null;
-        $billing = Billing::query()->firstWhere('invoice_number', $orderId);
+        $provider = $request->routeIs('pakasir.webhook') ? 'pakasir' : 'sumopod';
+        $billing = Billing::withoutGlobalScopes()->where('payment_provider', $provider)->firstWhere('invoice_number', $orderId);
 
         if (! $billing) {
             return response()->json(['message' => 'Billing not found.'], 404);
@@ -252,6 +275,14 @@ class BillingController extends Controller
         ]);
     }
 
+    private function limitStatusChecks(Request $request): void
+    {
+        $key = 'midtrans-payment-status:'.$request->user()->id;
+        if (! RateLimiter::attempt($key, 30, fn () => true, 60)) {
+            abort(429, 'Terlalu banyak pemeriksaan pembayaran. Silakan tunggu sebentar.', ['Retry-After' => (string) RateLimiter::availableIn($key)]);
+        }
+    }
+
     private function payload(Billing $billing): array
     {
         return [
@@ -271,6 +302,11 @@ class BillingController extends Controller
             'totalPaymentFormatted' => $this->formatRupiah($billing->total_payment ?? $billing->amount),
             'paymentStatus' => $billing->payment_status,
             'paymentStatusLabel' => $this->statusLabel($billing->payment_status),
+            'paymentProvider' => $billing->payment_provider,
+            'snapToken' => $billing->payment_provider === 'midtrans' && $billing->payment_status === 'pending'
+                && ($billing->provider_payload['midtrans_environment'] ?? $this->midtrans->environment()) === $this->midtrans->environment()
+                ? Arr::get($billing->provider_payload, 'create.token') : null,
+            'verifyUrl' => route('billings', ['order_id' => $billing->invoice_number]),
             'paymentUrl' => $billing->payment_url ?? $this->paymentUrl($billing),
             'paymentNumber' => $billing->payment_number ?? '',
             'createdAt' => LocalTime::format($billing->created_at, 'd M Y H:i', ''),
@@ -282,7 +318,7 @@ class BillingController extends Controller
 
     private function nextInvoiceNumber(): string
     {
-        return 'INV-'.now()->format('YmdHis').'-'.str_pad((string) random_int(1, 999), 3, '0', STR_PAD_LEFT);
+        return 'INV-'.now()->format('YmdHis').'-'.Str::lower(Str::random(12));
     }
 
     private function paymentUrl(Billing $billing): string
@@ -416,6 +452,9 @@ class BillingController extends Controller
             'paid' => 'Lunas',
             'canceled' => 'Dibatalkan',
             'expired' => 'Kedaluwarsa',
+            'failed' => 'Gagal dibuat',
+            'refunded' => 'Dikembalikan',
+            'chargeback' => 'Chargeback',
         ][$status] ?? ucfirst($status);
     }
 }

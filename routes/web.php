@@ -12,10 +12,12 @@ use App\Http\Controllers\DeveloperApiController;
 use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\GlobalSearchController;
 use App\Http\Controllers\InventoryController;
+use App\Http\Controllers\MidtransNotificationController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\Partner\KeyController;
 use App\Http\Controllers\PayrollController;
 use App\Http\Controllers\PosController;
+use App\Http\Controllers\PosGatewayController;
 use App\Http\Controllers\ProductCategoryController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProductRecipeController;
@@ -30,6 +32,7 @@ use App\Http\Controllers\StockTransferController;
 use App\Http\Controllers\SuperAdminMembershipController;
 use App\Http\Controllers\SupplierController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\WalletController;
 use App\Http\Middleware\IdempotentCheckout;
 use App\Models\StoreSetting;
 use Illuminate\Support\Facades\Route;
@@ -45,6 +48,7 @@ Route::middleware('guest')->group(function () {
 
 Route::get('/auth/google/callback', [AuthController::class, 'handleGoogleCallback'])->name('auth.google.callback');
 
+Route::post('/midtrans/notification', MidtransNotificationController::class)->name('midtrans.notification');
 Route::post('/sumopod/webhook', [BillingController::class, 'webhook'])->name('sumopod.webhook');
 Route::post('/pakasir/webhook', [BillingController::class, 'webhook'])->name('pakasir.webhook');
 
@@ -69,6 +73,18 @@ Route::view('/terms-of-service', 'pages.terms-of-service', [
 ])->name('terms-of-service');
 
 Route::middleware('auth:web,sanctum')->group(function () {
+    Route::middleware('role:owner,admin,kasir')->group(function (): void {
+        Route::post('/pos/gateway-checkout', [PosGatewayController::class, 'store'])->middleware(['subscription', 'throttle:20,1'])->name('pos.gateway.checkout');
+        Route::get('/pos/gateway-payments/{payment}', [PosGatewayController::class, 'show'])->middleware('throttle:30,1')->name('pos.gateway.show');
+        Route::post('/pos/gateway-payments/{payment}/refresh', [PosGatewayController::class, 'refresh'])->middleware('throttle:30,1')->name('pos.gateway.refresh');
+    });
+    Route::middleware('role:owner,admin')->get('/wallet', [WalletController::class, 'index'])->name('wallet');
+    Route::middleware(['role:owner', 'throttle:10,1'])->post('/wallet/withdrawals', [WalletController::class, 'withdraw'])->name('wallet.withdraw');
+    Route::middleware('superadmin')->group(function (): void {
+        Route::get('/superadmin/wallets', [WalletController::class, 'admin'])->name('wallet.admin');
+        Route::post('/superadmin/gateway-payments/{payment}/reconcile', [WalletController::class, 'reconcile'])->name('wallet.admin.reconcile');
+        Route::patch('/superadmin/wallet-withdrawals/{withdrawal}', [WalletController::class, 'process'])->name('wallet.admin.process');
+    });
     Route::post('/logout', [AuthController::class, 'logout'])->name('logout');
     Route::get('/global-search', GlobalSearchController::class)->name('global-search');
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications');

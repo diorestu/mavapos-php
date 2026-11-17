@@ -5,11 +5,13 @@ use App\Models\PosSale;
 use App\Models\User;
 use App\Support\BranchContext;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
 use Tests\Support\ExcelExport;
 
 uses(RefreshDatabase::class);
 
 test('laporan menjelaskan diskon gratis dan rincian split payment setiap transaksi', function () {
+    $this->travelTo(Carbon::parse('2026-11-16T02:00:00Z'));
     $owner = User::factory()->create(['role' => 'owner']);
     $this->actingAs($owner);
     $branch = app(BranchContext::class)->active();

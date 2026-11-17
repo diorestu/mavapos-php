@@ -18,16 +18,17 @@ class ApiResource
     public static function transaction(PosSale $sale): array
     {
         $refunded = (int) $sale->refunds->sum('amount');
-        $status = $sale->voided_at ? 'voided' : ($sale->refunds->isEmpty() ? 'completed' : (($sale->total > 0 && $refunded >= $sale->total) ? 'refunded' : 'partially_refunded'));
+        $status = $sale->voided_at ? 'voided' : ($sale->payment_status === 'pending' ? 'pending' : ($sale->refunds->isEmpty() ? 'completed' : (($sale->total > 0 && $refunded >= $sale->total) ? 'refunded' : 'partially_refunded')));
         $updated = $sale->updated_at;
         foreach ($sale->refunds as $refund) {
             if ($refund->updated_at > $updated) {
                 $updated = $refund->updated_at;
             }
         }
-        $received = $sale->payment_method === 'online_merchant' ? (int) $sale->paid_amount : (int) $sale->total;
+        $isPaid = ($sale->payment_status ?? 'paid') === 'paid';
+        $received = ! $isPaid ? 0 : ($sale->payment_method === 'online_merchant' ? (int) $sale->paid_amount : (int) $sale->total);
         $payments = $sale->payments->map(fn ($p) => ['method' => $p->payment_method, 'amount' => (int) $p->amount])->all();
-        if ($payments === [] && $sale->payment_method !== 'split') {
+        if ($isPaid && $payments === [] && $sale->payment_method !== 'split') {
             $payments = [['method' => $sale->payment_method, 'amount' => $received]];
         }
 
@@ -38,7 +39,7 @@ class ApiResource
             'payment_method' => $sale->payment_method,
             'payments' => $payments, 'paid_amount' => (int) $sale->paid_amount, 'change_amount' => (int) $sale->change_amount,
             'received_amount' => $received, 'online_merchant' => $sale->online_merchant, 'merchant_deduction' => (int) $sale->online_merchant_deduction,
-            'refunded_amount' => $refunded, 'net_total' => $sale->voided_at ? 0 : $sale->total - $refunded,
+            'refunded_amount' => $refunded, 'net_total' => $sale->voided_at || ! $isPaid ? 0 : $sale->total - $refunded,
             'voided_at' => self::time($sale->voided_at), 'void_reason' => $sale->void_reason,
             'refunds' => $sale->refunds->map(fn ($r) => ['id' => $r->id, 'number' => $r->refund_number, 'amount' => (int) $r->amount, 'method' => $r->refund_method, 'refunded_at' => self::time($r->refunded_at), 'items' => $r->items->map(fn ($i) => ['transaction_item_id' => $i->pos_sale_item_id, 'quantity' => (int) $i->quantity, 'amount' => (int) $i->amount])->all()])->all(),
             'items' => $sale->items->map(fn ($i) => [

@@ -11,8 +11,18 @@ use App\Services\Partner\WebhookMessage;
 
 class PartnerSaleObserver
 {
+    public function updated(PosSale $sale): void
+    {
+        if ($sale->wasChanged('payment_status') && $sale->payment_status === 'paid' && ! $sale->voided_at) {
+            $this->created($sale);
+        }
+    }
+
     public function created(PosSale $sale): void
     {
+        if ($sale->payment_status === 'pending') {
+            return;
+        }
         $ownerId = Branch::withoutGlobalScopes()->whereKey($sale->branch_id)->value('user_id');
         if (! $ownerId) {
             return;

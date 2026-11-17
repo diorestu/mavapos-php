@@ -56,6 +56,7 @@ class SalesRefundService
 
                 return $existing->load('items');
             }
+            abort_if($sale->payment_method === 'midtrans', 422, 'Transaksi gateway harus ditangani melalui status dan refund Midtrans, tanpa mengubah nilai atau atribusi asli.');
             abort_if($sale->voided_at, 422, 'Transaksi yang sudah dibatalkan tidak dapat direfund.');
             $items = $sale->items()->orderBy('id')->lockForUpdate()->get();
             $allocations = $this->allocations($sale, $items);

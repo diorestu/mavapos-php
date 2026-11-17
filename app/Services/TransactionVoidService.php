@@ -14,13 +14,14 @@ class TransactionVoidService
 {
     public function __construct(private CashierShiftSummaryService $shiftSummary) {}
 
-    public function void(PosSale $sale, int $branchId, User $actor, string $reason): PosSale
+    public function void(PosSale $sale, int $branchId, User $actor, string $reason, bool $gatewayRelease = false): PosSale
     {
-        return DB::transaction(function () use ($sale, $branchId, $actor, $reason): PosSale {
+        return DB::transaction(function () use ($sale, $branchId, $actor, $reason, $gatewayRelease): PosSale {
             $sale = PosSale::query()->with(['items.product', 'items.productVariant', 'rawMaterialUsages.rawMaterial', 'shift'])
                 ->whereKey($sale->id)->where('branch_id', $branchId)->lockForUpdate()->firstOrFail();
 
-            if ($actor->hasRole('kasir')) {
+            abort_if($sale->payment_method === 'midtrans' && ! $gatewayRelease, 422, 'Transaksi gateway hanya dapat dibatalkan oleh status pembayaran terverifikasi.');
+            if (! $gatewayRelease && $actor->hasRole('kasir')) {
                 abort_unless($sale->user_id === $actor->id && $sale->shift?->closed_at === null, 403);
             }
 

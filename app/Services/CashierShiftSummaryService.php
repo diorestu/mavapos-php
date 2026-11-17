@@ -68,6 +68,7 @@ class CashierShiftSummaryService
             'cashTotal' => $shift->cash_total,
             'qrisTotal' => $shift->qris_total,
             'cardTotal' => $shift->card_total,
+            'gatewayTotal' => (int) $shift->sales()->active()->where('payment_method', 'midtrans')->sum('total'),
             'onlineMerchantTotal' => (int) $merchantSales->sum('paid_amount'),
             'onlineMerchantDeduction' => (int) $merchantSales->sum('online_merchant_deduction'),
             'openingCashAmount' => $shift->opening_cash_amount,
