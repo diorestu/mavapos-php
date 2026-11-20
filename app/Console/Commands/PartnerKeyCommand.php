@@ -39,9 +39,10 @@ class PartnerKeyCommand extends Command
 
             return self::FAILURE;
         }
-        [$key, $plain] = PartnerApiKey::issue($owner, $name, (bool) $this->option('sandbox'), now()->addDays($days));
+        [$key, $plain, $client] = PartnerApiKey::issue($owner, $name, (bool) $this->option('sandbox'), now()->addDays($days));
         $this->info('Key ID: '.$key->id.'; copy the token now, it is only shown once:');
-        $this->line($plain);
+        $this->line('Bearer token: '.$plain);
+        $this->line('X-Client-Key: '.$client);
 
         return self::SUCCESS;
     }

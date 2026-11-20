@@ -11,7 +11,7 @@ class PartnerApiKey extends Model
 {
     protected $guarded = ['id'];
 
-    protected $hidden = ['token_hash'];
+    protected $hidden = ['token_hash', 'client_key_hash'];
 
     protected function casts(): array
     {
@@ -28,11 +28,20 @@ class PartnerApiKey extends Model
         return ! $this->revoked_at && $this->expires_at->isFuture() && $this->owner?->role === 'owner';
     }
 
+    public function rotateClientKey(): string
+    {
+        $plain = 'mava_client_'.Str::random(64);
+        $this->forceFill(['client_key_hash' => hash('sha256', $plain), 'client_key_prefix' => substr($plain, 0, 20)])->save();
+
+        return $plain;
+    }
+
     public static function issue(User $owner, string $name, bool $sandbox, DateTimeInterface $expiresAt): array
     {
         $plain = ($sandbox ? 'mava_test_' : 'mava_live_').Str::random(64);
-        $key = static::create(['owner_id' => $owner->tenantOwnerId(), 'name' => $name, 'token_hash' => hash('sha256', $plain), 'prefix' => substr($plain, 0, 18), 'sandbox' => $sandbox, 'expires_at' => $expiresAt]);
+        $client = 'mava_client_'.Str::random(64);
+        $key = static::create(['owner_id' => $owner->tenantOwnerId(), 'name' => $name, 'token_hash' => hash('sha256', $plain), 'client_key_hash' => hash('sha256', $client), 'client_key_prefix' => substr($client, 0, 20), 'prefix' => substr($plain, 0, 18), 'sandbox' => $sandbox, 'expires_at' => $expiresAt]);
 
-        return [$key, $plain];
+        return [$key, $plain, $client];
     }
 }

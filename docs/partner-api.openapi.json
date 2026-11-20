@@ -2,29 +2,30 @@
   "openapi": "3.0.3",
   "info": {
     "title": "MavaPOS Partner API",
-    "version": "1.0.0",
-    "description": "Read-only merchant reporting using dedicated bearer API keys. 60 requests/minute/key. Integer IDR, ISO8601 Asia/Makassar timestamps. Date ranges are half-open [from,to), max 31 days. Sandbox fixtures use outlet 900001 and sale date 2026-11-13. Webhooks are transaction.created only; signed with HMAC SHA256(timestamp + \".\" + raw_body), at most five delivery attempts. See partner-api.md for deployment, key issuance and receiver verification."
+    "version": "1.1.0",
+    "description": "API baca data outlet, produk, transaksi dan ringkasan penjualan satu merchant. Semua request wajib memakai Bearer token dan X-Client-Key pasangannya. Batas 60 request/menit/key; nominal rupiah bulat dan waktu WITA. Rentang transaksi maksimal 31 hari. Lihat partner-api.md untuk contoh request dan webhook."
   },
   "servers": [
     {
       "url": "https://your-mavapos-domain.com/api/partner/v1",
-      "description": "Replace domain with deployed backend; live key required."
+      "description": "Produksi. Ganti domain dengan backend MavaPOS Anda."
     },
     {
       "url": "https://your-mavapos-domain.com/api/partner/sandbox/v1",
-      "description": "Fixture sandbox; sandbox key required."
+      "description": "Sandbox dengan data contoh. Gunakan pasangan key sandbox."
     }
   ],
   "security": [
     {
-      "PartnerKey": []
+      "PartnerKey": [],
+      "ClientKey": []
     }
   ],
   "paths": {
     "/outlets": {
       "get": {
         "operationId": "listOutlets",
-        "summary": "List merchant outlets including inactive outlets",
+        "summary": "Daftar outlet, termasuk yang nonaktif",
         "parameters": [
           {
             "name": "page",
@@ -53,14 +54,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "Berhasil.",
             "headers": {
               "X-RateLimit-Limit": {
                 "schema": {
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Requests per minute per key."
+                "description": "Batas request per menit per key."
               },
               "X-RateLimit-Remaining": {
                 "schema": {
@@ -78,7 +79,7 @@
             }
           },
           "401": {
-            "description": "JSON error",
+            "description": "Bearer atau Client Key tidak valid.",
             "content": {
               "application/json": {
                 "schema": {
@@ -88,7 +89,7 @@
             }
           },
           "403": {
-            "description": "JSON error",
+            "description": "Mode key tidak cocok atau fitur hanya untuk sandbox.",
             "content": {
               "application/json": {
                 "schema": {
@@ -98,7 +99,7 @@
             }
           },
           "404": {
-            "description": "JSON error",
+            "description": "Data tidak ditemukan atau bukan milik merchant.",
             "content": {
               "application/json": {
                 "schema": {
@@ -108,7 +109,7 @@
             }
           },
           "422": {
-            "description": "JSON error",
+            "description": "Parameter request tidak valid.",
             "content": {
               "application/json": {
                 "schema": {
@@ -118,7 +119,7 @@
             }
           },
           "429": {
-            "description": "JSON error",
+            "description": "Batas request tercapai. Ikuti Retry-After.",
             "content": {
               "application/json": {
                 "schema": {
@@ -132,14 +133,14 @@
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Seconds before retry."
+                "description": "Jumlah detik sebelum mencoba lagi."
               },
               "X-RateLimit-Limit": {
                 "schema": {
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Requests per minute per key."
+                "description": "Batas request per menit per key."
               },
               "X-RateLimit-Remaining": {
                 "schema": {
@@ -155,7 +156,7 @@
     "/products": {
       "get": {
         "operationId": "listProducts",
-        "summary": "List merchant catalog with categories and variants",
+        "summary": "Daftar produk, kategori dan varian",
         "parameters": [
           {
             "name": "page",
@@ -184,14 +185,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "Berhasil.",
             "headers": {
               "X-RateLimit-Limit": {
                 "schema": {
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Requests per minute per key."
+                "description": "Batas request per menit per key."
               },
               "X-RateLimit-Remaining": {
                 "schema": {
@@ -209,7 +210,7 @@
             }
           },
           "401": {
-            "description": "JSON error",
+            "description": "Bearer atau Client Key tidak valid.",
             "content": {
               "application/json": {
                 "schema": {
@@ -219,7 +220,7 @@
             }
           },
           "403": {
-            "description": "JSON error",
+            "description": "Mode key tidak cocok atau fitur hanya untuk sandbox.",
             "content": {
               "application/json": {
                 "schema": {
@@ -229,7 +230,7 @@
             }
           },
           "404": {
-            "description": "JSON error",
+            "description": "Data tidak ditemukan atau bukan milik merchant.",
             "content": {
               "application/json": {
                 "schema": {
@@ -239,7 +240,7 @@
             }
           },
           "422": {
-            "description": "JSON error",
+            "description": "Parameter request tidak valid.",
             "content": {
               "application/json": {
                 "schema": {
@@ -249,7 +250,7 @@
             }
           },
           "429": {
-            "description": "JSON error",
+            "description": "Batas request tercapai. Ikuti Retry-After.",
             "content": {
               "application/json": {
                 "schema": {
@@ -263,14 +264,14 @@
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Seconds before retry."
+                "description": "Jumlah detik sebelum mencoba lagi."
               },
               "X-RateLimit-Limit": {
                 "schema": {
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Requests per minute per key."
+                "description": "Batas request per menit per key."
               },
               "X-RateLimit-Remaining": {
                 "schema": {
@@ -286,7 +287,7 @@
     "/transactions": {
       "get": {
         "operationId": "listTransactions",
-        "summary": "List original sales including void and refund state",
+        "summary": "Daftar transaksi, termasuk pending, void dan refund",
         "parameters": [
           {
             "name": "outlet_id",
@@ -297,7 +298,7 @@
               "format": "int64",
               "minimum": 1
             },
-            "description": "Merchant-owned outlet ID."
+            "description": "ID outlet milik merchant."
           },
           {
             "name": "from",
@@ -307,7 +308,7 @@
               "type": "string",
               "format": "date-time"
             },
-            "description": "Inclusive sold_at boundary; explicit offset and seconds; no fractional seconds."
+            "description": "Waktu mulai penjualan, termasuk hasil. Wajib zona waktu dan detik, tanpa pecahan detik."
           },
           {
             "name": "to",
@@ -317,7 +318,7 @@
               "type": "string",
               "format": "date-time"
             },
-            "description": "Exclusive sold_at boundary, strictly after from and at most 31 days later."
+            "description": "Waktu akhir tidak termasuk hasil. Harus setelah from, maksimal 31 hari."
           },
           {
             "name": "updated_since",
@@ -327,7 +328,7 @@
               "type": "string",
               "format": "date-time"
             },
-            "description": "Inclusive sale/refund updated_at filter within original sold_at window."
+            "description": "Ambil transaksi/refund yang berubah sejak waktu ini. Rentang from–to tetap berlaku."
           },
           {
             "name": "status",
@@ -372,14 +373,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "Berhasil.",
             "headers": {
               "X-RateLimit-Limit": {
                 "schema": {
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Requests per minute per key."
+                "description": "Batas request per menit per key."
               },
               "X-RateLimit-Remaining": {
                 "schema": {
@@ -397,7 +398,7 @@
             }
           },
           "401": {
-            "description": "JSON error",
+            "description": "Bearer atau Client Key tidak valid.",
             "content": {
               "application/json": {
                 "schema": {
@@ -407,7 +408,7 @@
             }
           },
           "403": {
-            "description": "JSON error",
+            "description": "Mode key tidak cocok atau fitur hanya untuk sandbox.",
             "content": {
               "application/json": {
                 "schema": {
@@ -417,7 +418,7 @@
             }
           },
           "404": {
-            "description": "JSON error",
+            "description": "Data tidak ditemukan atau bukan milik merchant.",
             "content": {
               "application/json": {
                 "schema": {
@@ -427,7 +428,7 @@
             }
           },
           "422": {
-            "description": "JSON error",
+            "description": "Parameter request tidak valid.",
             "content": {
               "application/json": {
                 "schema": {
@@ -437,7 +438,7 @@
             }
           },
           "429": {
-            "description": "JSON error",
+            "description": "Batas request tercapai. Ikuti Retry-After.",
             "content": {
               "application/json": {
                 "schema": {
@@ -451,14 +452,14 @@
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Seconds before retry."
+                "description": "Jumlah detik sebelum mencoba lagi."
               },
               "X-RateLimit-Limit": {
                 "schema": {
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Requests per minute per key."
+                "description": "Batas request per menit per key."
               },
               "X-RateLimit-Remaining": {
                 "schema": {
@@ -474,7 +475,7 @@
     "/transactions/{transaction}": {
       "get": {
         "operationId": "getTransaction",
-        "summary": "Read one merchant-owned transaction",
+        "summary": "Detail satu transaksi",
         "parameters": [
           {
             "name": "transaction",
@@ -488,14 +489,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "Berhasil.",
             "headers": {
               "X-RateLimit-Limit": {
                 "schema": {
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Requests per minute per key."
+                "description": "Batas request per menit per key."
               },
               "X-RateLimit-Remaining": {
                 "schema": {
@@ -513,7 +514,7 @@
             }
           },
           "401": {
-            "description": "JSON error",
+            "description": "Bearer atau Client Key tidak valid.",
             "content": {
               "application/json": {
                 "schema": {
@@ -523,7 +524,7 @@
             }
           },
           "403": {
-            "description": "JSON error",
+            "description": "Mode key tidak cocok atau fitur hanya untuk sandbox.",
             "content": {
               "application/json": {
                 "schema": {
@@ -533,7 +534,7 @@
             }
           },
           "404": {
-            "description": "JSON error",
+            "description": "Data tidak ditemukan atau bukan milik merchant.",
             "content": {
               "application/json": {
                 "schema": {
@@ -543,7 +544,7 @@
             }
           },
           "422": {
-            "description": "JSON error",
+            "description": "Parameter request tidak valid.",
             "content": {
               "application/json": {
                 "schema": {
@@ -553,7 +554,7 @@
             }
           },
           "429": {
-            "description": "JSON error",
+            "description": "Batas request tercapai. Ikuti Retry-After.",
             "content": {
               "application/json": {
                 "schema": {
@@ -567,14 +568,14 @@
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Seconds before retry."
+                "description": "Jumlah detik sebelum mencoba lagi."
               },
               "X-RateLimit-Limit": {
                 "schema": {
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Requests per minute per key."
+                "description": "Batas request per menit per key."
               },
               "X-RateLimit-Remaining": {
                 "schema": {
@@ -590,7 +591,7 @@
     "/sales-summary": {
       "get": {
         "operationId": "salesSummary",
-        "summary": "Totals excluding voids; refunds attributed to original sale window; products show original gross sales",
+        "summary": "Total penjualan dan penjualan kotor per produk",
         "parameters": [
           {
             "name": "outlet_id",
@@ -601,7 +602,7 @@
               "format": "int64",
               "minimum": 1
             },
-            "description": "Merchant-owned outlet ID."
+            "description": "ID outlet milik merchant."
           },
           {
             "name": "from",
@@ -611,7 +612,7 @@
               "type": "string",
               "format": "date-time"
             },
-            "description": "Inclusive sold_at boundary; explicit offset and seconds; no fractional seconds."
+            "description": "Waktu mulai penjualan, termasuk hasil. Wajib zona waktu dan detik, tanpa pecahan detik."
           },
           {
             "name": "to",
@@ -621,7 +622,7 @@
               "type": "string",
               "format": "date-time"
             },
-            "description": "Exclusive sold_at boundary, strictly after from and at most 31 days later."
+            "description": "Waktu akhir tidak termasuk hasil. Harus setelah from, maksimal 31 hari."
           },
           {
             "name": "updated_since",
@@ -631,7 +632,7 @@
               "type": "string",
               "format": "date-time"
             },
-            "description": "Inclusive sale/refund updated_at filter within original sold_at window."
+            "description": "Ambil transaksi/refund yang berubah sejak waktu ini. Rentang from–to tetap berlaku."
           },
           {
             "name": "status",
@@ -676,14 +677,14 @@
         ],
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "Berhasil.",
             "headers": {
               "X-RateLimit-Limit": {
                 "schema": {
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Requests per minute per key."
+                "description": "Batas request per menit per key."
               },
               "X-RateLimit-Remaining": {
                 "schema": {
@@ -701,7 +702,7 @@
             }
           },
           "401": {
-            "description": "JSON error",
+            "description": "Bearer atau Client Key tidak valid.",
             "content": {
               "application/json": {
                 "schema": {
@@ -711,7 +712,7 @@
             }
           },
           "403": {
-            "description": "JSON error",
+            "description": "Mode key tidak cocok atau fitur hanya untuk sandbox.",
             "content": {
               "application/json": {
                 "schema": {
@@ -721,7 +722,7 @@
             }
           },
           "404": {
-            "description": "JSON error",
+            "description": "Data tidak ditemukan atau bukan milik merchant.",
             "content": {
               "application/json": {
                 "schema": {
@@ -731,7 +732,7 @@
             }
           },
           "422": {
-            "description": "JSON error",
+            "description": "Parameter request tidak valid.",
             "content": {
               "application/json": {
                 "schema": {
@@ -741,7 +742,7 @@
             }
           },
           "429": {
-            "description": "JSON error",
+            "description": "Batas request tercapai. Ikuti Retry-After.",
             "content": {
               "application/json": {
                 "schema": {
@@ -755,14 +756,14 @@
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Seconds before retry."
+                "description": "Jumlah detik sebelum mencoba lagi."
               },
               "X-RateLimit-Limit": {
                 "schema": {
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Requests per minute per key."
+                "description": "Batas request per menit per key."
               },
               "X-RateLimit-Remaining": {
                 "schema": {
@@ -778,17 +779,17 @@
     "/webhook": {
       "get": {
         "operationId": "getWebhook",
-        "summary": "Get webhook for current key; no secret",
+        "summary": "Lihat webhook milik key ini",
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "Berhasil.",
             "headers": {
               "X-RateLimit-Limit": {
                 "schema": {
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Requests per minute per key."
+                "description": "Batas request per menit per key."
               },
               "X-RateLimit-Remaining": {
                 "schema": {
@@ -806,7 +807,7 @@
             }
           },
           "401": {
-            "description": "JSON error",
+            "description": "Bearer atau Client Key tidak valid.",
             "content": {
               "application/json": {
                 "schema": {
@@ -816,7 +817,7 @@
             }
           },
           "403": {
-            "description": "JSON error",
+            "description": "Mode key tidak cocok atau fitur hanya untuk sandbox.",
             "content": {
               "application/json": {
                 "schema": {
@@ -826,7 +827,7 @@
             }
           },
           "404": {
-            "description": "JSON error",
+            "description": "Data tidak ditemukan atau bukan milik merchant.",
             "content": {
               "application/json": {
                 "schema": {
@@ -836,7 +837,7 @@
             }
           },
           "422": {
-            "description": "JSON error",
+            "description": "Parameter request tidak valid.",
             "content": {
               "application/json": {
                 "schema": {
@@ -846,7 +847,7 @@
             }
           },
           "429": {
-            "description": "JSON error",
+            "description": "Batas request tercapai. Ikuti Retry-After.",
             "content": {
               "application/json": {
                 "schema": {
@@ -860,14 +861,14 @@
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Seconds before retry."
+                "description": "Jumlah detik sebelum mencoba lagi."
               },
               "X-RateLimit-Limit": {
                 "schema": {
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Requests per minute per key."
+                "description": "Batas request per menit per key."
               },
               "X-RateLimit-Remaining": {
                 "schema": {
@@ -881,17 +882,17 @@
       },
       "post": {
         "operationId": "createWebhook",
-        "summary": "Register one HTTPS webhook for current key",
+        "summary": "Daftarkan satu webhook untuk key ini",
         "responses": {
           "201": {
-            "description": "Success",
+            "description": "Berhasil.",
             "headers": {
               "X-RateLimit-Limit": {
                 "schema": {
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Requests per minute per key."
+                "description": "Batas request per menit per key."
               },
               "X-RateLimit-Remaining": {
                 "schema": {
@@ -909,7 +910,7 @@
             }
           },
           "401": {
-            "description": "JSON error",
+            "description": "Bearer atau Client Key tidak valid.",
             "content": {
               "application/json": {
                 "schema": {
@@ -919,7 +920,7 @@
             }
           },
           "403": {
-            "description": "JSON error",
+            "description": "Mode key tidak cocok atau fitur hanya untuk sandbox.",
             "content": {
               "application/json": {
                 "schema": {
@@ -929,7 +930,7 @@
             }
           },
           "404": {
-            "description": "JSON error",
+            "description": "Data tidak ditemukan atau bukan milik merchant.",
             "content": {
               "application/json": {
                 "schema": {
@@ -939,7 +940,7 @@
             }
           },
           "422": {
-            "description": "JSON error",
+            "description": "Parameter request tidak valid.",
             "content": {
               "application/json": {
                 "schema": {
@@ -949,7 +950,7 @@
             }
           },
           "429": {
-            "description": "JSON error",
+            "description": "Batas request tercapai. Ikuti Retry-After.",
             "content": {
               "application/json": {
                 "schema": {
@@ -963,14 +964,14 @@
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Seconds before retry."
+                "description": "Jumlah detik sebelum mencoba lagi."
               },
               "X-RateLimit-Limit": {
                 "schema": {
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Requests per minute per key."
+                "description": "Batas request per menit per key."
               },
               "X-RateLimit-Remaining": {
                 "schema": {
@@ -981,7 +982,7 @@
             }
           },
           "409": {
-            "description": "JSON error",
+            "description": "Webhook untuk key ini sudah ada.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1002,7 +1003,7 @@
                     "type": "string",
                     "format": "uri",
                     "maxLength": 2048,
-                    "description": "HTTPS:443 on an operator-approved hostname; no credentials/fragment."
+                    "description": "HTTPS port 443 pada hostname yang diizinkan admin, tanpa username/password atau fragmen URL."
                   }
                 },
                 "required": [
@@ -1015,17 +1016,17 @@
       },
       "delete": {
         "operationId": "deleteWebhook",
-        "summary": "Delete webhook and its pending deliveries",
+        "summary": "Hapus webhook dan antrean pengirimannya",
         "responses": {
           "204": {
-            "description": "Success",
+            "description": "Berhasil.",
             "headers": {
               "X-RateLimit-Limit": {
                 "schema": {
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Requests per minute per key."
+                "description": "Batas request per menit per key."
               },
               "X-RateLimit-Remaining": {
                 "schema": {
@@ -1036,7 +1037,7 @@
             }
           },
           "401": {
-            "description": "JSON error",
+            "description": "Bearer atau Client Key tidak valid.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1046,7 +1047,7 @@
             }
           },
           "403": {
-            "description": "JSON error",
+            "description": "Mode key tidak cocok atau fitur hanya untuk sandbox.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1056,7 +1057,7 @@
             }
           },
           "404": {
-            "description": "JSON error",
+            "description": "Data tidak ditemukan atau bukan milik merchant.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1066,7 +1067,7 @@
             }
           },
           "422": {
-            "description": "JSON error",
+            "description": "Parameter request tidak valid.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1076,7 +1077,7 @@
             }
           },
           "429": {
-            "description": "JSON error",
+            "description": "Batas request tercapai. Ikuti Retry-After.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1090,14 +1091,14 @@
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Seconds before retry."
+                "description": "Jumlah detik sebelum mencoba lagi."
               },
               "X-RateLimit-Limit": {
                 "schema": {
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Requests per minute per key."
+                "description": "Batas request per menit per key."
               },
               "X-RateLimit-Remaining": {
                 "schema": {
@@ -1113,17 +1114,17 @@
     "/webhook/test": {
       "post": {
         "operationId": "testWebhook",
-        "summary": "Sandbox only: generate signed fixture for local receiver tests; no outgoing HTTP",
+        "summary": "Sandbox: buat contoh notifikasi, tanpa mengirim HTTP",
         "responses": {
           "200": {
-            "description": "Success",
+            "description": "Berhasil.",
             "headers": {
               "X-RateLimit-Limit": {
                 "schema": {
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Requests per minute per key."
+                "description": "Batas request per menit per key."
               },
               "X-RateLimit-Remaining": {
                 "schema": {
@@ -1141,7 +1142,7 @@
             }
           },
           "401": {
-            "description": "JSON error",
+            "description": "Bearer atau Client Key tidak valid.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1151,7 +1152,7 @@
             }
           },
           "403": {
-            "description": "JSON error",
+            "description": "Mode key tidak cocok atau fitur hanya untuk sandbox.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1161,7 +1162,7 @@
             }
           },
           "404": {
-            "description": "JSON error",
+            "description": "Data tidak ditemukan atau bukan milik merchant.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1171,7 +1172,7 @@
             }
           },
           "422": {
-            "description": "JSON error",
+            "description": "Parameter request tidak valid.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1181,7 +1182,7 @@
             }
           },
           "429": {
-            "description": "JSON error",
+            "description": "Batas request tercapai. Ikuti Retry-After.",
             "content": {
               "application/json": {
                 "schema": {
@@ -1195,14 +1196,14 @@
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Seconds before retry."
+                "description": "Jumlah detik sebelum mencoba lagi."
               },
               "X-RateLimit-Limit": {
                 "schema": {
                   "type": "integer",
                   "format": "int64"
                 },
-                "description": "Requests per minute per key."
+                "description": "Batas request per menit per key."
               },
               "X-RateLimit-Remaining": {
                 "schema": {
@@ -1222,6 +1223,12 @@
         "type": "http",
         "scheme": "bearer",
         "bearerFormat": "mava_live_... or mava_test_..."
+      },
+      "ClientKey": {
+        "type": "apiKey",
+        "in": "header",
+        "name": "X-Client-Key",
+        "description": "Client Key pasangan Bearer token, dibuat/diganti di Pengaturan. Kedua header wajib dikirim."
       }
     },
     "schemas": {
@@ -1341,7 +1348,7 @@
           },
           "attributes": {
             "nullable": true,
-            "description": "Captured variant attributes: JSON object or array, or null."
+            "description": "Atribut varian saat transaksi: objek/array JSON, atau null."
           }
         }
       },
@@ -1362,7 +1369,7 @@
           "price": {
             "type": "integer",
             "format": "int64",
-            "description": "Integer rupiah (IDR)."
+            "description": "Nominal rupiah bulat (IDR)."
           },
           "category": {
             "type": "object",
@@ -1396,16 +1403,16 @@
                 "price": {
                   "type": "integer",
                   "format": "int64",
-                  "description": "Integer rupiah (IDR)."
+                  "description": "Nominal rupiah bulat (IDR)."
                 },
                 "price_adjustment": {
                   "type": "integer",
                   "format": "int64",
-                  "description": "Integer rupiah (IDR)."
+                  "description": "Nominal rupiah bulat (IDR)."
                 },
                 "attributes": {
                   "nullable": true,
-                  "description": "Variant attributes: JSON object or array, or null."
+                  "description": "Atribut varian: objek/array JSON, atau null."
                 },
                 "active": {
                   "type": "boolean"
@@ -1450,17 +1457,17 @@
           "unit_price": {
             "type": "integer",
             "format": "int64",
-            "description": "Integer rupiah (IDR)."
+            "description": "Nominal rupiah bulat (IDR)."
           },
           "line_total": {
             "type": "integer",
             "format": "int64",
-            "description": "Integer rupiah (IDR)."
+            "description": "Nominal rupiah bulat (IDR)."
           },
           "discount": {
             "type": "integer",
             "nullable": true,
-            "description": "Always null in v1: discount is stored at transaction level."
+            "description": "Bernilai null; diskon disimpan per pesanan."
           },
           "variant": {
             "type": "object",
@@ -1474,11 +1481,11 @@
               },
               "attributes": {
                 "nullable": true,
-                "description": "Captured variant attributes: JSON object or array, or null."
+                "description": "Atribut varian saat transaksi: objek/array JSON, atau null."
               }
             },
             "nullable": true,
-            "description": "Captured for new sale items after partner migration; null for legacy rows."
+            "description": "Varian yang disimpan saat transaksi. Data lama dapat bernilai null."
           },
           "modifiers": {
             "type": "array",
@@ -1486,7 +1493,7 @@
             "items": {
               "type": "object"
             },
-            "description": "Always null in v1: separate modifiers are not stored."
+            "description": "Bernilai null; modifier terpisah belum tersedia."
           }
         }
       },
@@ -1499,7 +1506,7 @@
           "amount": {
             "type": "integer",
             "format": "int64",
-            "description": "Integer rupiah (IDR)."
+            "description": "Nominal rupiah bulat (IDR)."
           }
         }
       },
@@ -1516,7 +1523,7 @@
           "amount": {
             "type": "integer",
             "format": "int64",
-            "description": "Integer rupiah (IDR)."
+            "description": "Nominal rupiah bulat (IDR)."
           },
           "method": {
             "type": "string"
@@ -1541,7 +1548,7 @@
                 "amount": {
                   "type": "integer",
                   "format": "int64",
-                  "description": "Integer rupiah (IDR)."
+                  "description": "Nominal rupiah bulat (IDR)."
                 }
               }
             }
@@ -1583,17 +1590,17 @@
           "subtotal": {
             "type": "integer",
             "format": "int64",
-            "description": "Integer rupiah (IDR)."
+            "description": "Nominal rupiah bulat (IDR)."
           },
           "discount": {
             "type": "integer",
             "format": "int64",
-            "description": "Integer rupiah (IDR)."
+            "description": "Nominal rupiah bulat (IDR)."
           },
           "total": {
             "type": "integer",
             "format": "int64",
-            "description": "Integer rupiah (IDR)."
+            "description": "Nominal rupiah bulat (IDR)."
           },
           "payment_method": {
             "type": "string"
@@ -1607,17 +1614,17 @@
           "paid_amount": {
             "type": "integer",
             "format": "int64",
-            "description": "Integer rupiah (IDR)."
+            "description": "Nominal rupiah bulat (IDR)."
           },
           "change_amount": {
             "type": "integer",
             "format": "int64",
-            "description": "Integer rupiah (IDR)."
+            "description": "Nominal rupiah bulat (IDR)."
           },
           "received_amount": {
             "type": "integer",
             "format": "int64",
-            "description": "Integer rupiah (IDR)."
+            "description": "Nominal rupiah bulat (IDR)."
           },
           "online_merchant": {
             "type": "string",
@@ -1626,17 +1633,17 @@
           "merchant_deduction": {
             "type": "integer",
             "format": "int64",
-            "description": "Integer rupiah (IDR)."
+            "description": "Nominal rupiah bulat (IDR)."
           },
           "refunded_amount": {
             "type": "integer",
             "format": "int64",
-            "description": "Integer rupiah (IDR)."
+            "description": "Nominal rupiah bulat (IDR)."
           },
           "net_total": {
             "type": "integer",
             "format": "int64",
-            "description": "Integer rupiah (IDR)."
+            "description": "Nominal rupiah bulat (IDR)."
           },
           "voided_at": {
             "type": "string",
@@ -1688,7 +1695,7 @@
           "gross_sales": {
             "type": "integer",
             "format": "int64",
-            "description": "Integer rupiah (IDR)."
+            "description": "Nominal rupiah bulat (IDR)."
           }
         }
       },
@@ -1702,27 +1709,27 @@
           "gross_sales": {
             "type": "integer",
             "format": "int64",
-            "description": "Integer rupiah (IDR)."
+            "description": "Nominal rupiah bulat (IDR)."
           },
           "discount": {
             "type": "integer",
             "format": "int64",
-            "description": "Integer rupiah (IDR)."
+            "description": "Nominal rupiah bulat (IDR)."
           },
           "total_sales": {
             "type": "integer",
             "format": "int64",
-            "description": "Integer rupiah (IDR)."
+            "description": "Nominal rupiah bulat (IDR)."
           },
           "refunded_amount": {
             "type": "integer",
             "format": "int64",
-            "description": "Integer rupiah (IDR)."
+            "description": "Nominal rupiah bulat (IDR)."
           },
           "net_sales": {
             "type": "integer",
             "format": "int64",
-            "description": "Integer rupiah (IDR)."
+            "description": "Nominal rupiah bulat (IDR)."
           },
           "products": {
             "type": "array",
@@ -1804,7 +1811,7 @@
         "properties": {
           "body": {
             "type": "string",
-            "description": "Raw JSON string. Use these exact bytes when verifying the HMAC."
+            "description": "String body JSON asli. Gunakan tanpa diubah untuk memeriksa tanda tangan."
           },
           "headers": {
             "type": "object",
@@ -1963,7 +1970,7 @@
           },
           "signing_secret": {
             "type": "string",
-            "description": "Only returned at creation; store securely."
+            "description": "Hanya ditampilkan saat dibuat; simpan di server Anda."
           }
         }
       }

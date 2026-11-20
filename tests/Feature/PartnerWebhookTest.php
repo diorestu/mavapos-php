@@ -18,13 +18,13 @@ function partnerWebhookFixture(): array
     $owner = User::factory()->create(['role' => 'owner']);
     $branch = Branch::create(['user_id' => $owner->id, 'code' => 'WH-OUTLET', 'name' => 'Webhook Outlet']);
     $shift = CashierShift::create(['user_id' => $owner->id, 'branch_id' => $branch->id, 'opened_at' => now()]);
-    [$key, $plain] = PartnerApiKey::issue($owner, 'Webhook', false, now()->addDay());
+    [$key, $plain, $client] = PartnerApiKey::issue($owner, 'Webhook', false, now()->addDay());
     config(['partner.webhook_hosts' => ['hooks.example.org']]);
     $destination = Mockery::mock(WebhookDestination::class)->makePartial();
     $destination->shouldReceive('addresses')->andReturn(['93.184.216.34']);
     app()->instance(WebhookDestination::class, $destination);
 
-    return compact('owner', 'branch', 'shift', 'key', 'plain');
+    return compact('owner', 'branch', 'shift', 'key', 'plain', 'client');
 }
 
 function partnerWebhookSale(array $f, string $invoice = 'WH-001'): PosSale
@@ -34,7 +34,7 @@ function partnerWebhookSale(array $f, string $invoice = 'WH-001'): PosSale
 
 test('webhook registration rejects internal unapproved or non HTTPS destinations and keeps secret hidden', function () {
     $f = partnerWebhookFixture();
-    $this->withToken($f['plain']);
+    $this->withToken($f['plain'])->withHeader('X-Client-Key', $f['client']);
     foreach (['http://hooks.example.org/sale', 'https://127.0.0.1/sale', 'https://evil.example/sale', 'https://user:password@hooks.example.org/sale', 'https://hooks.example.org:8443/sale'] as $url) {
         $this->postJson('/api/partner/v1/webhook', ['url' => $url])->assertUnprocessable();
     }
@@ -46,7 +46,7 @@ test('webhook registration rejects internal unapproved or non HTTPS destinations
 
 test('transaction creation enqueues one signed event and retries failures without blocking checkout', function () {
     $f = partnerWebhookFixture();
-    $secret = $this->withToken($f['plain'])->postJson('/api/partner/v1/webhook', ['url' => 'https://hooks.example.org/sales'])->assertCreated()->json('signing_secret');
+    $secret = $this->withToken($f['plain'])->withHeader('X-Client-Key', $f['client'])->postJson('/api/partner/v1/webhook', ['url' => 'https://hooks.example.org/sales'])->assertCreated()->json('signing_secret');
     Http::fake(['*' => Http::sequence()->push('', 500)->push('', 204)]);
     $sale = partnerWebhookSale($f);
     $sale->update(['discount' => 100]);
@@ -69,7 +69,7 @@ test('transaction creation enqueues one signed event and retries failures withou
 
 test('webhook outbox rolls back with sale and excludes foreign tenant sales', function () {
     $f = partnerWebhookFixture();
-    $this->withToken($f['plain'])->postJson('/api/partner/v1/webhook', ['url' => 'https://hooks.example.org/sales'])->assertCreated();
+    $this->withToken($f['plain'])->withHeader('X-Client-Key', $f['client'])->postJson('/api/partner/v1/webhook', ['url' => 'https://hooks.example.org/sales'])->assertCreated();
     DB::beginTransaction();
     partnerWebhookSale($f);
     expect(PartnerWebhookDelivery::count())->toBe(1);
@@ -83,7 +83,7 @@ test('webhook outbox rolls back with sale and excludes foreign tenant sales', fu
 
 test('revoking key cancels pending deliveries and exhausted deliveries stop retrying', function () {
     $f = partnerWebhookFixture();
-    $this->withToken($f['plain'])->postJson('/api/partner/v1/webhook', ['url' => 'https://hooks.example.org/sales'])->assertCreated();
+    $this->withToken($f['plain'])->withHeader('X-Client-Key', $f['client'])->postJson('/api/partner/v1/webhook', ['url' => 'https://hooks.example.org/sales'])->assertCreated();
     Http::fake(['*' => Http::response('', 500)]);
     partnerWebhookSale($f);
     $delivery = PartnerWebhookDelivery::firstOrFail();
@@ -101,9 +101,9 @@ test('revoking key cancels pending deliveries and exhausted deliveries stop retr
 
 test('sandbox can generate a signed test event but never sends HTTP or queues real sales', function () {
     $f = partnerWebhookFixture();
-    [$key, $plain] = PartnerApiKey::issue($f['owner'], 'Sandbox', true, now()->addDay());
+    [$key, $plain, $client] = PartnerApiKey::issue($f['owner'], 'Sandbox', true, now()->addDay());
     Http::fake();
-    $secret = $this->withToken($plain)->postJson('/api/partner/sandbox/v1/webhook', ['url' => 'https://hooks.example.org/sandbox'])->assertCreated()->json('signing_secret');
+    $secret = $this->withToken($plain)->withHeader('X-Client-Key', $client)->postJson('/api/partner/sandbox/v1/webhook', ['url' => 'https://hooks.example.org/sandbox'])->assertCreated()->json('signing_secret');
     $response = $this->postJson('/api/partner/sandbox/v1/webhook/test')->assertOk();
     expect($response->json('headers.X-Mava-Signature'))->toBe('sha256='.hash_hmac('sha256', $response->json('headers.X-Mava-Timestamp').'.'.$response->json('body'), $secret));
     partnerWebhookSale($f);
@@ -114,7 +114,7 @@ test('sandbox can generate a signed test event but never sends HTTP or queues re
 
 test('webhook sender refuses private DNS resolution even for an allowed hostname', function () {
     $f = partnerWebhookFixture();
-    $this->withToken($f['plain'])->postJson('/api/partner/v1/webhook', ['url' => 'https://hooks.example.org/sales'])->assertCreated();
+    $this->withToken($f['plain'])->withHeader('X-Client-Key', $f['client'])->postJson('/api/partner/v1/webhook', ['url' => 'https://hooks.example.org/sales'])->assertCreated();
     partnerWebhookSale($f);
     $destination = Mockery::mock(WebhookDestination::class)->makePartial();
     $destination->shouldReceive('addresses')->andReturn(['127.0.0.1']);

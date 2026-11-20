@@ -1,6 +1,7 @@
 import './bootstrap';
 import { accountDeletionManager } from './account-deletion.js';
 import { submitPosGateway } from './pos-gateway.js';
+import { partnerCredentials } from './partner-client-key.js';
 import { billingPaymentWatcher } from './billing-payment-status.js';
 import { createPosOutbox, initPosOfflineShell, purgePosOfflineShell } from './pos-offline.js';
 import { receiptPaperWidth } from './receipt-format.js';
@@ -17,6 +18,7 @@ document.addEventListener('submit', (event) => {
 window.Alpine = Alpine;
 Alpine.data('accountDeletionManager', accountDeletionManager);
 Alpine.data('billingPaymentWatcher', billingPaymentWatcher);
+Alpine.data('partnerCredentials', partnerCredentials);
 window.Quill = Quill;
 
 const BLUETOOTH_PRINTER_STORAGE_KEY = 'mava.bluetooth-printer-device';

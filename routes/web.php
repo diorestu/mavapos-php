@@ -114,9 +114,10 @@ Route::middleware('auth:web,sanctum')->group(function () {
         Route::get('/settings/data-export', [SettingController::class, 'exportData'])->name('settings.data.export');
         Route::post('/settings/data-import', [SettingController::class, 'importData'])->name('settings.data.import');
         Route::middleware('auth:web')->group(function (): void {
-            Route::get('/settings/partner-keys', [KeyController::class, 'index']);
-            Route::post('/settings/partner-keys', [KeyController::class, 'store']);
-            Route::delete('/settings/partner-keys/{key}', [KeyController::class, 'destroy'])->whereNumber('key');
+            Route::get('/settings/partner-keys', [KeyController::class, 'index'])->name('settings.partner-keys.index');
+            Route::post('/settings/partner-keys', [KeyController::class, 'store'])->middleware('throttle:20,1')->name('settings.partner-keys.store');
+            Route::post('/settings/partner-keys/{key}/client-key', [KeyController::class, 'rotateClientKey'])->whereNumber('key')->middleware('throttle:20,1')->name('settings.partner-keys.client-key');
+            Route::delete('/settings/partner-keys/{key}', [KeyController::class, 'destroy'])->whereNumber('key')->name('settings.partner-keys.destroy');
         });
         Route::get('/settings/tokens', [DeveloperApiController::class, 'getTokens'])->name('settings.tokens.index');
         Route::post('/settings/tokens', [DeveloperApiController::class, 'createToken'])->name('settings.tokens.store');

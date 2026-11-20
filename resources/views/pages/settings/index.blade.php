@@ -519,6 +519,8 @@
                     </div>
                 </section>
 
+                @include('pages.settings.partials.partner-client-key')
+
                 <section x-show="activeTab === 'api'" x-cloak
                     class="rounded-xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03]"
                     x-data="{
@@ -563,15 +565,15 @@
                     }"
                     x-init="fetchTokens()">
                     <div class="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
-                        <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Integrasi API Pihak Ketiga</h2>
-                        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Buat dan kelola token API untuk mengizinkan aplikasi eksternal terhubung secara aman dengan toko Anda.</p>
+                        <h2 class="text-sm font-semibold text-gray-800 dark:text-white/90">Token Aplikasi Lama (Sanctum)</h2>
+                        <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">Token untuk aplikasi lama berbasis Sanctum. Untuk REST API pihak ketiga, gunakan pasangan kredensial di atas.</p>
                     </div>
 
                     <div class="space-y-4 p-4">
                         <div class="rounded-lg bg-gray-50 p-4 dark:bg-gray-900/40">
-                            <h3 class="text-xs font-semibold text-gray-800 dark:text-white/90">Buat API Key Baru</h3>
+                            <h3 class="text-xs font-semibold text-gray-800 dark:text-white/90">Buat Token Lama</h3>
                             <div class="mt-2.5 flex flex-col gap-2 sm:flex-row">
-                                <input type="text" x-model="newTokenName" placeholder="Contoh: Integrasi WooCommerce"
+                                <input type="text" x-model="newTokenName" placeholder="Contoh: Aplikasi kasir lama"
                                     class="h-10 flex-1 rounded-lg border border-gray-300 bg-transparent px-3 text-sm text-gray-800 shadow-theme-xs placeholder:text-gray-400 focus:border-brand-300 focus:outline-hidden focus:ring-3 focus:ring-brand-500/10 dark:border-gray-700 dark:bg-gray-900 dark:text-white/90" />
                                 <button type="button" @click="generateToken()" :disabled="isLoading || !newTokenName.trim()"
                                     class="inline-flex h-10 items-center justify-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50">

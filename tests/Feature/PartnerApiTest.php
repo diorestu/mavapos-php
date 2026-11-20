@@ -22,9 +22,9 @@ function partnerFixture(): array
     $sale = PosSale::create(['user_id' => $owner->id, 'branch_id' => $branch->id, 'cashier_shift_id' => $shift->id, 'invoice_number' => 'API-001', 'payment_method' => 'split', 'subtotal' => 40000, 'discount' => 4000, 'total' => 36000, 'paid_amount' => 36000, 'sold_at' => Carbon::parse('2026-11-13T00:00:00+08:00')->utc()]);
     $sale->items()->create(['product_id' => $product->id, 'item_type' => 'product', 'name' => 'Kopi historis', 'sku' => 'API-KOPI', 'quantity' => 2, 'unit_price' => 20000, 'line_total' => 40000]);
     $sale->payments()->createMany([['payment_method' => 'cash', 'amount' => 16000], ['payment_method' => 'qris', 'amount' => 20000]]);
-    [$key, $plain] = PartnerApiKey::issue($owner, 'ERP', false, now()->addDays(30));
+    [$key, $plain, $client] = PartnerApiKey::issue($owner, 'ERP', false, now()->addDays(30));
 
-    return compact('owner', 'branch', 'product', 'sale', 'key', 'plain');
+    return compact('owner', 'branch', 'product', 'sale', 'key', 'plain', 'client');
 }
 
 function partnerWindow(int $branchId): string
@@ -45,14 +45,14 @@ test('partner lists only owned outlets and products without cost prices', functi
     $other = User::factory()->create(['role' => 'owner']);
     Branch::create(['user_id' => $other->id, 'name' => 'Secret', 'code' => 'SECRET']);
     Product::create(['user_id' => $other->id, 'sku' => 'SECRET', 'name' => 'Secret', 'sell_price' => 10000]);
-    $this->withToken($f['plain'])->getJson('/api/partner/v1/outlets')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $f['branch']->id)->assertJsonPath('meta.timezone', 'Asia/Makassar');
+    $this->withToken($f['plain'])->withHeader('X-Client-Key', $f['client'])->getJson('/api/partner/v1/outlets')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.id', $f['branch']->id)->assertJsonPath('meta.timezone', 'Asia/Makassar');
     $this->getJson('/api/partner/v1/products')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.category.name', 'Minuman')->assertJsonMissingPath('data.0.buy_price');
 });
 
 test('partner transactions preserve captured line values split payments and timezone boundaries', function () {
     $f = partnerFixture();
     $f['product']->update(['name' => 'Renamed', 'sell_price' => 99000]);
-    $this->withToken($f['plain'])->getJson('/api/partner/v1/transactions'.partnerWindow($f['branch']->id))
+    $this->withToken($f['plain'])->withHeader('X-Client-Key', $f['client'])->getJson('/api/partner/v1/transactions'.partnerWindow($f['branch']->id))
         ->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.transaction_number', 'API-001')
         ->assertJsonPath('data.0.sold_at', '2026-11-13T00:00:00+08:00')->assertJsonPath('data.0.total', 36000)
         ->assertJsonPath('data.0.items.0.name', 'Kopi historis')->assertJsonPath('data.0.items.0.unit_price', 20000)
@@ -65,7 +65,7 @@ test('partner includes cancelled and refund states and exposes refund changes', 
     $f = partnerFixture();
     $f['sale']->refunds()->create(['tenant_id' => $f['owner']->id, 'branch_id' => $f['branch']->id, 'user_id' => $f['owner']->id, 'refund_number' => 'REF-API', 'client_refund_id' => 'api-refund', 'request_hash' => 'hash', 'amount' => 10000, 'refund_method' => 'cash', 'reason' => 'Return', 'refunded_at' => now()]);
     $path = '/api/partner/v1/transactions/'.$f['sale']->id;
-    $this->withToken($f['plain'])->getJson($path)->assertOk()->assertJsonPath('data.status', 'partially_refunded')->assertJsonPath('data.refunded_amount', 10000);
+    $this->withToken($f['plain'])->withHeader('X-Client-Key', $f['client'])->getJson($path)->assertOk()->assertJsonPath('data.status', 'partially_refunded')->assertJsonPath('data.refunded_amount', 10000);
     $this->getJson('/api/partner/v1/sales-summary'.partnerWindow($f['branch']->id))->assertOk()->assertJsonPath('data.total_sales', 36000)->assertJsonPath('data.refunded_amount', 10000)->assertJsonPath('data.net_sales', 26000)->assertJsonPath('data.products.0.quantity', 2);
     $f['sale']->refunds()->update(['amount' => 36000]);
     $this->getJson($path)->assertOk()->assertJsonPath('data.status', 'refunded');
@@ -78,7 +78,7 @@ test('partner refuses foreign outlet transaction and unbounded or invalid date w
     $f = partnerFixture();
     $other = User::factory()->create(['role' => 'owner']);
     $foreign = Branch::create(['user_id' => $other->id, 'name' => 'Secret', 'code' => 'FOREIGN']);
-    $this->withToken($f['plain'])->getJson('/api/partner/v1/transactions'.partnerWindow($foreign->id))->assertNotFound();
+    $this->withToken($f['plain'])->withHeader('X-Client-Key', $f['client'])->getJson('/api/partner/v1/transactions'.partnerWindow($foreign->id))->assertNotFound();
     $this->getJson('/api/partner/v1/transactions/999999')->assertNotFound();
     $this->getJson('/api/partner/v1/transactions')->assertUnprocessable();
     foreach ([['2026-11-13', '2026-11-14'], ['2026-11-13T00:00:00+08:00', '2026-11-12T00:00:00+08:00'], ['2026-01-01T00:00:00Z', '2026-11-13T00:00:00Z']] as [$from, $to]) {
@@ -89,17 +89,17 @@ test('partner refuses foreign outlet transaction and unbounded or invalid date w
 
 test('sandbox credentials never read production and production credentials never read sandbox', function () {
     $f = partnerFixture();
-    [$sandbox, $plain] = PartnerApiKey::issue($f['owner'], 'Sandbox', true, now()->addDay());
-    $this->withToken($plain)->getJson('/api/partner/v1/outlets')->assertForbidden();
+    [$sandbox, $plain, $client] = PartnerApiKey::issue($f['owner'], 'Sandbox', true, now()->addDay());
+    $this->withToken($plain)->withHeader('X-Client-Key', $client)->getJson('/api/partner/v1/outlets')->assertForbidden();
     $this->getJson('/api/partner/sandbox/v1/outlets')->assertOk()->assertJsonPath('data.0.id', 900001)->assertJsonPath('meta.sandbox', true);
     $this->getJson('/api/partner/sandbox/v1/transactions'.partnerWindow(900001))->assertOk()->assertJsonCount(3, 'data');
     $this->getJson('/api/partner/sandbox/v1/transactions/'.$f['sale']->id)->assertNotFound();
-    $this->withToken($f['plain'])->getJson('/api/partner/sandbox/v1/outlets')->assertForbidden();
+    $this->withToken($f['plain'])->withHeader('X-Client-Key', $f['client'])->getJson('/api/partner/sandbox/v1/outlets')->assertForbidden();
 });
 
 test('expired and revoked keys fail and API keys cannot authorize POS writes', function () {
     $f = partnerFixture();
-    $this->withToken($f['plain'])->postJson('/api/mobile/v1/checkout', [])->assertUnauthorized();
+    $this->withToken($f['plain'])->withHeader('X-Client-Key', $f['client'])->postJson('/api/mobile/v1/checkout', [])->assertUnauthorized();
     $f['key']->update(['expires_at' => now()->subSecond()]);
     $this->getJson('/api/partner/v1/outlets')->assertUnauthorized();
     $f['key']->update(['expires_at' => now()->addDay(), 'revoked_at' => now()]);
@@ -108,7 +108,7 @@ test('expired and revoked keys fail and API keys cannot authorize POS writes', f
 
 test('partner rate limit is shared across routes and returns retry headers', function () {
     $f = partnerFixture();
-    $this->withToken($f['plain']);
+    $this->withToken($f['plain'])->withHeader('X-Client-Key', $f['client']);
     for ($i = 0; $i < 60; $i++) {
         $this->getJson('/api/partner/v1/outlets')->assertOk();
     }
@@ -128,7 +128,7 @@ test('owner can issue and revoke partner keys through authenticated settings', f
 test('partner pagination is stable and empty pages retain metadata', function () {
     $f = partnerFixture();
     Branch::create(['user_id' => $f['owner']->id, 'name' => 'Outlet B', 'code' => 'PARTNER-B']);
-    $this->withToken($f['plain'])->getJson('/api/partner/v1/outlets?per_page=1&page=2')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.name', 'Outlet B')->assertJsonPath('meta.total', 2)->assertJsonPath('meta.last_page', 2);
+    $this->withToken($f['plain'])->withHeader('X-Client-Key', $f['client'])->getJson('/api/partner/v1/outlets?per_page=1&page=2')->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.name', 'Outlet B')->assertJsonPath('meta.total', 2)->assertJsonPath('meta.last_page', 2);
     $this->getJson('/api/partner/v1/outlets?per_page=1&page=3')->assertOk()->assertJsonCount(0, 'data')->assertJsonPath('meta.total', 2);
 });
 
@@ -137,7 +137,7 @@ test('partner cannot retrieve another merchant sale even when IDs are known', fu
     $other = User::factory()->create(['role' => 'owner']);
     $branch = Branch::create(['user_id' => $other->id, 'name' => 'Foreign', 'code' => 'SALE-FOREIGN']);
     $f['sale']->update(['branch_id' => $branch->id]);
-    $this->withToken($f['plain'])->getJson('/api/partner/v1/transactions/'.$f['sale']->id)->assertNotFound();
+    $this->withToken($f['plain'])->withHeader('X-Client-Key', $f['client'])->getJson('/api/partner/v1/transactions/'.$f['sale']->id)->assertNotFound();
 });
 
 test('variant snapshots survive subsequent catalog edits and variant deletion', function () {
@@ -147,14 +147,14 @@ test('variant snapshots survive subsequent catalog edits and variant deletion', 
     $item = $f['sale']->items()->create(['product_id' => $f['product']->id, 'product_variant_id' => $variant->id, 'item_type' => 'variant', 'name' => 'Kopi Besar', 'quantity' => 1, 'unit_price' => 25000, 'line_total' => 25000]);
     $variant->update(['name' => 'Extra Besar', 'attributes' => ['size' => 'XL']]);
     $variant->delete();
-    $this->withToken($f['plain'])->getJson('/api/partner/v1/transactions/'.$f['sale']->id)->assertOk()->assertJsonPath('data.items.0.variant.name', 'Besar')->assertJsonPath('data.items.0.variant.attributes.size', 'L');
+    $this->withToken($f['plain'])->withHeader('X-Client-Key', $f['client'])->getJson('/api/partner/v1/transactions/'.$f['sale']->id)->assertOk()->assertJsonPath('data.items.0.variant.name', 'Besar')->assertJsonPath('data.items.0.variant.attributes.size', 'L');
 });
 
 test('updated_since includes refund changes even when sale itself was not modified', function () {
     $f = partnerFixture();
     $f['sale']->forceFill(['updated_at' => '2026-11-13 00:00:00'])->saveQuietly(['timestamps' => false]);
     $query = '/api/partner/v1/transactions'.partnerWindow($f['branch']->id).'&updated_since='.urlencode('2026-11-14T00:00:00Z');
-    $this->withToken($f['plain'])->getJson($query)->assertOk()->assertJsonCount(0, 'data');
+    $this->withToken($f['plain'])->withHeader('X-Client-Key', $f['client'])->getJson($query)->assertOk()->assertJsonCount(0, 'data');
     $refund = $f['sale']->refunds()->create(['tenant_id' => $f['owner']->id, 'branch_id' => $f['branch']->id, 'user_id' => $f['owner']->id, 'refund_number' => 'REF-POLL', 'client_refund_id' => 'poll', 'request_hash' => 'hash', 'amount' => 1000, 'refund_method' => 'cash', 'reason' => 'Poll', 'refunded_at' => now()]);
     $refund->forceFill(['updated_at' => '2026-11-14 00:00:01'])->saveQuietly(['timestamps' => false]);
     $this->getJson($query)->assertOk()->assertJsonCount(1, 'data')->assertJsonPath('data.0.updated_at', '2026-11-14T08:00:01+08:00');
@@ -175,7 +175,7 @@ test('partner payment amounts describe receipts rather than tendered change and 
     $f['sale']->payments()->delete();
     $f['sale']->update(['payment_method' => 'cash', 'paid_amount' => 50000, 'change_amount' => 14000]);
     $path = '/api/partner/v1/transactions/'.$f['sale']->id;
-    $this->withToken($f['plain'])->getJson($path)->assertOk()->assertJsonPath('data.payments.0.amount', 36000)->assertJsonPath('data.received_amount', 36000)->assertJsonPath('data.merchant_deduction', 0);
+    $this->withToken($f['plain'])->withHeader('X-Client-Key', $f['client'])->getJson($path)->assertOk()->assertJsonPath('data.payments.0.amount', 36000)->assertJsonPath('data.received_amount', 36000)->assertJsonPath('data.merchant_deduction', 0);
     $f['sale']->update(['payment_method' => 'online_merchant', 'online_merchant' => 'grabfood', 'paid_amount' => 30000, 'change_amount' => 0]);
     $this->getJson($path)->assertOk()->assertJsonPath('data.payments.0.amount', 30000)->assertJsonPath('data.received_amount', 30000)->assertJsonPath('data.merchant_deduction', 6000)->assertJsonPath('data.online_merchant', 'grabfood');
 });
