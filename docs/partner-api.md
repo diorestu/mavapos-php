@@ -17,12 +17,12 @@ Token aplikasi lama/Sanctum dan Client Key Midtrans tidak berlaku untuk Partner 
 
 ## 2. URL dan header
 
-Ganti domain contoh dengan domain backend MavaPOS yang Anda gunakan.
+Gunakan alamat berikut untuk mengakses API MavaPOS.
 
 | Mode | Base URL |
 | --- | --- |
-| Produksi | `https://your-mavapos-domain.com/api/partner/v1` |
-| Sandbox | `https://your-mavapos-domain.com/api/partner/sandbox/v1` |
+| Produksi | `https://mavapos.id/api/partner/v1` |
+| Sandbox | `https://mavapos.id/api/partner/sandbox/v1` |
 
 Semua endpoint wajib menerima **Bearer token dan Client Key dari pasangan yang sama**:
 
@@ -39,7 +39,7 @@ Tambahkan `Content-Type: application/json` jika mengirim body JSON. Simpan key d
 Isi tiga variabel berikut, lalu jalankan contoh cURL:
 
 ```sh
-export MAVA_BASE_URL='https://your-mavapos-domain.com/api/partner/v1'
+export MAVA_BASE_URL='https://mavapos.id/api/partner/v1'
 export MAVA_API_KEY='ISI_BEARER_TOKEN'
 export MAVA_CLIENT_KEY='ISI_CLIENT_KEY_PASANGAN'
 

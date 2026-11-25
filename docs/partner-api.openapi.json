@@ -7,12 +7,12 @@
   },
   "servers": [
     {
-      "url": "https://your-mavapos-domain.com/api/partner/v1",
-      "description": "Produksi. Ganti domain dengan backend MavaPOS Anda."
+      "url": "https://mavapos.id/api/partner/v1",
+      "description": "Produksi MavaPOS."
     },
     {
-      "url": "https://your-mavapos-domain.com/api/partner/sandbox/v1",
-      "description": "Sandbox dengan data contoh. Gunakan pasangan key sandbox."
+      "url": "https://mavapos.id/api/partner/sandbox/v1",
+      "description": "Sandbox MavaPOS dengan data contoh. Gunakan pasangan key sandbox."
     }
   ],
   "security": [
