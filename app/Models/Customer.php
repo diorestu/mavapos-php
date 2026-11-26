@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Traits\TenantScoped;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Customer extends Model
 {
@@ -22,6 +23,11 @@ class Customer extends Model
         'loyalty_free_reward_available',
         'address',
     ];
+
+    public function freeCupClaims(): HasMany
+    {
+        return $this->hasMany(PosSale::class)->active()->whereIn('loyalty_reward', ['free_cup', 'physical_tenth']);
+    }
 
     protected function casts(): array
     {

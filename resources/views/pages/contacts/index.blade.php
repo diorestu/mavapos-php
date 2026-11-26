@@ -152,8 +152,9 @@
                                         <div class="mt-1 flex flex-wrap gap-1">
                                             <span x-show="item.loyaltyFiftyAvailable" class="rounded-full bg-warning-50 px-1.5 py-0.5 text-[10px] font-semibold text-warning-700 dark:bg-warning-500/15 dark:text-warning-300">Diskon 50%</span>
                                             <span x-show="item.loyaltyFreeCupAvailable" class="rounded-full bg-success-50 px-1.5 py-0.5 text-[10px] font-semibold text-success-700 dark:bg-success-500/15 dark:text-success-300">Gratis 1 cup</span>
-                                            <span x-show="!item.loyaltyFiftyAvailable && !item.loyaltyFreeCupAvailable" class="text-[10px] text-gray-400">Belum ada reward</span>
+                                            <span x-show="!item.loyaltyFiftyAvailable && !item.loyaltyFreeCupAvailable" class="text-[10px] text-gray-400">Tidak ada reward tersedia</span>
                                         </div>
+                                        <p x-show="item.loyaltyFreeCupClaimedCount > 0" class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">Gratis 1 cup sudah diambil: <span x-text="item.loyaltyFreeCupClaimedCount"></span> kali</p>
                                     </td>
                                 @endif
                                 <td class="px-4 py-2 text-center">
@@ -417,6 +418,7 @@
                             <p class="text-theme-xs font-medium uppercase text-brand-600 dark:text-brand-300">Kartu Loyalitas</p>
                             <p class="mt-2 text-theme-sm font-semibold text-gray-800 dark:text-white/90"><span x-text="detailItem?.loyaltyStamps || 0"></span> stempel</p>
                             <p class="mt-1 text-[11px] text-gray-500 dark:text-gray-400" x-text="detailItem?.loyaltyFreeCupAvailable ? 'Reward gratis 1 cup tersedia' : (detailItem?.loyaltyFiftyAvailable ? 'Reward diskon 50% tersedia' : 'Belum ada reward tersedia')"></p>
+                            <p x-show="detailItem?.loyaltyFreeCupClaimedCount > 0" class="mt-1 text-[11px] text-gray-500 dark:text-gray-400">Gratis 1 cup sudah diambil: <span x-text="detailItem?.loyaltyFreeCupClaimedCount"></span> kali</p>
                         </div>
                     @endif
                 </div>

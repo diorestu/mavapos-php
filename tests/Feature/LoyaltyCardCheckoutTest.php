@@ -116,6 +116,21 @@ test('physical tenth stamp grants exactly one cheapest cup and starts the next c
     $this->postJson(route('pos.checkout'), $payload)->assertOk()->assertJsonPath('sale.discount', 10000);
 });
 
+test('customer page keeps free cup claim history after stamps reset and excludes voided claims', function (string $reward) {
+    [$customer, $payload] = physicalFifthFixture($this, ['loyalty_stamp_count' => 10, 'loyalty_free_reward_available' => true]);
+    $this->postJson(route('pos.checkout'), [...$payload, 'loyalty_reward' => $reward])->assertOk();
+
+    $response = $this->get(route('customers'))->assertOk();
+    $item = $response->viewData('items')->firstWhere('code', $customer->code);
+    expect($item['loyaltyStamps'])->toBe(0)
+        ->and($item['loyaltyFreeCupClaimedCount'])->toBe(1);
+    $response->assertSee('Gratis 1 cup sudah diambil');
+
+    PosSale::query()->firstOrFail()->update(['voided_at' => now()]);
+    $item = $this->get(route('customers'))->assertOk()->viewData('items')->firstWhere('code', $customer->code);
+    expect($item['loyaltyFreeCupClaimedCount'])->toBe(0);
+})->with(['physical_tenth', 'free_cup']);
+
 test('failed payment rolls back the physical fifth stamp and discount', function () {
     [$customer, $payload] = physicalFifthFixture($this);
     $this->postJson(route('pos.checkout'), [...$payload, 'payment_method' => 'cash', 'paid_amount' => 0])->assertUnprocessable();

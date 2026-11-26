@@ -14,6 +14,7 @@ class CustomerController extends Controller
     {
         $filters = $this->filterAttributes($request);
         $customers = Customer::query()
+            ->withCount('freeCupClaims')
             ->when($filters['search'] !== '', fn ($query) => $this->applySearchFilter($query, $filters['search']))
             ->when($filters['status'] !== '', fn ($query) => $query->where('status', $filters['status']))
             ->latest()
@@ -79,6 +80,10 @@ class CustomerController extends Controller
 
     private function payload(Customer $customer): array
     {
+        if (! array_key_exists('free_cup_claims_count', $customer->getAttributes())) {
+            $customer->loadCount('freeCupClaims');
+        }
+
         return [
             'name' => $customer->name,
             'code' => $customer->code,
@@ -89,6 +94,7 @@ class CustomerController extends Controller
             'loyaltyStamps' => $customer->loyalty_stamp_count,
             'loyaltyFiftyAvailable' => $customer->loyalty_fifty_reward_available,
             'loyaltyFreeCupAvailable' => $customer->loyalty_free_reward_available,
+            'loyaltyFreeCupClaimedCount' => (int) $customer->free_cup_claims_count,
         ];
     }
 
