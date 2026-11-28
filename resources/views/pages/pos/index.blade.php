@@ -177,7 +177,7 @@
                                 <h2 class="text-xs font-semibold text-gray-700 dark:text-gray-300">Favorit</h2>
                                 <p class="text-[11px] text-gray-400">Tap untuk tambah</p>
                             </div>
-                            <div class="grid grid-cols-2 gap-2 md:grid-cols-4">
+                            <div class="grid grid-cols-2 gap-2 2xl:grid-cols-4">
                                 <template x-for="item in favoriteItems" :key="`favorite-${item.id}`">
                                     <button type="button" @click="addItem(item, $event)"
                                         class="min-h-16 rounded-lg border border-gray-200 bg-gray-50 p-2 text-left transition hover:border-brand-200 hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/20 dark:border-gray-800 dark:bg-gray-900/70 dark:hover:border-brand-500/40 dark:hover:bg-brand-500/10">
@@ -188,7 +188,7 @@
                             </div>
                         </div>
 
-                        <div class="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4">
+                        <div class="grid grid-cols-2 gap-2 sm:gap-3 2xl:grid-cols-4">
                             <template x-for="item in filteredItems" :key="item.id">
                                 <button type="button" @click="addItem(item, $event)"
                                     :class="{ 'pos-product-card-added': recentlyAddedItemId === item.id }"

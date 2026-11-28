@@ -208,7 +208,7 @@ Route::middleware('auth:web,sanctum')->group(function () {
             Route::delete('/cashier-shifts/{cashierShift}', [CashierShiftController::class, 'destroy'])->name('cashier-shifts.destroy');
         });
     });
-    Route::middleware('role:owner,admin')->group(function () {
+    Route::middleware('role:owner,admin,kasir')->group(function () {
         Route::get('/print-test', function () {
             $setting = StoreSetting::current();
 

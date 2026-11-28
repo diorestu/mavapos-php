@@ -179,7 +179,7 @@ class MenuHelper
                         'icon' => 'reports',
                         'name' => 'Test Printing',
                         'path' => '/print-test',
-                        'roles' => ['owner', 'admin'],
+                        'roles' => ['owner', 'admin', 'kasir'],
                     ],
                 ],
             ],
